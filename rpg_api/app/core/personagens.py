@@ -3,6 +3,7 @@ from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, field
 from app.core.equipamentos import Arma, Armadura, Escudo, Item
 from app.core.habilidades_magias import Magia, Habilidade, Efeito
+from app.core.emojis import dict_emoji_racas
 from math import ceil
 
 # ... (Mantenha as classes Raca e ClasseRPG exatamente como fizemos antes) ...
@@ -12,6 +13,9 @@ class Raca:
     nome: str
     bonus_atributos: Dict[str, int] = field(default_factory=dict)
     emoji: str = "👤"
+    
+    def __str__(self) -> str:
+      return f"{dict_emoji_racas.get(self.nome.lower(), self.emoji)}"
 
 @dataclass
 class ClasseRPG:
@@ -64,9 +68,12 @@ class Personagem:
 
     def __str__(self):
         str_representante = f"""
-        Personagem: {self.nome} {self.raca if hasattr(self.raca, '__str__') else ""} | {self.classe.nome} | {self.raca.nome} | Nível: {self.nivel} | 💚 PV: {self.pv_atual}/{self.pv_max} | PM: {self.pm_atual}/{self.pm_max}
-        🗡️ Corpo: {self.mod_atq_corpo} | 🏹 Distância: {self.mod_atq_distancia} | 🛡️ Defesa: {self.armadura.defesa if self.armadura else 0}
-        🔮 Habilidades: {self.classe.habilidades}
+        {self.nome} {self.raca} | 
+        |Nv: {self.nivel} |{self.classe.nome}
+        |💚: {self.pv_atual}/{self.pv_max} |🔮: {self.pm_atual}/{self.pm_max}
+        |{self.mao_direita or "👊"}: {self.mod_atq_corpo} |🏹: {self.mod_atq_distancia} 
+        |{self.armadura or "🦵"}: {self.armadura.defesa if self.armadura else 0} |{self.mao_esquerda or "🤜"}: {self.mao_esquerda.defesa if self.mao_esquerda else 0}
+        |🪄: {self.classe.habilidades} | {self.efeitos_ativos}
         """
 
         # Adicionar informações de efeitos ativos
@@ -103,7 +110,7 @@ class Personagem:
         forca = self.atributos_totais["forca"]
         agi = self.atributos_totais["agilidade"]
 
-        self.pv_max =  int(7+ (ceil(self.nivel * ceil(res+2 / 2) + ceil((self.nivel + res) *3)))) #int((((self.nivel + 4) / 4) * (res + 1.5)) ** 2)
+        self.pv_max =  int(7+ (ceil(self.nivel * ceil((res+2) / 2) + ceil((self.nivel + res) *3)))) #int((((self.nivel + 4) / 4) * (res + 1.5)) ** 2)
         self.pm_max =  int((ceil((self.nivel + 5) / 4) * ceil((perc + exub + 1) / 2)) * 3) #int((((self.nivel + 5) / 5) * ((perc + exub + 0.5) / 1.5)) ** 2)
         self.mod_atq_corpo = int(self.nivel * ceil(forca + (agi / 2))) #int((((self.nivel + 5) / 5) * (forca + (agi / 2))) ** 2)
         self.mod_atq_distancia = int(self.nivel * ceil(agi + (forca / 2))) #int((((self.nivel + 5) / 5) * (agi + (forca / 2))) ** 2)
@@ -132,7 +139,7 @@ class Personagem:
     def calcular_defesa_esquiva(self) -> int:
         """1d6 + Agilidade + Defesa do Escudo (se houver)."""
         agi = self.atributos_totais["agilidade"]
-        rolagem = self._rolar_d6(3)
+        rolagem = self._rolar_d6(2 + int(agi // 2)) # Mais agilidade dá direito a rolar mais dados
         bonus_escudo = self.mao_esquerda.defesa_extra if isinstance(self.mao_esquerda, Escudo) else 0
         return rolagem + (agi * (bonus_escudo+1))
 
@@ -164,6 +171,7 @@ class Personagem:
 
     def atacar(self, alvo: 'Personagem') -> Dict[str, Any]:
         """Realiza a mecânica completa de ataque contra um alvo."""
+        forca = self.atributos_totais["forca"]
         # 1. Identifica a arma ou usa ataque desarmado
         arma = self.mao_direita
         arma_nome = arma.nome if isinstance(arma, Arma) else "Ataque Desarmado"
@@ -172,7 +180,7 @@ class Personagem:
         
         # 2. Modificadores e Rolagem de Acerto (3d6)
         modificador = self.mod_atq_corpo if tipo_atq == "corpo" else self.mod_atq_distancia
-        rolagem_ataque = self._rolar_d6(3)
+        rolagem_ataque = self._rolar_d6(3 + int(forca // 3))
         ataque_total = rolagem_ataque + modificador
         defesa_alvo = alvo.calcular_defesa_esquiva()
         

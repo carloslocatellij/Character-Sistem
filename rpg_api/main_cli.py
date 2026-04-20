@@ -5,6 +5,8 @@ from app.controllers.game_controller import simular_arena
 from app.models.personagens_db import PersonagemDB, RacaDB, ClasseRPGDB
 from app.models.equipamentos_db import ItemDB
 from rich.console import Console
+from rich.prompt import Prompt,IntPrompt
+from rich.table import Table
 console = Console()
 print = console.print
 
@@ -14,12 +16,12 @@ barrinha = "="*40
 
 def menu_criar_raca(db):
         print("\n--- 🧬 CRIAR NOVA RAÇA ---")
-        nome = input("Nome da Raça: ")
-        forca = int(input("Bônus de Força: "))
-        agi = int(input("Bônus de Agilidade: "))
-        res = int(input("Bônus de Resistência: "))
-        perc =  int(input("Bônus de Percepção: "))
-        exub =  int(input("Bônus de Exuberância: "))
+        nome = Prompt.ask("Nome da Raça: ")
+        forca = IntPrompt.ask("Bônus de Força: ")
+        agi = IntPrompt.ask("Bônus de Agilidade: ")
+        res = IntPrompt.ask("Bônus de Resistência: ")
+        perc =  IntPrompt.ask("Bônus de Percepção: ")
+        exub =  IntPrompt.ask("Bônus de Exuberância: ")
         
         atributos = dict(forca= forca, agilidade=agi, resistencia=res, percepcao=perc, exuberancia=exub)
         
@@ -27,30 +29,36 @@ def menu_criar_raca(db):
         
 def menu_criar_classe(db):
         print("\n--- 📜 CRIAR NOVA CLASSE ---")
-        nome = input("Nome da Classe: ")
-        caminho = input("Caminho de Magia Primário (ex: fogo, ar): ")
-        if caminho == '': caminho = None
-        try:
-            pontos = int(input(f"Pontos no caminho {caminho}: "))
-        except:
-            pontos = None
-        
-        # forca = int(input("Bônus de Força: "))
-        # agi = int(input("Bônus de Agilidade: "))
-        # res = int(input("Bônus de Resistência: "))
-        # perc = int(input("Bônus de Percepção: "))
-        # exub = int(input("Bônus de Exuberância: "))
-        # atributos = dict(forca= forca, agilidade=agi, resistencia=res, percepcao=perc, exuberancia=exub)
-        
-        print(GC.criar_classe(db, nome, caminho, pontos))
+        nome = Prompt.ask("Nome da Classe: ")
+        maximo_de_pontos = 2
+        pontos_totais = 0
+        lista_pontos = []
+        caminhos =[]
+        while pontos_totais < maximo_de_pontos:
+            print(f"\nVocê tem {maximo_de_pontos - pontos_totais} pontos totais")
+            caminho = Prompt.ask("Caminho de Magia Primário:" , choices=["fogo", "água", "ar", "terra",
+                                                                        "sombra", "luz", "planta", "metal",
+                                                                        "sangue"], default=None)
+            if caminho == 'None':  break
+            caminhos.append(caminho)
+            try:
+                pontos = IntPrompt.ask(f"Pontos no caminho {caminho}: (máximo: {maximo_de_pontos - pontos_totais}) ")
+                lista_pontos.append(pontos)
+                pontos_totais += pontos
+            except:
+                pontos = None
+                
+        print(GC.criar_classe(db, nome, caminhos, lista_pontos))
         
 def menu_criar_personagem(db):
         print("\n--- 👤 CRIAR NOVO PERSONAGEM ---")
         racas = db.query(RacaDB).all()  # Lista Raças
+        table = Table("Raça", "ID")
         print("\nRaças disponíveis:")
-        for r in racas: print(f"[{r.id}] {r.nome}")
-        raca_id = int(input("ID da Raça escolhida: "))
-        
+        for r in racas: table.add_row(f'{r.nome}', f'[blue]{r.id}')
+        print(table)
+        raca_id = IntPrompt.ask("ID da Raça escolhida: ")
+
         # Lista Classes
         try:
             classes = db.query(ClasseRPGDB).all()
@@ -59,7 +67,7 @@ def menu_criar_personagem(db):
             return
         print("\nClasses disponíveis:")
         for c in classes: print(f"[{c.id}] {c.nome}")
-        classe_id = int(input("ID da Classe escolhida: "))
+        classe_id = IntPrompt.ask("ID da Classe escolhida: ")
         
         nome = input("\nNome do Personagem: ")
         forca = int(input("Força Base (0 a 5): "))
@@ -192,16 +200,16 @@ def main():
         print("6. Simular Batalha na Arena")
         print("7. Sair")
         
-        escolha = input("Escolha uma opção: ")
+        escolha = IntPrompt.ask("Escolha uma opção: ")
         
         try:
-            if escolha == '1': menu_criar_raca(db)
-            elif escolha == '2': menu_criar_classe(db)
-            elif escolha == '3': menu_criar_personagem(db)
-            elif escolha == '4': menu_criar_item(db)
-            elif escolha == '5': menu_equipar(GC(db))
-            elif escolha == '6': menu_arena(db)
-            elif escolha == '7': 
+            if escolha == 1: menu_criar_raca(db)
+            elif escolha == 2: menu_criar_classe(db)
+            elif escolha == 3: menu_criar_personagem(db)
+            elif escolha == 4: menu_criar_item(db)
+            elif escolha == 5: menu_equipar(GC(db))
+            elif escolha == 6: menu_arena(db)
+            elif escolha == 7:
                 print("Encerrando o sistema...")
                 break
             else:

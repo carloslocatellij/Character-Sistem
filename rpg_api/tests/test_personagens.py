@@ -5,7 +5,7 @@ from app.core.habilidades_magias import Magia
 def test_criacao_raca_e_classe():
     """Garante que dicionários e listas vazias sejam tratados corretamente pelas dataclasses."""
     raca_orc = Raca(nome="orco", bonus_atributos={"forca": 2, "agilidade": -1}, emoji="🧟")
-    classe_guerreiro = ClasseRPG(nome="warrior", habilidades=["Fúria"], bonus_atributos={"resistencia": 1})
+    classe_guerreiro = ClasseRPG(nome="warrior", habilidades=["Fúria"])
     
     assert raca_orc.nome == "orco"
     assert raca_orc.bonus_atributos["forca"] == 2
@@ -38,9 +38,9 @@ def test_formulas_status_derivados():
         forca_base=2, agilidade_base=2, res_base=2, perc_base=2, exub_base=2
     )
     
-    #pv = int(7+ (ceil(self.nivel * ceil(res+2 / 2) + ceil((self.nivel + res) *3))))
-    assert heroi.pv_max == 19
-    assert heroi.pv_atual == 19
+    #pv = int(7+ (ceil(self.nivel * ceil((res+2) / 2) + ceil((self.nivel + res) *3))))
+    assert heroi.pv_max == 18
+    assert heroi.pv_atual == 18
     
     # atq = int(self.nivel * ceil(forca + (agi / 2))) deve ser 3)
     assert heroi.mod_atq_corpo == 3
@@ -83,8 +83,8 @@ def test_sistema_de_magia_mana():
     """Testa o gasto de PM ao lançar magias com a nova assinatura de objetos."""
     raca = Raca("elven")
     classe = ClasseRPG("magee")
-    mago = Personagem("Gandalf", 1, raca, classe, 1, 1, 1, 3, 3) # Exuberância 3
-    alvo = Personagem("orco", 1, raca, classe, 1, 1, 1, 1, 1)
+    mago = Personagem("Gandalf", 1, raca, classe, 1, 1, 1, 3, 4) # Exuberância 3
+    alvo = Personagem("orco", 1, raca, classe, 1, 0, 0, 1, 1)
     
     mago.pm_atual = 10
     

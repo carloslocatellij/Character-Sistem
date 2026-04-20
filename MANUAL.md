@@ -30,6 +30,78 @@ Esses Atributos possuem pontos que variam de 0 a 3 em um personagem inicial e po
 |4| Sobrenatural
 |5| Lendário
 
+
+### MODIFICADORES
+
+##### **Não se importe com números quebrados 
+- arredonde tudo para cima (em caso de vida e mana)
+ou para baixo em caso de ataque e defesa
+
+
+#### 1 - PONTOS DE VIDA (PV MÁX.)
+
+- Todos tem **7** pontos  
+- **+**  A soma do: **Nível**  vezes ( **Resistência** + **2** )  **/** (dividido por)  2
+- **+** A soma do ( **Nível** + **Resistência** ) vezes **3**
+- Arredondado para cima
+
+De outra forma:
+- (valor A) Some seu **Nível** com sua **Resistência** e multiplique por 3. 
+- (valor B) Some 2 + sua **Resistência**, divida por 2, múltiplique o valor por pelo seu **Nível**
+- Some A + B + 7
+
+#### 2 - PONTOS DE MANA
+
+
+#### 3 - MODIFICADOR DE ATAQUE CORPO-A-CORPO
+
+- **Nível**  vezes:
+- Soma da força com o resultado da agilidade dividida por 2.
+
+- (A) Divida por 2 sua Agilidade (arredonde para cima) e depois some sua Força.
+- Multiplique A * pelo seu **Nível** 
+
+
+#### 4 - MODIFICADOR DE ATAQUE A DISTÂNCIA
+
+- **Nível**  vezes:
+- Soma da agilidade com o resultado da f orça dividida por 2.
+
+- (A) Divida por 2 sua Força (arredonde para cima) e depois some sua Agilidade.
+- Multiplique A * pelo seu **Nível** 
+
+
+### ATAQUE
+
+- O ataque, corpo-a-corpo ou a distância, requer uma rolagem de dados da seguinte forma:
+- Role 3 dados D6 e a cada 3 pontos de força (para ataque corpo-a-corpo) ou 3 pontos de agilida (para ataque a distância) role +1 dado D6:
+- 3 D6 + (1D6 * (atributo dividido por 3 arredondado para baixo))
+
+-O ataque total ou o total do atque é o resultado da rolagem + o modificador de ataque (corpo-a-corpo ou distância)
+
+- O alvo faz um teste de defesa (veja abaixo).
+
+Se o ataque total for maior que a defesa do alvo o ataque acerta.
+Caso contrário: se a defesa do alvo for maior ou igual ao ataque (vantagem da defesa) o alvo defende e o ataque é anulado.
+
+
+### DEFESA / ESQUIVA
+
+O Alvo do ataque rola 2 D6 e mais 1 D6 a cada 2 pontos de agilidade: 
+- Nº de Dados = Agilidade dividido por 2 arredondado para baixo + 2.
+
+- Para determinar o resultado total da defesa some seu bonos de escudo (0 caso não tenha) + 1.
+- Multiplique o valor obtido pela agilidade
+- Some isto com o valor rolado nos dados.
+
+Ex: Agilidade 2 e sem escudo:
+ rolou 3 D6 (tirou 3+3+3= 9)
+9 (dos dados) + Resultado de  (soma 0 (sem escudo)  + 1 = 1) * 2 (da agilidade) = 4
+ 9 + 4 = 13
+
+
+
+
 Os Atributos podem ser testados para determinar se um personagem consegue ou não realizar algo com sucesso. Um Teste de Atributo consiste em lançar um d6 (dado de 6 faces), somar o valor obtido com os pontos do Atributo apropriado e comparar esse valor a uma Dificuldade (determinada pelo Mestre ou por um Teste Resistido). Se o valor obtido for igual ou maior que a Dificuldade, o Teste foi um sucesso, do contrário, um fracasso.
 
 Por exemplo: levantar uma carroça pode exigir sucesso em um Teste de Força com Dificuldade 8, já uma queda de braço exige comparar o resultado do Teste de Força de um personagem com o Teste de outro personagem. Empates serão resolvidos a critério do Mestre.

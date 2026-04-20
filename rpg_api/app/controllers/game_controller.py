@@ -93,9 +93,9 @@ class GameController:
         if caminho == None or pontos == None:
             bonus_caminhos = {}
         else:
-            bonus_caminhos = {caminho: pontos}
+            bonus_caminhos = {caminho: pontos for caminho, pontos in zip(caminho, pontos)}
             
-        nova_classe = ClasseRPGDB(nome=nome, bonus_caminhos=bonus_caminhos,)
+        nova_classe = ClasseRPGDB(nome=nome, bonus_caminhos=bonus_caminhos, habilidades=[])
                                 #   bonus_atributos={"forca": atributos.get('forca'),
                                 #                     "agilidade": atributos.get('agilidade'),
                                 #                     "resistencia":atributos.get('resistencia') ,
@@ -157,9 +157,6 @@ def simular_arena(db, ids_aliados: List[int], ids_oponentes: List[int], num_bata
     else:
         print("\n📊 ESTATÍSTICAS DA BATALHA:")
         relatorio = simulador.simular_multiplas_batalhas(num_batalhas)
-        
-        #for nome, stats in relatorio.items():
-        #    print(f" - {nome}: {stats['dano_causado']} Dano, {stats['abates']} Abates")
             
         return simulador.simular_multiplas_batalhas(num_batalhas)
         

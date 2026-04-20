@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from typing import Optional
+from app.core.emojis import dict_item_emoji
 
 # ==========================================
 # DOMÍNIO: SISTEMA DE EQUIPAMENTOS
@@ -11,6 +12,9 @@ class Item:
     nome: str
     peso: float = 0.0
     emoji: str = "📦"
+    
+    def __str__(self) -> str:
+      return f"{dict_item_emoji['outros'].get(self.nome.lower(), self.emoji)}"
 
 @dataclass
 class Arma(Item):
@@ -18,27 +22,24 @@ class Arma(Item):
     dano: int = 0
     tipo: str = "corpo" # "corpo" ou "distancia"
     emoji: str = "🗡️"
+    
+    def __str__(self) -> str:
+      return f"{dict_item_emoji['armas'].get(self.nome.lower(), self.emoji)}"
 
 @dataclass
 class Armadura(Item):
     """Herda de Item. Adiciona propriedades de defesa base."""
     defesa: int = 0
     emoji: str = "🦺"
+    
+    def __str__(self) -> str:
+      return f"{dict_item_emoji['armaduras'].get(self.nome.lower(), self.emoji)}"
 
 @dataclass
 class Escudo(Item):
     """Herda de Item. Adiciona propriedades de defesa extra."""
     defesa_extra: int = 0
     emoji: str = "🛡️"
-
-# Dicionário visual de emojis para mapeamento rápido (Conforme SPEC.md)
-DICIONARIO_EMOJIS = {
-    "espada": "🗡️",
-    "armadura": "🦺",
-    "escudo": "🛡️",
-    "machado": "🪓",
-    "arco": "🏹",
-    "poção": "🧪",
-    "chave": "🗝️",
-    "livro": "📖"
-}
+    
+    def __str__(self) -> str:
+      return f"{dict_item_emoji['escudos'].get(self.nome.lower(), self.emoji)}"
