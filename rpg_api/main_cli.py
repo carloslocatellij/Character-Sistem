@@ -53,10 +53,16 @@ def menu_criar_classe(db):
 def menu_criar_personagem(db):
         print("\n--- 👤 CRIAR NOVO PERSONAGEM ---")
         racas = db.query(RacaDB).all()  # Lista Raças
-        table = Table("Raça", "ID")
         print("\nRaças disponíveis:")
-        for r in racas: table.add_row(f'{r.nome}', f'[blue]{r.id}')
-        print(table)
+        
+        qnt_tabelas_racas = len(racas)/4
+        for r in racas: 
+            
+            tabela_racas = Table("Raça", "ID")
+            tabela_racas.add_row(f'{r.nome}', f'[blue]{r.id}')
+        
+        print(tabela_racas)
+        
         raca_id = IntPrompt.ask("ID da Raça escolhida: ")
 
         # Lista Classes
@@ -146,6 +152,7 @@ def menu_criar_item(db):
         item_defesa = int(input("Digite o valor para a defesa do escudo:"))
     else:
         pass
+        
     print(GC.criar_item(db, item_nome, item_categoria, item_emoji,
                         item_dano or None, tipo_ataque or None, item_defesa or None))
     
@@ -192,6 +199,7 @@ def main():
         print(barrinha)
         print("🛡️ GERENCIADOR DE RPG DE MESA 🛡️")
         print(barrinha)
+        
         print("1. Criar Raça")
         print("2. Criar Classe")
         print("3. Criar Personagem")
