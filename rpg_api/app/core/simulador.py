@@ -94,7 +94,7 @@ class SimuladorCombate:
                     estatisticas[atacante.nome]["dano_causado"] += resultado["dano_causado"]
                     if resultado.get("alvo_morreu", False):
                         estatisticas[atacante.nome]["abates"] += 1
-                        if not silencioso: print(f"💀 {atacante.nome} eliminou {alvo.nome}!")
+                        
                 
                 if not silencioso:
                     print(f"⚔️ {atacante.nome} ataca {alvo.nome} com {resultado['arma_nome']}!")
@@ -103,6 +103,7 @@ class SimuladorCombate:
                         print("   💫 Acertou o golpe!")
                         print(f"   🛡️ {alvo.nome} tentou absorver! Bloqueou {resultado['defesa_total']} ({resultado['absorcao_dados']} Resistência, {resultado['bonus_armadura']} Armadura).")
                         print(f"   💥 {alvo.nome} sofreu {resultado['dano_causado']} de dano! PV restante: {resultado['pv_restante']:.1f}")
+                        if resultado.get("alvo_morreu", False) and not silencioso: print(f"💀 {atacante.nome} eliminou {alvo.nome}!")
                     else:
                         print("   🔴 O ataque falhou ou foi esquivado!")
                     print("----------------------------------------")
