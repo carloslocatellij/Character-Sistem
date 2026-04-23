@@ -74,13 +74,14 @@ class GameController:
     # FUNÇÕES DE INTERAÇÃO DO CLI
     # ==========================================
 
-    def criar_raca(db, nome, atributos):
+    def criar_raca(db, nome, atributos, emoji):
 
         nova_raca = RacaDB(nome=nome, bonus_atributos={"forca": atributos.get('forca'),
                                                     "agilidade": atributos.get('agilidade'),
                                                     "resistencia":atributos.get('resistencia') ,
                                                     "percepcao" : atributos.get('percepcao'),
-                                                    "exuberancia": atributos.get('exuberancia')})
+                                                    "exuberancia": atributos.get('exuberancia')},
+                           emoji=emoji)
         try:
             db.add(nova_raca)
             db.commit()

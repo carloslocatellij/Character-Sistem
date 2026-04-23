@@ -9,6 +9,7 @@ from app.db.database import SessionLocal, engine, Base
 from app.models.personagens_db import PersonagemDB, RacaDB, ClasseRPGDB
 from app.models.equipamentos_db import ItemDB
 from app.controllers.game_controller import GameController, simular_arena
+from app.core.emojis import dict_emoji_racas
 
 # Garante que as tabelas existem
 Base.metadata.create_all(bind=engine)
@@ -16,6 +17,154 @@ Base.metadata.create_all(bind=engine)
 # ==========================================
 # ECRÃ 1: CRIAR PERSONAGEM
 # ==========================================
+
+class CreationScreen(Screen):
+    def compose(self):
+        yield Header()
+        with Center(), Middle():
+            with Vertical(id="create-dialog"):
+                yield Label("🛡️ Escolha o que Criar 🛡️", id="main-title")
+                yield Button("🧝 Criar Raça", id="menu-create-raca", variant="success")
+                yield Button("🤺 Criar Classe", id="menu-create-classe", variant="primary")
+                yield Button("👤 Criar Personagem", id="menu-create-person", variant="success")
+                yield Button("💍 Criar Item", id="menu-create-item", variant="primary")
+                yield Button("🗡️ Equipar Personagem", id="menu-equip", variant="success")
+                yield Button("🔙 Voltar", variant="error", id="btn-cancel")
+                
+        yield Footer()
+        
+    def _on_mount(self, event):
+        return super()._on_mount(event)
+    
+    def on_button_pressed(self, event: Button.Pressed):
+        if event.button.id == "btn-cancel":
+            self.app.pop_screen()
+        elif event.button.id == "menu-create-raca":
+            self.app.push_screen(CreateRacaScreen())
+        elif event.button.id == "menu-create-classe":
+            self.app.push_screen(CreateClasseScreen())
+        elif event.button.id == "menu-create-person":
+            self.app.push_screen(CreateCharacterScreen())
+        elif event.button.id == "menu-equip":
+            self.app.push_screen(EquipScreen())
+            
+            
+class CreateClasseScreen(Screen):
+    def __init__(self):
+        super().__init__()
+        self.caminhos_definidos = {}
+
+    def compose(self) -> ComposeResult:
+        yield Header()
+        with Center(), Middle():
+            with Vertical(id="create-dialog"):
+                yield Label("✨ Forjar Nova Classe", id="title")
+                
+                yield Input(placeholder="Nome da Classe", id="inp-nome")
+                
+                yield Vertical(
+                    Label("✨ Bônus de Caminhos (Ex: 'Fogo': 2, 'Água': 1):"),
+                    Select([], prompt="Selecione um Caminho", id="sel-caminho"),
+                    Input(placeholder="Pontos no Caminho", id="inp-caminho"),
+                    Button("Adicionar", variant="success", id="btn-add-caminho"),
+                )
+                yield Label(f"Caminhos definidos: {self.caminhos_definidos}", id="caminhos-definidos")
+                yield Vertical(
+                    Label("Habilidades (Ex: 'Ataque Furtivo, Magia Arcana'):"),
+                    Input(placeholder="Habilidades (Ex: 'Ataque Furtivo, Magia Arcana')", id="inp-habilidades")
+                )
+                yield Horizontal(
+                    Button("Salvar", variant="success", id="btn-save"),
+                    Button("Cancelar", variant="error", id="btn-cancel")
+                )
+        yield Footer()
+        
+    def on_mount(self):
+        caminhos = ["Fogo", "Água", "Terra", "Ar", "Luz", "Trevas"]
+        self.query_one("#sel-caminho").set_options([(c, c) for c in caminhos])
+        self.caminhos_definidos = {}
+        
+    def on_button_pressed(self, event: Button.Pressed):
+        if event.button.id == "btn-add-caminho":
+            caminho = self.query_one("#sel-caminho").value
+            pontos = self.query_one("#inp-caminho").value
+            if caminho and pontos:
+                self.caminhos_definidos[caminho] = int(pontos)
+                self.query_one("#caminhos-definidos").update(f"Caminhos definidos: {self.caminhos_definidos}")
+                self.query_one("#inp-caminho").value = ""
+        elif event.button.id == "btn-save":
+            try:
+                db = SessionLocal()
+                nova_classe = ClasseRPGDB(
+                    nome=self.query_one("#inp-nome").value,
+                    bonus_caminhos=self.caminhos_definidos,
+                    habilidades=[h.strip() for h in self.query_one("#inp-habilidades").value.split(",") if h.strip()]
+                )
+                db.add(nova_classe)
+                db.commit()
+                db.close()
+                self.notify("Classe criada e salva no banco de dados com sucesso!", title="Sucesso", severity="information")
+                self.app.pop_screen()
+            except Exception as e:
+                self.notify(f"Erro ao criar! {e}", severity="error")
+                
+
+class CreateRacaScreen(Screen):
+    def compose(self) -> ComposeResult:
+        yield Header()
+        with Center(), Middle():
+            with Vertical(id="create-dialog"):
+                yield Label("✨ Forjar Nova Raça", id="title")
+                
+                yield Input(placeholder="Nome da Raça", id="inp-nome")
+                yield Horizontal(
+                 Input(placeholder="Força", id="inp-for"),
+                 Input(placeholder="Agilidade", id="inp-agi"),
+                 Input(placeholder="Resistência", id="inp-res"),
+                 Input(placeholder="Percepção", id="inp-per"),
+                 Input(placeholder="Exuberância", id="inp-exu"),
+                 id="attr-inputs"
+                )
+                yield Select([], prompt="Selecione um emoji", id="sel-emoji")
+                yield Horizontal(
+                    Button("Salvar", variant="success", id="btn-save"),
+                    Button("Cancelar", variant="error", id="btn-cancel")
+                )
+        yield Footer()
+        
+    def on_mount(self):
+        emojis = [(f'{name}: {emoji}', emoji) for name, emoji in dict_emoji_racas.items()]
+        self.query_one("#sel-emoji").set_options(emojis)
+        
+    def on_button_pressed(self, event: Button.Pressed):
+        if event.button.id == "btn-cancel":
+            self.app.pop_screen()
+        elif event.button.id == "btn-save":
+            try:
+                db = SessionLocal()
+                atributos = {
+                    "forca": int(self.query_one("#inp-for").value),
+                    "agilidade": int(self.query_one("#inp-agi").value),
+                    "resistencia": int(self.query_one("#inp-res").value),
+                    "percepcao": int(self.query_one("#inp-per").value),
+                    "exuberancia": int(self.query_one("#inp-exu").value)
+                }
+                nova_raca = RacaDB(
+                    nome=self.query_one("#inp-nome").value,
+                    bonus_atributos=atributos,
+                    emoji=self.query_one("#sel-emoji").value
+                )
+                db.add(nova_raca)
+                db.commit()
+                db.close()
+                self.notify("Raça criada e salva no banco de dados com sucesso!", title="Sucesso", severity="information")
+                self.app.pop_screen()
+            except Exception as e:
+                self.notify("Erro ao criar! Verifique se preencheu todos os campos numéricos.", severity="error")
+        
+
+
+
 class CreateCharacterScreen(Screen):
     def compose(self) -> ComposeResult:
         yield Header()
@@ -208,16 +357,14 @@ class MainScreen(Screen):
         with Center(), Middle():
             with Vertical(id="main-menu"):
                 yield Label("🛡️ SIS-CHARLES RPG 🛡️", id="main-title")
-                yield Button("👤 Criar Personagem", id="menu-create", variant="primary")
-                yield Button("🗡️ Equipar Personagem", id="menu-equip", variant="primary")
+                yield Button("✨ Criação", id="menu-create", variant="success")
                 yield Button("⚔️ Entrar na Arena", id="menu-arena", variant="warning")
                 yield Button("❌ Sair do Sistema", id="menu-quit", variant="error")
         yield Footer()
 
     def on_button_pressed(self, event: Button.Pressed):
         btn_id = event.button.id
-        if btn_id == "menu-create": self.app.push_screen(CreateCharacterScreen())
-        elif btn_id == "menu-equip": self.app.push_screen(EquipScreen())
+        if btn_id == "menu-create": self.app.push_screen(CreationScreen())
         elif btn_id == "menu-arena": self.app.push_screen(ArenaScreen())
         elif btn_id == "menu-quit": self.app.exit()
 
