@@ -10,6 +10,7 @@ from app.models.personagens_db import PersonagemDB, RacaDB, ClasseRPGDB
 from app.models.equipamentos_db import ItemDB
 from app.controllers.game_controller import GameController, simular_arena
 from app.core.emojis import dict_emoji_racas
+from musics.audio_player import music
 
 # Garante que as tabelas existem
 Base.metadata.create_all(bind=engine)
@@ -77,6 +78,7 @@ class CreateClasseScreen(Screen):
                     Button("Salvar", variant="success", id="btn-save"),
                     Button("Cancelar", variant="error", id="btn-cancel")
                 )
+                yield Button("🔙 Voltar", variant="error", id="btn-cancel")
         yield Footer()
         
     def on_mount(self):
@@ -107,6 +109,8 @@ class CreateClasseScreen(Screen):
                 self.app.pop_screen()
             except Exception as e:
                 self.notify(f"Erro ao criar! {e}", severity="error")
+        elif event.button.id == "btn-cancel":
+            self.app.pop_screen()
                 
 
 class CreateRacaScreen(Screen):
@@ -130,6 +134,7 @@ class CreateRacaScreen(Screen):
                     Button("Salvar", variant="success", id="btn-save"),
                     Button("Cancelar", variant="error", id="btn-cancel")
                 )
+                yield Button("🔙 Voltar", variant="error", id="btn-cancel")
         yield Footer()
         
     def on_mount(self):
@@ -185,8 +190,8 @@ class CreateCharacterScreen(Screen):
                 )
                 yield Horizontal(
                     Button("Salvar", variant="success", id="btn-save"),
-                    Button("Cancelar", variant="error", id="btn-cancel")
                 )
+                yield Button("🔙 Voltar", variant="error", id="btn-cancel")
         yield Footer()
 
     def on_mount(self):
@@ -240,8 +245,8 @@ class EquipScreen(Screen):
                 
                 yield Horizontal(
                     Button("Equipar", variant="success", id="btn-equip"),
-                    Button("Cancelar", variant="error", id="btn-cancel")
                 )
+                yield Button("🔙 Voltar", variant="error", id="btn-cancel")
         yield Footer()
 
     def on_mount(self):
@@ -290,8 +295,8 @@ class ArenaScreen(Screen):
                 yield Input(placeholder="Quantidade de Batalhas", value="1", id="inp-qtd")
                 yield Horizontal(
                     Button("Simular", variant="warning", id="btn-simular"),
-                    Button("Voltar", variant="error", id="btn-cancel")
                 )
+                yield Button("🔙 Voltar", variant="error", id="btn-cancel")
             with Vertical(id="arena-log-container"):
                 yield RichLog(id="arena-log", highlight=True, markup=True)
         yield Footer()
@@ -395,5 +400,11 @@ class RPGApp(App):
         self.push_screen(MainScreen())
 
 if __name__ == "__main__":
+    #music = Playback()
+    #music.load_file('musics/Animals_House_Of_The_Rising_Sun1.wav')
+    #music.loop_at_end(True)
+    
+    music.play()
+    
     app = RPGApp()
     app.run()
