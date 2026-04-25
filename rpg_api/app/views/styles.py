@@ -1,0 +1,40 @@
+
+CSS = """
+    Screen { align: center middle; background: $background; }
+    
+    #main-menu { width: 45; padding: 2; border: tall $accent; background: $surface; }
+    #main-title { width: 100%; text-align: center; text-style: bold; margin-bottom: 2; color: $secondary; }
+    Button { width: 100%; margin-bottom: 1; }
+    
+    #create-dialog, #equip-dialog { width: 60; padding: 2; border: tall $primary; background: $surface; }
+    #title { width: 100%; text-align: center; text-style: bold; margin-bottom: 1; color: $warning; }
+    
+    #attr-inputs > Input { width: 1fr; margin-right: 1; }
+    
+    #arena-sidebar { width: 45; padding: 1; border-right: vkey $accent; background: $surface; height: 100%; }
+    #arena-log-container { width: 1fr; padding: 1; height: 100%; }
+    #char-table { height: 1fr; margin-bottom: 1; border: round $primary; }
+    
+    #side-panel {
+        width: 30;
+        background: $surface;
+        padding: 1;
+        border-right: vkey $accent;
+    }
+
+    #table-container {
+        width: 1fr;
+        padding: 1;
+    }
+
+    DataTable {
+        height: 1fr;
+        border: tall $primary;
+    }
+    
+    #edit-dialog {
+        width: 50;
+        padding: 2;
+        border: thick $success;
+        background: $surface;
+    }"""

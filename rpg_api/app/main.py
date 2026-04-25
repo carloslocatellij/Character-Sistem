@@ -17,4 +17,4 @@ app.include_router(personagens.router)
 
 @app.get("/")
 def root():
-    return {"mensagem": "Bem-vindo à API do Sistema de RPG! Acesse /docs para a documentação interativa."}git 
+    return {"mensagem": "Bem-vindo à API do Sistema de RPG! Acesse /docs para a documentação interativa."}

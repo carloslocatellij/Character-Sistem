@@ -128,16 +128,44 @@ class GameController:
             return f"Não foi possível registrar o personagem devido ao ERRO: {e}"
         
     
-    def criar_item(db, nome, categoria, emoji, dano=None, tipo_ataque=None, defesa=None, peso=1):
+    def criar_item(db, nome, categoria, emoji, dano=None, tipo_ataque=None, defesa=None,peso=1):
         
-        novo_item = ItemDB(nome=nome, categoria=categoria, emoji=emoji,
-                           dano=dano, tipo_ataque=tipo_ataque, defesa=defesa, peso=peso)
+        novo_item = ItemDB(nome=nome,
+                           categoria=categoria,
+                           peso=peso,
+                           emoji=emoji,
+                           dano=dano,
+                           tipo_ataque=tipo_ataque,
+                           defesa=defesa,
+                           defesa_extra=defesa if categoria == "escudo" else None
+                           )
         try:
             db.add(novo_item)
             db.commit()
             return f"✅ Item '{nome}' forjado e salvo com sucesso no Banco de Dados!"
         except Exception as e:
             return f"Não foi possível registrar o item devido ao ERRO: {e}"
+        
+        
+    def obter_personagem_por_id(self, p_id: int):
+            return self.db.query(PersonagemDB).get(p_id)
+        
+
+    def atualizar_personagem(self, p_id: int, dados: dict):
+        personagem = self.db.query(PersonagemDB).get(p_id)
+        if not personagem:
+            raise ValueError("Personagem não encontrado.")
+        
+        for chave, valor in dados.items():
+            setattr(personagem, chave, valor)
+        
+        self.db.commit()
+        return f"✅ Personagem '{personagem.nome}' atualizado com sucesso!"
+
+
+    def listar_tudo(self, modelo):
+        """Método genérico para listar registros (RacaDB, ClasseRPGDB, etc)"""
+        return self.db.query(modelo).all()
 
 
 def simular_arena(db, ids_aliados: List[int], ids_oponentes: List[int], num_batalhas: int = 1):

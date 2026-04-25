@@ -72,7 +72,8 @@ class Personagem:
         |Nv: {self.nivel} |{self.classe.nome}
         |💚: {self.pv_atual}/{self.pv_max} |🔮: {self.pm_atual}/{self.pm_max}
         |{self.mao_direita or "👊"}: {self.mod_atq_corpo} |🏹: {self.mod_atq_distancia} 
-        |{self.armadura or "🦵"}: {self.armadura.defesa if self.armadura else 0} |{self.mao_esquerda or "🤜"}: {self.mao_esquerda.defesa if self.mao_esquerda else 0}
+        |{self.armadura or "🦵"}: {self.armadura.defesa if self.armadura else 0} |{self.mao_esquerda or "🤜"}: 
+        {self.mao_esquerda.defesa_extra if isinstance(self.mao_esquerda, Escudo) else 0}
         |🪄: {self.classe.habilidades} | {self.efeitos_ativos}
         """
 

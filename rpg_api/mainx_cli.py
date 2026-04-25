@@ -4,13 +4,15 @@ from textual.app import App, ComposeResult
 from textual.screen import Screen
 from textual.widgets import Header, Footer, Button, Static, Input, Select, Label, RichLog, DataTable
 from textual.containers import Vertical, Horizontal, Center, Middle
+from textual import on
 
 from app.db.database import SessionLocal, engine, Base
 from app.models.personagens_db import PersonagemDB, RacaDB, ClasseRPGDB
 from app.models.equipamentos_db import ItemDB
 from app.controllers.game_controller import GameController, simular_arena
-from app.core.emojis import dict_emoji_racas
+from app.core.emojis import dict_emoji_racas, dict_item_emoji
 from musics.audio_player import music
+from app.views.styles import CSS
 
 # Garante que as tabelas existem
 Base.metadata.create_all(bind=engine)
@@ -45,9 +47,11 @@ class CreationScreen(Screen):
         elif event.button.id == "menu-create-classe":
             self.app.push_screen(CreateClasseScreen())
         elif event.button.id == "menu-create-person":
-            self.app.push_screen(CreateCharacterScreen())
+            self.app.push_screen(CharacterFormScreen())
         elif event.button.id == "menu-equip":
             self.app.push_screen(EquipScreen())
+        elif event.button.id == "menu-create-item":
+            self.app.push_screen(CreateItemScreen())
             
             
 class CreateClasseScreen(Screen):
@@ -63,13 +67,18 @@ class CreateClasseScreen(Screen):
                 
                 yield Input(placeholder="Nome da Classe", id="inp-nome")
                 
+                yield Label("✨ Bônus de Caminhos (Ex: 'Fogo': 2, 'Água': 1):")
+                
+                with Horizontal():
+                    yield Select([], prompt="Selecione um Caminho", id="sel-caminho")
+                with Horizontal():
+                    yield Input(placeholder="Pontos no Caminho", id="inp-caminho")
+                
                 yield Vertical(
-                    Label("✨ Bônus de Caminhos (Ex: 'Fogo': 2, 'Água': 1):"),
-                    Select([], prompt="Selecione um Caminho", id="sel-caminho"),
-                    Input(placeholder="Pontos no Caminho", id="inp-caminho"),
-                    Button("Adicionar", variant="success", id="btn-add-caminho"),
-                )
-                yield Label(f"Caminhos definidos: {self.caminhos_definidos}", id="caminhos-definidos")
+                        Button("Adicionar", variant="success", id="btn-add-caminho"),
+                        Label(f"Caminhos definidos: {self.caminhos_definidos}", id="caminhos-definidos"),
+                        id="caminhos-add",
+                    )
                 yield Vertical(
                     Label("Habilidades (Ex: 'Ataque Furtivo, Magia Arcana'):"),
                     Input(placeholder="Habilidades (Ex: 'Ataque Furtivo, Magia Arcana')", id="inp-habilidades")
@@ -169,13 +178,32 @@ class CreateRacaScreen(Screen):
         
 
 
-
-class CreateCharacterScreen(Screen):
+class CharacterFormScreen(Screen):
+    def __init__(self, char_id: int = None):
+        super().__init__()
+        self.char_id = char_id  # Se for None, é Novo. Se tiver ID, é Edição
+        
+    def _salvar_edicao(self, id_entity, dados):
+        db = SessionLocal()
+        ctrl = GameController(db)
+        #char_edited = PersonagemDB(id=id_entity, **dados)
+        ctrl.atualizar_personagem(id_entity, dados)
+        db.commit()
+        db.close()
+    
+    def _salvar_novo(self, dados):
+        db = SessionLocal()
+        char_novo = PersonagemDB(**dados)
+        db.add(char_novo)
+        db.commit()
+        db.close()
+        return char_novo
+        
     def compose(self) -> ComposeResult:
         yield Header()
         with Center(), Middle():
             with Vertical(id="create-dialog"):
-                yield Label("✨ Forjar Novo Herói", id="title")
+                yield Label("✨ Forjar Novo Herói" if not self.char_id else "🛠️  Editar o Herói", id="title")
                 yield Input(placeholder="Nome do Personagem", id="inp-nome")
                 yield Select([], prompt="Selecione a Raça", id="sel-raca")
                 yield Select([], prompt="Selecione a Classe", id="sel-classe")
@@ -196,11 +224,117 @@ class CreateCharacterScreen(Screen):
 
     def on_mount(self):
         db = SessionLocal()
-        racas = db.query(RacaDB).all()
-        classes = db.query(ClasseRPGDB).all()
-        self.query_one("#sel-raca").set_options([(r.nome, r.id) for r in racas])
-        self.query_one("#sel-classe").set_options([(c.nome, c.id) for c in classes])
-        db.close()
+        if self.char_id:
+            # Lógica de Edição: Carregar dados existentes
+            char = db.query(PersonagemDB).get(self.char_id)
+            if char:
+                self.query_one("#inp-nome").value = char.nome
+                self.query_one("#inp-for").value = str(char.forca_base)
+                self.query_one("#inp-agi").value = str(char.agilidade_base)
+                self.query_one("#inp-res").value = str(char.resistencia_base)
+                self.query_one("#inp-per").value = str(char.percepcao_base)
+                self.query_one("#inp-exu").value = str(char.exuberancia_base)
+                # Carregar opções de Raça e Classe
+                racas = db.query(RacaDB).all()
+                classes = db.query(ClasseRPGDB).all()
+                self.query_one("#sel-raca").set_options([(r.nome, r.id) for r in racas])
+                self.query_one("#sel-classe").set_options([(c.nome, c.id) for c in classes])
+                self.query_one("#sel-raca").value = char.raca_id
+                self.query_one("#sel-classe").value = char.classe_id
+            db.close()
+        else:
+            racas = db.query(RacaDB).all()
+            classes = db.query(ClasseRPGDB).all()
+            self.query_one("#sel-raca").set_options([(r.nome, r.id) for r in racas])
+            self.query_one("#sel-classe").set_options([(c.nome, c.id) for c in classes])
+            db.close()
+
+    def on_button_pressed(self, event: Button.Pressed):
+        if event.button.id == "btn-cancel":
+            self.app.pop_screen()
+        elif event.button.id == "btn-save":
+            dados = dict(nome=self.query_one("#inp-nome").value,
+                    raca_id=self.query_one("#sel-raca").value,
+                    classe_id=self.query_one("#sel-classe").value,
+                    forca_base=int(self.query_one("#inp-for").value),
+                    agilidade_base=int(self.query_one("#inp-agi").value),
+                    resistencia_base=int(self.query_one("#inp-res").value),
+                    percepcao_base=int(self.query_one("#inp-per").value),
+                    exuberancia_base=int(self.query_one("#inp-exu").value))
+            if self.char_id:
+                try:
+                    self._salvar_edicao(self.char_id, dados)
+                    self.notify("Personagem editado com sucesso!", title="Sucesso", severity="information")
+                except Exception as e:
+                    self.notify("Erro ao editar! Verifique se preencheu todos os campos numéricos.", severity="error")
+            else:
+                try:
+                    self._salvar_novo(dados)
+                    self.notify("Personagem forjado com sucesso!", title="Sucesso", severity="information")
+                    #self.app.pop_screen()
+                except Exception as e:
+                    self.notify("Erro ao criar! Verifique se preencheu todos os campos numéricos.", severity="error")
+
+
+class CreateItemScreen(Screen):
+    def compose(self) -> ComposeResult:
+        yield Header()
+        with Center(), Middle():
+            with Vertical(id="create-dialog"):
+                yield Label("✨ Forjar Novo Item", id="title")
+                yield Input(placeholder="Nome do Item", id="inp-nome")
+                yield Select([
+                    ("Arma", "Arma"), 
+                    ("Escudo", "Escudo"), 
+                    ("Armadura", "Armadura"), 
+                    ("Acessório", "Acessório"),
+                    ("Outro", "Outro")
+                ], prompt="Selecione a Categoria", id="sel-categoria")
+                yield Label("Efeitos e Bônus:")
+                yield Input(placeholder="Dano", id="inp-dano", disabled=True)
+                yield Input(placeholder="Defesa", id="inp-defesa", disabled=True)
+                yield Select([
+                    ("Corpo", "corpo"), 
+                    ("Distância", "distacia")],
+                    prompt="Tipo de Ataque (para Armas)", id="sel-tipo-ataque", disabled=True)
+                yield Select([], prompt="Selecione um Emoji", id="sel-emoji", disabled=True)
+                yield Horizontal(
+                    Button("Salvar", variant="success", id="btn-save"),
+                )
+                yield Button("🔙 Voltar", variant="error", id="btn-cancel")
+        yield Footer()
+        
+
+    @on(Select.Changed, "#sel-categoria")
+    def on_select_changed(self, event: Select.Changed):
+        categoria = event.value
+        if categoria == "Arma":
+            self.query_one("#inp-dano").disabled = False
+            self.query_one("#inp-defesa").disabled = True
+            self.query_one("#sel-tipo-ataque").disabled = False
+            self.query_one("#sel-emoji").disabled = False
+            emojis = [(f'{name}: {emoji}', emoji) for name, emoji in dict_item_emoji.get('armas').items()]
+        elif categoria == "Escudo":
+            self.query_one("#inp-dano").disabled = True
+            self.query_one("#inp-defesa").disabled = False
+            self.query_one("#sel-tipo-ataque").disabled = True
+            self.query_one("#sel-emoji").disabled = False
+            emojis = [(f'{name}: {emoji}', emoji) for name, emoji in dict_item_emoji.get('escudos').items()]
+        elif categoria == "Armadura":
+            self.query_one("#inp-dano").disabled = True
+            self.query_one("#inp-defesa").disabled = False
+            self.query_one("#sel-tipo-ataque").disabled = True
+            self.query_one("#sel-emoji").disabled = False
+            emojis = [(f'{name}: {emoji}', emoji) for name, emoji in dict_item_emoji.get('armaduras').items()]
+            
+        else:
+            self.query_one("#inp-dano").disabled = True
+            self.query_one("#inp-defesa").disabled = True
+            self.query_one("#sel-tipo-ataque").disabled = True
+            self.query_one("#sel-emoji").disabled = False
+            emojis = [(f'{name}: {emoji}', emoji) for name, emoji in dict_item_emoji.get('outros').items()]
+        self.query_one("#sel-emoji").set_options(emojis)
+
 
     def on_button_pressed(self, event: Button.Pressed):
         if event.button.id == "btn-cancel":
@@ -208,23 +342,22 @@ class CreateCharacterScreen(Screen):
         elif event.button.id == "btn-save":
             try:
                 db = SessionLocal()
-                novo_char = PersonagemDB(
+                novo_item = ItemDB(
                     nome=self.query_one("#inp-nome").value,
-                    raca_id=self.query_one("#sel-raca").value,
-                    classe_id=self.query_one("#sel-classe").value,
-                    forca_base=int(self.query_one("#inp-for").value),
-                    agilidade_base=int(self.query_one("#inp-agi").value),
-                    resistencia_base=int(self.query_one("#inp-res").value),
-                    percepcao_base=int(self.query_one("#inp-per").value),
-                    exuberancia_base=int(self.query_one("#inp-exu").value)
+                    categoria=self.query_one("#sel-categoria").value,
+                    emoji=self.query_one("#sel-emoji").value,
+                    dano=int(self.query_one("#inp-dano").value) if not self.query_one("#inp-dano").disabled else None,
+                    tipo_ataque=self.query_one("#sel-tipo-ataque").value if not self.query_one("#sel-tipo-ataque").disabled else None,
+                    defesa=int(self.query_one("#inp-defesa").value) if not self.query_one("#inp-defesa").disabled else None
                 )
-                db.add(novo_char)
+                db.add(novo_item)
                 db.commit()
                 db.close()
-                self.notify("Personagem forjado com sucesso!", title="Sucesso", severity="information")
+                self.notify("Item forjado com sucesso!", title="Sucesso", severity="information")
                 self.app.pop_screen()
             except Exception as e:
-                self.notify("Erro ao criar! Verifique se preencheu todos os campos numéricos.", severity="error")
+                self.notify(f"Erro ao criar! {e}", severity="error")
+
 
 # ==========================================
 # ECRÃ 2: EQUIPAR PERSONAGEM
@@ -353,6 +486,72 @@ class ArenaScreen(Screen):
             log_widget.write(f"Vitórias Aliados: {resultado['vitorias_aliados']}")
             log_widget.write(f"Vitórias Oponentes: {resultado['vitorias_oponentes']}")
 
+
+# ==========================================
+# ECRÃ: SUBMENU DE PESQUISA E GERENCIAMENTO
+# ==========================================
+class ManagementMenuScreen(Screen):
+    def compose(self) -> ComposeResult:
+        yield Header()
+        with Horizontal():
+            with Vertical(id="side-panel"):
+                yield Label("🔍 Pesquisa", id="title")
+                yield Input(placeholder="Filtrar por nome...", id="filter-input")
+                yield Button("Editar Selecionado", variant="primary", id="btn-edit-sel")
+                yield Button("Voltar ao Principal", variant="error", id="btn-back")
+            
+            with Vertical(id="table-container"):
+                yield DataTable(id="search-table")
+        yield Footer()
+
+    def on_mount(self):
+        table = self.query_one(DataTable)
+        table.cursor_type = "row"
+        table.add_columns("ID", "Nome", "Nível", "Raça", "Classe")
+        self.refresh_table()
+
+    def refresh_table(self, filter_text: str = ""):
+        table = self.query_one(DataTable)
+        table.clear()
+        db = SessionLocal()
+        query = db.query(PersonagemDB)
+        if filter_text:
+            query = query.filter(PersonagemDB.nome.contains(filter_text))
+        
+        for p in query.all():
+            table.add_row(str(p.id), p.nome, str(p.nivel), p.raca.nome, p.classe.nome, key=str(p.id))
+        db.close()
+
+    def on_input_changed(self, event: Input.Changed):
+        if event.input.id == "filter-input":
+            self.refresh_table(event.value)
+
+    def on_button_pressed(self, event: Button.Pressed):
+        if event.button.id == "btn-back":
+            self.app.pop_screen()
+        
+        elif event.button.id == "btn-edit-sel":
+            table = self.query_one(DataTable)
+            if table.cursor_row is not None:
+                # 1. Recuperar dados da linha selecionada
+                row_data = table.get_row_at(table.cursor_row)
+                p_id = int(row_data[0]) # O ID está na primeira coluna
+                
+                # 2. Chamar o formulário reutilizável passando o ID
+                # O callback garante que a tabela seja atualizada ao voltar
+                self.app.push_screen(
+                    CharacterFormScreen(char_id=p_id), 
+                    callback=lambda _: self.refresh_table()
+                )
+                
+    def on_data_table_row_selected(self, event: DataTable.RowSelected):
+        """Permite editar ao pressionar Enter na linha."""
+        p_id = int(event.row_key.value) # Se usou chaves na criação da linha
+        self.app.push_screen(
+            CharacterFormScreen(char_id=p_id), 
+            callback=lambda _: self.refresh_table()
+        )
+
 # ==========================================
 # ECRÃ PRINCIPAL (MENU APP)
 # ==========================================
@@ -362,7 +561,8 @@ class MainScreen(Screen):
         with Center(), Middle():
             with Vertical(id="main-menu"):
                 yield Label("🛡️  SIS-CHARLES RPG 🛡️", id="main-title")
-                yield Button("✨ Criação", id="menu-create", variant="success")
+                yield Button("✨ Criar", id="menu-create", variant="success")
+                yield Button("🔍 Pesquisar/Editar", id="menu-search") 
                 yield Button("⚔️  Entrar na Arena", id="menu-arena", variant="warning")
                 yield Button("❌ Sair do Sistema", id="menu-quit", variant="error")
         yield Footer()
@@ -371,40 +571,25 @@ class MainScreen(Screen):
         btn_id = event.button.id
         if btn_id == "menu-create": self.app.push_screen(CreationScreen())
         elif btn_id == "menu-arena": self.app.push_screen(ArenaScreen())
+        elif btn_id == "menu-search": self.app.push_screen(ManagementMenuScreen())
         elif btn_id == "menu-quit": self.app.exit()
 
 # ==========================================
 # CONFIGURAÇÃO DE ESTILOS E LANÇAMENTO
 # ==========================================
 class RPGApp(App):
-    CSS = """
-    Screen { align: center middle; background: $background; }
-    
-    #main-menu { width: 45; padding: 2; border: tall $accent; background: $surface; }
-    #main-title { width: 100%; text-align: center; text-style: bold; margin-bottom: 2; color: $secondary; }
-    Button { width: 100%; margin-bottom: 1; }
-    
-    #create-dialog, #equip-dialog { width: 60; padding: 2; border: tall $primary; background: $surface; }
-    #title { width: 100%; text-align: center; text-style: bold; margin-bottom: 1; color: $warning; }
-    
-    #attr-inputs > Input { width: 1fr; margin-right: 1; }
-    
-    #arena-sidebar { width: 45; padding: 1; border-right: vkey $accent; background: $surface; height: 100%; }
-    #arena-log-container { width: 1fr; padding: 1; height: 100%; }
-    #char-table { height: 1fr; margin-bottom: 1; border: round $primary; }
-    """
-    
-    BINDINGS = [("d", "toggle_dark", "Mudar Tema Escuro/Claro"), ("q", "quit", "Sair")]
+    CSS = CSS
+    BINDINGS = [("d", "toggle_dark", "Mudar Tema Escuro/Claro"), ("q", "quit", "Sair"), ("s", "stop_music", "Parar Música")]
 
     def on_mount(self):
+        music.play()
         self.push_screen(MainScreen())
 
-if __name__ == "__main__":
-    #music = Playback()
-    #music.load_file('musics/Animals_House_Of_The_Rising_Sun1.wav')
-    #music.loop_at_end(True)
-    
-    music.play()
-    
+    @on(Button.Pressed, "#btn-stop_music")
+    def stop_music(self, event: Button.Pressed):
+        if event.button.id == "btn-stop_music":
+            music.stop()    
+        
+if __name__ == "__main__": 
     app = RPGApp()
     app.run()
