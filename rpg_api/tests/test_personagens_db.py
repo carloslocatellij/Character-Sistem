@@ -5,11 +5,11 @@ from app.models.equipamentos_db import ItemDB # NOVO IMPORT NECESSÁRIO
 
 def setup_module(module):
     """Cria as tabelas no banco de teste antes de rodar."""
-    Base.metadata.create_all(bind=engine)
+    #Base.metadata.create_all(bind=engine)
 
 def teardown_module(module):
     """Limpa o banco de teste depois de rodar."""
-    Base.metadata.drop_all(bind=engine)
+    #Base.metadata.drop_all(bind=engine)
 
 def test_criar_personagem_com_relacionamentos():
     db = SessionLocal()

@@ -11,7 +11,7 @@ console = Console()
 print = console.print
 
 # Garante que as tabelas existem (útil para rodar o CLI a primeira vez)
-Base.metadata.create_all(bind=engine)
+#Base.metadata.create_all(bind=engine)
 barrinha = "="*40
 
 def menu_criar_raca(db):

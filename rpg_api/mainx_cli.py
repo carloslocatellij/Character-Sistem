@@ -12,10 +12,38 @@ from app.models.equipamentos_db import ItemDB
 from app.controllers.game_controller import GameController, simular_arena
 from app.core.emojis import dict_emoji_racas, dict_item_emoji
 from musics.audio_player import music
-from app.views.styles import CSS
 
 # Garante que as tabelas existem
 Base.metadata.create_all(bind=engine)
+
+def action_start_stop_music():
+        if music.active:
+            music.stop()
+        else:
+            music.play()
+            
+            
+# ==========================================           
+# Funções de edição e salvamento
+# ==========================================
+
+map_entidades = {"Personagem": PersonagemDB, "Raça": RacaDB, "Classe": ClasseRPGDB, "Item": ItemDB}
+
+def _salvar_edicao(self, id_entity, dados, modelo):
+    with SessionLocal() as db
+        ctrl = GameController(db)
+        #char_edited = PersonagemDB(id=id_entity, **dados)
+        ctrl.atualizar_personagem(id_entity, dados)
+        db.commit()
+
+def _salvar_novo(self, dados):
+    db = SessionLocal()
+    char_novo = PersonagemDB(**dados)
+    db.add(char_novo)
+    db.commit()
+    db.close()
+    return char_novo
+
 
 # ==========================================
 # ECRÃ 1: CRIAR PERSONAGEM
@@ -43,21 +71,22 @@ class CreationScreen(Screen):
         if event.button.id == "btn-cancel":
             self.app.pop_screen()
         elif event.button.id == "menu-create-raca":
-            self.app.push_screen(CreateRacaScreen())
+            self.app.push_screen(RacaFormScreen())
         elif event.button.id == "menu-create-classe":
-            self.app.push_screen(CreateClasseScreen())
+            self.app.push_screen(ClasseFormScreen())
         elif event.button.id == "menu-create-person":
             self.app.push_screen(CharacterFormScreen())
         elif event.button.id == "menu-equip":
             self.app.push_screen(EquipScreen())
         elif event.button.id == "menu-create-item":
-            self.app.push_screen(CreateItemScreen())
+            self.app.push_screen(ItemFormScreen())
             
             
-class CreateClasseScreen(Screen):
-    def __init__(self):
+class ClasseFormScreen(Screen):
+    def __init__(self, classe_id: int = None):
         super().__init__()
         self.caminhos_definidos = {}
+        self.classe_id = classe_id 
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -91,9 +120,21 @@ class CreateClasseScreen(Screen):
         yield Footer()
         
     def on_mount(self):
-        caminhos = ["Fogo", "Água", "Terra", "Ar", "Luz", "Trevas"]
-        self.query_one("#sel-caminho").set_options([(c, c) for c in caminhos])
-        self.caminhos_definidos = {}
+        if self.classe_id:
+            db = SessionLocal()
+            classe = db.query(ClasseRPGDB).get(self.classe_id)
+            if classe:
+                self.query_one("#inp-nome").value = classe.nome
+                self.caminhos_definidos = classe.bonus_caminhos
+                self.query_one("#caminhos-definidos").update(f"Caminhos definidos: {self.caminhos_definidos}")
+                self.query_one("#inp-habilidades").value = ", ".join(classe.habilidades)
+                caminhos = ["Fogo", "Água", "Terra", "Ar", "Luz", "Trevas"]
+                self.query_one("#sel-caminho").set_options([(c, c) for c in caminhos])
+            db.close()
+        else:
+            caminhos = ["Fogo", "Água", "Terra", "Ar", "Luz", "Trevas"]
+            self.query_one("#sel-caminho").set_options([(c, c) for c in caminhos])
+            self.caminhos_definidos = {}
         
     def on_button_pressed(self, event: Button.Pressed):
         if event.button.id == "btn-add-caminho":
@@ -122,7 +163,11 @@ class CreateClasseScreen(Screen):
             self.app.pop_screen()
                 
 
-class CreateRacaScreen(Screen):
+class RacaFormScreen(Screen):
+    def __init__(self, raca_id: int = None):
+        super().__init__()
+        self.raca_id = raca_id  # Se for None, é Novo. Se tiver ID, é Edição
+        
     def compose(self) -> ComposeResult:
         yield Header()
         with Center(), Middle():
@@ -149,6 +194,19 @@ class CreateRacaScreen(Screen):
     def on_mount(self):
         emojis = [(f'{name}: {emoji}', emoji) for name, emoji in dict_emoji_racas.items()]
         self.query_one("#sel-emoji").set_options(emojis)
+        if self.raca_id:
+            db = SessionLocal()
+            raca = db.query(RacaDB).get(self.raca_id)
+            if raca:
+                self.query_one("#inp-nome").value = raca.nome
+                self.query_one("#inp-for").value = str(raca.bonus_atributos.get('forca', 0))
+                self.query_one("#inp-agi").value = str(raca.bonus_atributos.get('agilidade', 0))
+                self.query_one("#inp-res").value = str(raca.bonus_atributos.get('resistencia', 0))
+                self.query_one("#inp-per").value = str(raca.bonus_atributos.get('percepcao', 0))
+                self.query_one("#inp-exu").value = str(raca.bonus_atributos.get('exuberancia', 0))
+                self.query_one("#sel-emoji").value = str(raca.emoji)
+            db.close()
+        
         
     def on_button_pressed(self, event: Button.Pressed):
         if event.button.id == "btn-cancel":
@@ -276,7 +334,11 @@ class CharacterFormScreen(Screen):
                     self.notify("Erro ao criar! Verifique se preencheu todos os campos numéricos.", severity="error")
 
 
-class CreateItemScreen(Screen):
+class ItemFormScreen(Screen):
+    def __init__(self, item_id: int = None):
+        super().__init__()
+        self.item_id = item_id  
+        
     def compose(self) -> ComposeResult:
         yield Header()
         with Center(), Middle():
@@ -490,67 +552,194 @@ class ArenaScreen(Screen):
 # ==========================================
 # ECRÃ: SUBMENU DE PESQUISA E GERENCIAMENTO
 # ==========================================
+# class ManagementMenuScreen(Screen):
+#     def __init__(self, element: int = None):
+#         super().__init__()
+#         self.element = element
+#         self.model_map = {"Raça": RacaDB, "Classe": ClasseRPGDB, "Personagem": PersonagemDB, "Item": ItemDB}
+        
+#     def compose(self) -> ComposeResult:
+#         yield Header()
+#         with Horizontal():
+#             with Vertical(id="side-panel"):
+#                 yield Label("🔍 Pesquisa", id="title")
+#                 yield Select([("Raça", 0), ("Classe", 1), ("Personagem",2), ("Item", 3)], prompt="Tipo de entidade", id="sel-entity")
+#                 yield Input(placeholder="Filtrar por nome...", id="filter-input")
+#                 yield Button("Editar Selecionado", variant="primary", id="btn-edit-sel")
+#                 yield Button("Voltar ao Principal", variant="error", id="btn-back")
+            
+#             with Vertical(id="table-container"):
+#                 yield DataTable(id="search-table")
+#         yield Footer()
+
+        
+#     def mount_table(self):
+#         self.table.clear()
+#         table = self.query_one(DataTable)
+#         table.cursor_type = "row"
+#         if self.element == "Personagem":
+#             table.add_columns(*[c.name for c in PersonagemDB.__table__.columns])
+#         if self.element == "Raça":
+#             table.add_columns(*[c.name for c in RacaDB.__table__.columns])
+#         if self.element == "Classe":
+#             table.add_columns(*[c.name for c in ClasseRPGDB.__table__.columns])
+#         if self.element == "Item":
+#             table.add_columns(*[c.name for c in ItemDB.__table__.columns])
+#         else:
+#             table.add_columns(*[c.name for c in PersonagemDB.__table__.columns])
+#         return table
+
+#     def on_mount(self):
+#         self.table = self.mount_table()
+#         self.refresh_table()
+
+#     def refresh_table(self, filter_text: str = ""):
+#         self.table.clear()
+#         self.mount_table()
+#         db = SessionLocal()
+
+#         query = db.query(self.model_map.get(self.element, PersonagemDB)) if self.element else db.query(PersonagemDB)
+#         if filter_text:
+#             query = query.filter(self.model_map.get(self.element, PersonagemDB).nome.contains(filter_text))
+        
+#         for element in query.all():
+#             if element:
+#                 self.table.add_row(*[str(getattr(element, col.name)) for col in element.__table__.columns], key=str(element.id))
+#         db.close()
+
+#     def on_input_changed(self, event: Input.Changed):
+#         if event.input.id == "filter-input":
+#             self.refresh_table(event.value)
+
+#     def on_select_changed(self, event: Select.Changed):
+#         if event.select.id == "sel-entity":
+#             self.element = event.value
+#             self.refresh_table()
+
+#     def on_button_pressed(self, event: Button.Pressed):
+#         if event.button.id == "btn-back":
+#             self.app.pop_screen()
+        
+#         elif event.button.id == "btn-edit-sel":
+#             table = self.query_one(DataTable)
+#             if table.cursor_row is not None:
+#                 # 1. Recuperar dados da linha selecionada
+#                 row_data = table.get_row_at(table.cursor_row)
+#                 p_id = int(row_data[0]) # O ID está na primeira coluna
+                
+#                 # 2. Chamar o formulário reutilizável passando o ID
+#                 # O callback garante que a tabela seja atualizada ao voltar
+#                 self.app.push_screen(
+#                     CharacterFormScreen(char_id=p_id), 
+#                     callback=lambda _: self.refresh_table()
+#                 )
+                
+#     def on_data_table_row_selected(self, event: DataTable.RowSelected):
+#         """Permite editar ao pressionar Enter na linha."""
+#         p_id = int(event.row_key.value) # Se usou chaves na criação da linha
+#         self.app.push_screen(
+#             CharacterFormScreen(char_id=p_id), 
+#             callback=lambda _: self.refresh_table()
+#         )
+
 class ManagementMenuScreen(Screen):
-    def compose(self) -> ComposeResult:
+    # Dicionário de configuração para mapear Tabelas -> Modelos -> Formulários
+    # Nota: Assumindo que você criará RacaFormScreen, ClasseFormScreen etc.
+    TABLE_MAP = {
+        "personagens": {"model": PersonagemDB, "label": "Personagens"},
+        "racas": {"model": RacaDB, "label": "Raças"},
+        "classes": {"model": ClasseRPGDB, "label": "Classes"},
+        "itens": {"model": ItemDB, "label": "Itens/Equipamentos"},
+    }
+
+    def compose(self):
         yield Header()
         with Horizontal():
             with Vertical(id="side-panel"):
-                yield Label("🔍 Pesquisa", id="title")
-                yield Input(placeholder="Filtrar por nome...", id="filter-input")
-                yield Button("Editar Selecionado", variant="primary", id="btn-edit-sel")
-                yield Button("Voltar ao Principal", variant="error", id="btn-back")
+                yield Label("📂 Tabelas do Sistema")
+                yield Select(
+                    [(v["label"], k) for k, v in self.TABLE_MAP.items()],
+                    value="personagens",
+                    id="table-selector"
+                )
+                yield Label("🔍 Pesquisa")
+                yield Input(placeholder="Filtrar...", id="filter-input")
+                yield Button("Editar Selecionado", variant="primary", id="btn-edit")
+                yield Button("Voltar", variant="error", id="btn-back")
             
             with Vertical(id="table-container"):
-                yield DataTable(id="search-table")
+                yield DataTable(id="universal-table")
         yield Footer()
 
     def on_mount(self):
-        table = self.query_one(DataTable)
-        table.cursor_type = "row"
-        table.add_columns("ID", "Nome", "Nível", "Raça", "Classe")
-        self.refresh_table()
+        self.refresh_table_data()
 
-    def refresh_table(self, filter_text: str = ""):
-        table = self.query_one(DataTable)
-        table.clear()
-        db = SessionLocal()
-        query = db.query(PersonagemDB)
-        if filter_text:
-            query = query.filter(PersonagemDB.nome.contains(filter_text))
+    def on_select_changed(self, event: Select.Changed):
+        """Disparado quando o usuário muda a tabela no seletor."""
+        if event.select.id == "table-selector":
+            self.refresh_table_data()
+
+    def refresh_table_data(self, filter_text: str = ""):
+        table_id = self.query_one("#table-selector").value
+        model = self.TABLE_MAP[table_id]["model"]
+        data_table = self.query_one("#universal-table")
         
-        for p in query.all():
-            table.add_row(str(p.id), p.nome, str(p.nivel), p.raca.nome, p.classe.nome, key=str(p.id))
+        # Limpa TUDO, inclusive os cabeçalhos das colunas
+        data_table.clear(columns=True)
+        data_table.cursor_type = "row"
+
+        db = SessionLocal()
+        # 1. Definir Colunas Dinamicamente baseadas no Modelo
+        if model == PersonagemDB:
+            data_table.add_columns("ID", "Nome", "Nível", "Raça")
+            query = db.query(PersonagemDB)
+            if filter_text: query = query.filter(PersonagemDB.nome.contains(filter_text))
+            for p in query.all():
+                data_table.add_row(str(p.id), p.nome, str(p.nivel), p.raca.nome, key=str(p.id))
+        
+        elif model == RacaDB:
+            data_table.add_columns("ID", "Nome", "Bónus")
+            for r in db.query(RacaDB).all():
+                data_table.add_row(str(r.id), r.nome, str(r.bonus_atributos), key=str(r.id))
+        
+        elif model == ItemDB:
+            data_table.add_columns("ID", "Nome", "Tipo", "Dano/Def")
+            for i in db.query(ItemDB).all():
+                val = i.dano if i.categoria == "arma" else i.defesa
+                data_table.add_row(str(i.id), i.nome, i.categoria, str(val), key=str(i.id))
+        elif model == ClasseRPGDB:
+            data_table.add_columns("ID", "Nome", "Bónus de Caminhos")
+            for c in db.query(ClasseRPGDB).all():
+                data_table.add_row(str(c.id), c.nome, str(c.bonus_caminhos), key=str(c.id))
+        
+        
         db.close()
 
-    def on_input_changed(self, event: Input.Changed):
-        if event.input.id == "filter-input":
-            self.refresh_table(event.value)
+    def on_data_table_row_selected(self, event: DataTable.RowSelected):
+        """Redireciona para o formulário correto baseado na tabela atual."""
+        table_id = self.query_one("#table-selector").value
+        item_id = int(event.row_key.value)
+        
+        # Lógica de roteamento para o formulário reutilizável correto
+        if table_id == "personagens":
+            self.app.push_screen(CharacterFormScreen(char_id=item_id), callback=lambda _: self.refresh_table_data())
+        # Adicione elif para os outros formulários aqui...
+        elif table_id == "racas":
+            self.app.push_screen(RacaFormScreen(raca_id=item_id), callback=lambda _: self.refresh_table_data())
+        elif table_id == "classes":
+            self.app.push_screen(ClasseFormScreen(classe_id=item_id), callback=lambda _: self.refresh_table_data())
+        elif table_id == "itens":
+            self.app.push_screen(ItemFormScreen(item_id=item_id), callback=lambda _: self.refresh_table_data())
 
     def on_button_pressed(self, event: Button.Pressed):
         if event.button.id == "btn-back":
             self.app.pop_screen()
-        
-        elif event.button.id == "btn-edit-sel":
-            table = self.query_one(DataTable)
+        elif event.button.id == "btn-edit":
+            # Dispara manualmente a seleção da linha atual
+            table = self.query_one("#universal-table")
             if table.cursor_row is not None:
-                # 1. Recuperar dados da linha selecionada
-                row_data = table.get_row_at(table.cursor_row)
-                p_id = int(row_data[0]) # O ID está na primeira coluna
-                
-                # 2. Chamar o formulário reutilizável passando o ID
-                # O callback garante que a tabela seja atualizada ao voltar
-                self.app.push_screen(
-                    CharacterFormScreen(char_id=p_id), 
-                    callback=lambda _: self.refresh_table()
-                )
-                
-    def on_data_table_row_selected(self, event: DataTable.RowSelected):
-        """Permite editar ao pressionar Enter na linha."""
-        p_id = int(event.row_key.value) # Se usou chaves na criação da linha
-        self.app.push_screen(
-            CharacterFormScreen(char_id=p_id), 
-            callback=lambda _: self.refresh_table()
-        )
+                row_key = table.get_row_at(table.cursor_row) # Pega o ID da primeira coluna
+                self.on_data_table_row_selected(DataTable.RowSelected(table, event.button, row_key[0]))
 
 # ==========================================
 # ECRÃ PRINCIPAL (MENU APP)
@@ -573,23 +762,35 @@ class MainScreen(Screen):
         elif btn_id == "menu-arena": self.app.push_screen(ArenaScreen())
         elif btn_id == "menu-search": self.app.push_screen(ManagementMenuScreen())
         elif btn_id == "menu-quit": self.app.exit()
+        
+    
+        
+        
+    
+    #@on(Button.Pressed, "#btn-stop_music")
+    #def stop_music(self, event: Button.Pressed):
+    #    if event.button.id == "btn-stop_music":
+    #        music.stop()
+        
 
 # ==========================================
 # CONFIGURAÇÃO DE ESTILOS E LANÇAMENTO
 # ==========================================
 class RPGApp(App):
-    CSS = CSS
-    BINDINGS = [("d", "toggle_dark", "Mudar Tema Escuro/Claro"), ("q", "quit", "Sair"), ("s", "stop_music", "Parar Música")]
+    CSS_PATH = "app/views/styles.css"
+    BINDINGS = [("d", "toggle_dark", "Mudar Tema Escuro/Claro"), ("q", "quit", "Sair"), ("m", "start_stop_music", "Música On/Off")]
 
+    music.play()
+    
     def on_mount(self):
-        music.play()
         self.push_screen(MainScreen())
-
-    @on(Button.Pressed, "#btn-stop_music")
-    def stop_music(self, event: Button.Pressed):
-        if event.button.id == "btn-stop_music":
-            music.stop()    
+   
         
+    def on_key(self, event):
+        if event.key == "m":
+            action_start_stop_music()
+
+
 if __name__ == "__main__": 
     app = RPGApp()
     app.run()

@@ -4,7 +4,8 @@ from app.models.equipamentos_db import ItemDB
 
 # Esta rotina roda ANTES dos testes. Ela cria as tabelas no banco de teste.
 def setup_module(module):
-    Base.metadata.create_all(bind=engine)
+    #Base.metadata.create_all(bind=engine)
+    pass
 
 # Esta rotina roda DEPOIS dos testes. Ela limpa/apaga as tabelas para o próximo teste ser limpo.
 def teardown_module(module):

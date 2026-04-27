@@ -24,4 +24,4 @@ windos `.\.venv\Scripts\activate` linux `source .venv/bin/activate`
 `pip install -r requirements.txt`
 
 5 - Na pasta do projeto rode:
-`python ./rpg_api/main_cli.py`
+`python ./rpg_api/mainx_cli.py`

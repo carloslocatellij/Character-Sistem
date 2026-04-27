@@ -161,6 +161,39 @@ class GameController:
         
         self.db.commit()
         return f"✅ Personagem '{personagem.nome}' atualizado com sucesso!"
+    
+    def atualizar_raca(self, r_id: int, dados: dict):
+        raca = self.db.query(RacaDB).get(r_id)
+        if not raca:
+            raise ValueError("Raça não encontrada.")
+        
+        for chave, valor in dados.items():
+            setattr(raca, chave, valor)
+        
+        self.db.commit()
+        return f"✅ Raça '{raca.nome}' atualizada com sucesso!"
+    
+    def atualizar_classe(self, c_id: int, dados: dict):
+        classe = self.db.query(ClasseRPGDB).get(c_id)
+        if not classe:
+            raise ValueError("Classe não encontrada.")
+        
+        for chave, valor in dados.items():
+            setattr(classe, chave, valor)
+        
+        self.db.commit()
+        return f"✅ Classe '{classe.nome}' atualizada com sucesso!"
+    
+    def atualizar_item(self, i_id: int, dados: dict):
+        item = self.db.query(ItemDB).get(i_id)
+        if not item:
+            raise ValueError("Item não encontrado.")
+        
+        for chave, valor in dados.items():
+            setattr(item, chave, valor)
+        
+        self.db.commit()
+        return f"✅ Item '{item.nome}' atualizado com sucesso!"
 
 
     def listar_tudo(self, modelo):

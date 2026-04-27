@@ -2,8 +2,6 @@ from fastapi import FastAPI
 from app.db.database import Base, engine
 from app.routers import personagens
 
-# Garante que as tabelas do banco sejam criadas ao iniciar a API
-Base.metadata.create_all(bind=engine)
 
 # Inicia a aplicação FastAPI
 app = FastAPI(
