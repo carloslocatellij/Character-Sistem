@@ -62,6 +62,6 @@ dict_emoji_racas = {
         "licantropo": "🐺",
         "elemental": "🌪️",
         "homenlagarto": "🦖",
-        "octopus": "🐙",
-        
+        "octopus": "🐙", 
       }
+

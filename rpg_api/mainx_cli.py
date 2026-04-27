@@ -1,11 +1,13 @@
 import sys
 import io
+import logging
+# Configuração básica
+logging.basicConfig(level=logging.INFO, filename="log.log", filemode="a")
 from textual.app import App, ComposeResult
 from textual.screen import Screen
 from textual.widgets import Header, Footer, Button, Static, Input, Select, Label, RichLog, DataTable
 from textual.containers import Vertical, Horizontal, Center, Middle
 from textual import on
-
 from app.db.database import SessionLocal, engine, Base
 from app.models.personagens_db import PersonagemDB, RacaDB, ClasseRPGDB
 from app.models.equipamentos_db import ItemDB
@@ -29,20 +31,20 @@ def action_start_stop_music():
 
 map_entidades = {"Personagem": PersonagemDB, "Raça": RacaDB, "Classe": ClasseRPGDB, "Item": ItemDB}
 
-def _salvar_edicao(self, id_entity, dados, modelo):
-    with SessionLocal() as db
+def salvar_edicao(id_entity: int, dados: dict, modelo):
+    modelo = map_entidades.get(modelo)
+    with SessionLocal() as db:
         ctrl = GameController(db)
-        #char_edited = PersonagemDB(id=id_entity, **dados)
-        ctrl.atualizar_personagem(id_entity, dados)
-        db.commit()
+        ctrl.atualizar_elemento(modelo, id_entity, dados)
 
-def _salvar_novo(self, dados):
-    db = SessionLocal()
-    char_novo = PersonagemDB(**dados)
-    db.add(char_novo)
-    db.commit()
-    db.close()
-    return char_novo
+
+def salvar_novo(dados: dict, modelo):
+    modelo = map_entidades.get(modelo)
+    with SessionLocal() as db:
+        novo_elemento = modelo(**dados)
+        db.add(novo_elemento)
+        db.commit()
+        return novo_elemento
 
 
 # ==========================================
@@ -137,7 +139,9 @@ class ClasseFormScreen(Screen):
             self.caminhos_definidos = {}
         
     def on_button_pressed(self, event: Button.Pressed):
-        if event.button.id == "btn-add-caminho":
+        if event.button.id == "btn-cancel":
+            self.app.pop_screen()
+        elif event.button.id == "btn-add-caminho":
             caminho = self.query_one("#sel-caminho").value
             pontos = self.query_one("#inp-caminho").value
             if caminho and pontos:
@@ -146,21 +150,18 @@ class ClasseFormScreen(Screen):
                 self.query_one("#inp-caminho").value = ""
         elif event.button.id == "btn-save":
             try:
-                db = SessionLocal()
-                nova_classe = ClasseRPGDB(
-                    nome=self.query_one("#inp-nome").value,
-                    bonus_caminhos=self.caminhos_definidos,
-                    habilidades=[h.strip() for h in self.query_one("#inp-habilidades").value.split(",") if h.strip()]
-                )
-                db.add(nova_classe)
-                db.commit()
-                db.close()
-                self.notify("Classe criada e salva no banco de dados com sucesso!", title="Sucesso", severity="information")
+                dados = dict(nome=self.query_one("#inp-nome").value,
+                            bonus_caminhos=self.caminhos_definidos,
+                            habilidades=[h.strip() for h in self.query_one("#inp-habilidades").value.split(",") if h.strip()])
+                if self.classe_id:
+                    salvar_edicao(self.classe_id, dados, "Classe")
+                    self.notify("Classe criada e salva no banco de dados com sucesso!", title="Sucesso", severity="information")
+                else:
+                    salvar_novo(dados, "Classe")
+                    
                 self.app.pop_screen()
             except Exception as e:
-                self.notify(f"Erro ao criar! {e}", severity="error")
-        elif event.button.id == "btn-cancel":
-            self.app.pop_screen()
+                self.notify(f"Erro ao criar/atualizar! {e}", severity="error")
                 
 
 class RacaFormScreen(Screen):
@@ -173,7 +174,6 @@ class RacaFormScreen(Screen):
         with Center(), Middle():
             with Vertical(id="create-dialog"):
                 yield Label("✨ Forjar Nova Raça", id="title")
-                
                 yield Input(placeholder="Nome da Raça", id="inp-nome")
                 yield Horizontal(
                  Input(placeholder="Força", id="inp-for"),
@@ -183,7 +183,7 @@ class RacaFormScreen(Screen):
                  Input(placeholder="Exuberância", id="inp-exu"),
                  id="attr-inputs"
                 )
-                yield Select([], prompt="Selecione um emoji", id="sel-emoji")
+                yield Input(placeholder="Selecione um emoji", id="inp-emoji")
                 yield Horizontal(
                     Button("Salvar", variant="success", id="btn-save"),
                     Button("Cancelar", variant="error", id="btn-cancel")
@@ -192,19 +192,21 @@ class RacaFormScreen(Screen):
         yield Footer()
         
     def on_mount(self):
-        emojis = [(f'{name}: {emoji}', emoji) for name, emoji in dict_emoji_racas.items()]
-        self.query_one("#sel-emoji").set_options(emojis)
         if self.raca_id:
             db = SessionLocal()
             raca = db.query(RacaDB).get(self.raca_id)
             if raca:
+                print(raca.emoji)
                 self.query_one("#inp-nome").value = raca.nome
                 self.query_one("#inp-for").value = str(raca.bonus_atributos.get('forca', 0))
                 self.query_one("#inp-agi").value = str(raca.bonus_atributos.get('agilidade', 0))
                 self.query_one("#inp-res").value = str(raca.bonus_atributos.get('resistencia', 0))
                 self.query_one("#inp-per").value = str(raca.bonus_atributos.get('percepcao', 0))
                 self.query_one("#inp-exu").value = str(raca.bonus_atributos.get('exuberancia', 0))
-                self.query_one("#sel-emoji").value = str(raca.emoji)
+                #logging.info(f"O valor do select antes: {self.query_one("#inp-emoji").value}")
+                #logging.info(f"O emoji: [{raca.emoji}] ")
+                self.query_one("#inp-emoji").value =  str(raca.emoji)
+                #logging.info(f"O valor do select depois: {self.query_one("#inp-emoji").value}")
             db.close()
         
         
@@ -213,26 +215,24 @@ class RacaFormScreen(Screen):
             self.app.pop_screen()
         elif event.button.id == "btn-save":
             try:
-                db = SessionLocal()
                 atributos = {
                     "forca": int(self.query_one("#inp-for").value),
                     "agilidade": int(self.query_one("#inp-agi").value),
                     "resistencia": int(self.query_one("#inp-res").value),
                     "percepcao": int(self.query_one("#inp-per").value),
                     "exuberancia": int(self.query_one("#inp-exu").value)
-                }
-                nova_raca = RacaDB(
-                    nome=self.query_one("#inp-nome").value,
-                    bonus_atributos=atributos,
-                    emoji=self.query_one("#sel-emoji").value
-                )
-                db.add(nova_raca)
-                db.commit()
-                db.close()
-                self.notify("Raça criada e salva no banco de dados com sucesso!", title="Sucesso", severity="information")
+                            }
+                dados = dict(nome=self.query_one("#inp-nome").value,
+                            bonus_atributos=atributos,
+                            emoji=self.query_one("#inp-emoji").value)
+                if self.raca_id:
+                    salvar_edicao(self.raca_id, dados, "Raça")
+                    self.notify("Raça criada e salva no banco de dados com sucesso!", title="Sucesso", severity="information")
+                else:
+                    salvar_novo(dados, "Raça")
                 self.app.pop_screen()
             except Exception as e:
-                self.notify("Erro ao criar! Verifique se preencheu todos os campos numéricos.", severity="error")
+                self.notify("Erro ao criar/atualizar! Verifique se preencheu todos os campos numéricos.", severity="error")
         
 
 
@@ -240,23 +240,7 @@ class CharacterFormScreen(Screen):
     def __init__(self, char_id: int = None):
         super().__init__()
         self.char_id = char_id  # Se for None, é Novo. Se tiver ID, é Edição
-        
-    def _salvar_edicao(self, id_entity, dados):
-        db = SessionLocal()
-        ctrl = GameController(db)
-        #char_edited = PersonagemDB(id=id_entity, **dados)
-        ctrl.atualizar_personagem(id_entity, dados)
-        db.commit()
-        db.close()
-    
-    def _salvar_novo(self, dados):
-        db = SessionLocal()
-        char_novo = PersonagemDB(**dados)
-        db.add(char_novo)
-        db.commit()
-        db.close()
-        return char_novo
-        
+                
     def compose(self) -> ComposeResult:
         yield Header()
         with Center(), Middle():
@@ -273,39 +257,35 @@ class CharacterFormScreen(Screen):
                     Input(placeholder="Per", id="inp-per"),
                     Input(placeholder="Exu", id="inp-exu"),
                     id="attr-inputs"
-                )
+                                )
                 yield Horizontal(
                     Button("Salvar", variant="success", id="btn-save"),
-                )
+                                )
                 yield Button("🔙 Voltar", variant="error", id="btn-cancel")
         yield Footer()
 
     def on_mount(self):
-        db = SessionLocal()
-        if self.char_id:
-            # Lógica de Edição: Carregar dados existentes
-            char = db.query(PersonagemDB).get(self.char_id)
-            if char:
-                self.query_one("#inp-nome").value = char.nome
-                self.query_one("#inp-for").value = str(char.forca_base)
-                self.query_one("#inp-agi").value = str(char.agilidade_base)
-                self.query_one("#inp-res").value = str(char.resistencia_base)
-                self.query_one("#inp-per").value = str(char.percepcao_base)
-                self.query_one("#inp-exu").value = str(char.exuberancia_base)
-                # Carregar opções de Raça e Classe
+        with SessionLocal() as db:
+            if self.char_id:        # Lógica de Edição: Carregar dados existentes
+                char = db.query(PersonagemDB).get(self.char_id)
+                if char:
+                    self.query_one("#inp-nome").value = char.nome
+                    self.query_one("#inp-for").value = str(char.forca_base)
+                    self.query_one("#inp-agi").value = str(char.agilidade_base)
+                    self.query_one("#inp-res").value = str(char.resistencia_base)
+                    self.query_one("#inp-per").value = str(char.percepcao_base)
+                    self.query_one("#inp-exu").value = str(char.exuberancia_base)
+                    racas = db.query(RacaDB).all()
+                    classes = db.query(ClasseRPGDB).all()
+                    self.query_one("#sel-raca").set_options([(r.nome, r.id) for r in racas])
+                    self.query_one("#sel-classe").set_options([(c.nome, c.id) for c in classes])
+                    self.query_one("#sel-raca").value = char.raca_id
+                    self.query_one("#sel-classe").value = char.classe_id
+            else:
                 racas = db.query(RacaDB).all()
                 classes = db.query(ClasseRPGDB).all()
                 self.query_one("#sel-raca").set_options([(r.nome, r.id) for r in racas])
                 self.query_one("#sel-classe").set_options([(c.nome, c.id) for c in classes])
-                self.query_one("#sel-raca").value = char.raca_id
-                self.query_one("#sel-classe").value = char.classe_id
-            db.close()
-        else:
-            racas = db.query(RacaDB).all()
-            classes = db.query(ClasseRPGDB).all()
-            self.query_one("#sel-raca").set_options([(r.nome, r.id) for r in racas])
-            self.query_one("#sel-classe").set_options([(c.nome, c.id) for c in classes])
-            db.close()
 
     def on_button_pressed(self, event: Button.Pressed):
         if event.button.id == "btn-cancel":
@@ -321,18 +301,17 @@ class CharacterFormScreen(Screen):
                     exuberancia_base=int(self.query_one("#inp-exu").value))
             if self.char_id:
                 try:
-                    self._salvar_edicao(self.char_id, dados)
+                    salvar_edicao(self.char_id, dados, "Personagem")
                     self.notify("Personagem editado com sucesso!", title="Sucesso", severity="information")
                 except Exception as e:
                     self.notify("Erro ao editar! Verifique se preencheu todos os campos numéricos.", severity="error")
             else:
                 try:
-                    self._salvar_novo(dados)
+                    salvar_novo(dados, "Personagem")
                     self.notify("Personagem forjado com sucesso!", title="Sucesso", severity="information")
-                    #self.app.pop_screen()
                 except Exception as e:
                     self.notify("Erro ao criar! Verifique se preencheu todos os campos numéricos.", severity="error")
-
+            self.app.pop_screen()
 
 class ItemFormScreen(Screen):
     def __init__(self, item_id: int = None):
@@ -356,16 +335,26 @@ class ItemFormScreen(Screen):
                 yield Input(placeholder="Dano", id="inp-dano", disabled=True)
                 yield Input(placeholder="Defesa", id="inp-defesa", disabled=True)
                 yield Select([
-                    ("Corpo", "corpo"), 
-                    ("Distância", "distacia")],
+                    ("Corpo", "Corpo"), 
+                    ('Distancia', 'Distancia'),('','')],
                     prompt="Tipo de Ataque (para Armas)", id="sel-tipo-ataque", disabled=True)
-                yield Select([], prompt="Selecione um Emoji", id="sel-emoji", disabled=True)
+                yield Input(placeholder="Selecione um Emoji", id="inp-emoji", disabled=True)
                 yield Horizontal(
                     Button("Salvar", variant="success", id="btn-save"),
                 )
                 yield Button("🔙 Voltar", variant="error", id="btn-cancel")
         yield Footer()
         
+    def on_mount(self):
+        if self.item_id:
+            with SessionLocal() as db:
+                item = db.query(ItemDB).get(self.item_id)
+                if item:
+                    self.query_one("#inp-nome").value = item.nome
+                    self.query_one("#sel-categoria").value = item.categoria.capitalize()
+                    self.query_one("#inp-dano").value = str(item.dano) 
+                    self.query_one("#inp-defesa").value = str(item.defesa) if item.categoria != 'escudo' else str(item.defesa_extra) 
+                    self.query_one("#sel-tipo-ataque").value = item.tipo_ataque.capitalize() if item.tipo_ataque else ""           
 
     @on(Select.Changed, "#sel-categoria")
     def on_select_changed(self, event: Select.Changed):
@@ -374,49 +363,45 @@ class ItemFormScreen(Screen):
             self.query_one("#inp-dano").disabled = False
             self.query_one("#inp-defesa").disabled = True
             self.query_one("#sel-tipo-ataque").disabled = False
-            self.query_one("#sel-emoji").disabled = False
-            emojis = [(f'{name}: {emoji}', emoji) for name, emoji in dict_item_emoji.get('armas').items()]
+            self.query_one("#inp-emoji").disabled = False
         elif categoria == "Escudo":
             self.query_one("#inp-dano").disabled = True
             self.query_one("#inp-defesa").disabled = False
             self.query_one("#sel-tipo-ataque").disabled = True
-            self.query_one("#sel-emoji").disabled = False
-            emojis = [(f'{name}: {emoji}', emoji) for name, emoji in dict_item_emoji.get('escudos').items()]
+            self.query_one("#inp-emoji").disabled = False
         elif categoria == "Armadura":
             self.query_one("#inp-dano").disabled = True
             self.query_one("#inp-defesa").disabled = False
             self.query_one("#sel-tipo-ataque").disabled = True
-            self.query_one("#sel-emoji").disabled = False
-            emojis = [(f'{name}: {emoji}', emoji) for name, emoji in dict_item_emoji.get('armaduras').items()]
-            
+            self.query_one("#inp-emoji").disabled = False            
         else:
             self.query_one("#inp-dano").disabled = True
             self.query_one("#inp-defesa").disabled = True
             self.query_one("#sel-tipo-ataque").disabled = True
-            self.query_one("#sel-emoji").disabled = False
-            emojis = [(f'{name}: {emoji}', emoji) for name, emoji in dict_item_emoji.get('outros').items()]
-        self.query_one("#sel-emoji").set_options(emojis)
-
+            self.query_one("#inp-emoji").disabled = False
+            #emojis = [(f'{name}: {emoji}', emoji) for name, emoji in dict_item_emoji.get('outros').items()]
+            #self.query_one("#inp-emoji").set_options(emojis)
 
     def on_button_pressed(self, event: Button.Pressed):
         if event.button.id == "btn-cancel":
             self.app.pop_screen()
         elif event.button.id == "btn-save":
             try:
-                db = SessionLocal()
-                novo_item = ItemDB(
+                dados = dict(
                     nome=self.query_one("#inp-nome").value,
                     categoria=self.query_one("#sel-categoria").value,
-                    emoji=self.query_one("#sel-emoji").value,
+                    emoji=self.query_one("#inp-emoji").value,
                     dano=int(self.query_one("#inp-dano").value) if not self.query_one("#inp-dano").disabled else None,
                     tipo_ataque=self.query_one("#sel-tipo-ataque").value if not self.query_one("#sel-tipo-ataque").disabled else None,
                     defesa=int(self.query_one("#inp-defesa").value) if not self.query_one("#inp-defesa").disabled else None
-                )
-                db.add(novo_item)
-                db.commit()
-                db.close()
-                self.notify("Item forjado com sucesso!", title="Sucesso", severity="information")
-                self.app.pop_screen()
+                            )
+                if self.item_id:
+                    salvar_edicao(item_id, dados, "Item")
+                    self.notify("Item forjado com sucesso!", title="Sucesso", severity="information")
+                    self.app.pop_screen()
+                else:
+                    salvar_novo(dados, "Item")
+                    
             except Exception as e:
                 self.notify(f"Erro ao criar! {e}", severity="error")
 
@@ -699,6 +684,7 @@ class ManagementMenuScreen(Screen):
         
         elif model == RacaDB:
             data_table.add_columns("ID", "Nome", "Bónus")
+            if filter_text: query = query.filter(RacaDB.nome.contains(filter_text))
             for r in db.query(RacaDB).all():
                 data_table.add_row(str(r.id), r.nome, str(r.bonus_atributos), key=str(r.id))
         
@@ -707,18 +693,22 @@ class ManagementMenuScreen(Screen):
             for i in db.query(ItemDB).all():
                 val = i.dano if i.categoria == "arma" else i.defesa
                 data_table.add_row(str(i.id), i.nome, i.categoria, str(val), key=str(i.id))
+                
         elif model == ClasseRPGDB:
             data_table.add_columns("ID", "Nome", "Bónus de Caminhos")
             for c in db.query(ClasseRPGDB).all():
                 data_table.add_row(str(c.id), c.nome, str(c.bonus_caminhos), key=str(c.id))
-        
-        
         db.close()
 
     def on_data_table_row_selected(self, event: DataTable.RowSelected):
         """Redireciona para o formulário correto baseado na tabela atual."""
         table_id = self.query_one("#table-selector").value
-        item_id = int(event.row_key.value)
+        if event.row_key:
+            if hasattr(event.row_key, 'value'):
+                item_id = int(event.row_key.value)
+            else:
+                item_id = int(event.row_key)
+                
         
         # Lógica de roteamento para o formulário reutilizável correto
         if table_id == "personagens":
@@ -740,6 +730,7 @@ class ManagementMenuScreen(Screen):
             if table.cursor_row is not None:
                 row_key = table.get_row_at(table.cursor_row) # Pega o ID da primeira coluna
                 self.on_data_table_row_selected(DataTable.RowSelected(table, event.button, row_key[0]))
+                
 
 # ==========================================
 # ECRÃ PRINCIPAL (MENU APP)
@@ -763,29 +754,18 @@ class MainScreen(Screen):
         elif btn_id == "menu-search": self.app.push_screen(ManagementMenuScreen())
         elif btn_id == "menu-quit": self.app.exit()
         
-    
-        
-        
-    
-    #@on(Button.Pressed, "#btn-stop_music")
-    #def stop_music(self, event: Button.Pressed):
-    #    if event.button.id == "btn-stop_music":
-    #        music.stop()
-        
-
+       
 # ==========================================
 # CONFIGURAÇÃO DE ESTILOS E LANÇAMENTO
 # ==========================================
 class RPGApp(App):
     CSS_PATH = "app/views/styles.css"
     BINDINGS = [("d", "toggle_dark", "Mudar Tema Escuro/Claro"), ("q", "quit", "Sair"), ("m", "start_stop_music", "Música On/Off")]
-
     music.play()
     
     def on_mount(self):
         self.push_screen(MainScreen())
-   
-        
+ 
     def on_key(self, event):
         if event.key == "m":
             action_start_stop_music()

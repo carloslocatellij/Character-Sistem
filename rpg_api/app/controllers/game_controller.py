@@ -150,51 +150,17 @@ class GameController:
     def obter_personagem_por_id(self, p_id: int):
             return self.db.query(PersonagemDB).get(p_id)
         
-
-    def atualizar_personagem(self, p_id: int, dados: dict):
-        personagem = self.db.query(PersonagemDB).get(p_id)
-        if not personagem:
-            raise ValueError("Personagem não encontrado.")
-        
-        for chave, valor in dados.items():
-            setattr(personagem, chave, valor)
-        
-        self.db.commit()
-        return f"✅ Personagem '{personagem.nome}' atualizado com sucesso!"
     
-    def atualizar_raca(self, r_id: int, dados: dict):
-        raca = self.db.query(RacaDB).get(r_id)
-        if not raca:
-            raise ValueError("Raça não encontrada.")
+    def atualizar_elemento(self, model,  el_id:int, dados:dict):
+        elemento = self.db.query(model).get(el_id)
+        if not elemento:
+            raise ValueError(f"{elemento} não encontrado.")
         
         for chave, valor in dados.items():
-            setattr(raca, chave, valor)
-        
+            setattr(elemento, chave, valor) 
         self.db.commit()
-        return f"✅ Raça '{raca.nome}' atualizada com sucesso!"
+        return f"✅ '{elemento.nome}' atualizado com sucesso!"
     
-    def atualizar_classe(self, c_id: int, dados: dict):
-        classe = self.db.query(ClasseRPGDB).get(c_id)
-        if not classe:
-            raise ValueError("Classe não encontrada.")
-        
-        for chave, valor in dados.items():
-            setattr(classe, chave, valor)
-        
-        self.db.commit()
-        return f"✅ Classe '{classe.nome}' atualizada com sucesso!"
-    
-    def atualizar_item(self, i_id: int, dados: dict):
-        item = self.db.query(ItemDB).get(i_id)
-        if not item:
-            raise ValueError("Item não encontrado.")
-        
-        for chave, valor in dados.items():
-            setattr(item, chave, valor)
-        
-        self.db.commit()
-        return f"✅ Item '{item.nome}' atualizado com sucesso!"
-
 
     def listar_tudo(self, modelo):
         """Método genérico para listar registros (RacaDB, ClasseRPGDB, etc)"""
