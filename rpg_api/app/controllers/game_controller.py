@@ -97,11 +97,6 @@ class GameController:
             bonus_caminhos = {caminho: pontos for caminho, pontos in zip(caminho, pontos)}
             
         nova_classe = ClasseRPGDB(nome=nome, bonus_caminhos=bonus_caminhos, habilidades=[])
-                                #   bonus_atributos={"forca": atributos.get('forca'),
-                                #                     "agilidade": atributos.get('agilidade'),
-                                #                     "resistencia":atributos.get('resistencia') ,
-                                #                     "percepcao" : atributos.get('percepcao'),
-                                #                     "exuberancia": atributos.get('exuberancia')})
         try:
             db.add(nova_classe)
             db.commit()
@@ -111,7 +106,6 @@ class GameController:
         
 
     def criar_personagem(db, nome, raca_id, classe_id, atributos):
-        
         novo_personagem = PersonagemDB(
             nome=nome, raca_id=raca_id, classe_id=classe_id,
             forca_base=atributos.get('forca'),
@@ -168,9 +162,7 @@ class GameController:
 
 
 def simular_arena(db, ids_aliados: List[int], ids_oponentes: List[int], num_batalhas: int = 1):
-    
-
-    # Busca no banco e converte para o Domínio
+        # Busca no banco e converte para o Domínio
     equipa_aliada = [GameController.converter_para_dominio(db.query(PersonagemDB).get(i)) for i in ids_aliados]
     equipa_oponente = [GameController.converter_para_dominio(db.query(PersonagemDB).get(i)) for i in ids_oponentes]
     
@@ -185,7 +177,5 @@ def simular_arena(db, ids_aliados: List[int], ids_oponentes: List[int], num_bata
     else:
         print("\n📊 ESTATÍSTICAS DA BATALHA:")
         relatorio = simulador.simular_multiplas_batalhas(num_batalhas)
-            
+        
         return simulador.simular_multiplas_batalhas(num_batalhas)
-        
-        

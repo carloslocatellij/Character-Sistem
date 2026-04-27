@@ -37,7 +37,6 @@ def salvar_edicao(id_entity: int, dados: dict, modelo):
         ctrl = GameController(db)
         ctrl.atualizar_elemento(modelo, id_entity, dados)
 
-
 def salvar_novo(dados: dict, modelo):
     modelo = map_entidades.get(modelo)
     with SessionLocal() as db:
@@ -95,16 +94,11 @@ class ClasseFormScreen(Screen):
         with Center(), Middle():
             with Vertical(id="create-dialog"):
                 yield Label("✨ Forjar Nova Classe", id="title")
-                
                 yield Input(placeholder="Nome da Classe", id="inp-nome")
-                
                 yield Label("✨ Bônus de Caminhos (Ex: 'Fogo': 2, 'Água': 1):")
-                
                 with Horizontal():
                     yield Select([], prompt="Selecione um Caminho", id="sel-caminho")
-                with Horizontal():
                     yield Input(placeholder="Pontos no Caminho", id="inp-caminho")
-                
                 yield Vertical(
                         Button("Adicionar", variant="success", id="btn-add-caminho"),
                         Label(f"Caminhos definidos: {self.caminhos_definidos}", id="caminhos-definidos"),
@@ -155,8 +149,8 @@ class ClasseFormScreen(Screen):
                             habilidades=[h.strip() for h in self.query_one("#inp-habilidades").value.split(",") if h.strip()])
                 if self.classe_id:
                     salvar_edicao(self.classe_id, dados, "Classe")
-                    self.notify("Classe criada e salva no banco de dados com sucesso!", title="Sucesso", severity="information")
                 else:
+                    self.notify("Classe criada e salva no banco de dados com sucesso!", title="Sucesso", severity="information")
                     salvar_novo(dados, "Classe")
                     
                 self.app.pop_screen()
@@ -182,12 +176,12 @@ class RacaFormScreen(Screen):
                  Input(placeholder="Percepção", id="inp-per"),
                  Input(placeholder="Exuberância", id="inp-exu"),
                  id="attr-inputs"
-                )
+                                )
                 yield Input(placeholder="Selecione um emoji", id="inp-emoji")
                 yield Horizontal(
                     Button("Salvar", variant="success", id="btn-save"),
                     Button("Cancelar", variant="error", id="btn-cancel")
-                )
+                                )
                 yield Button("🔙 Voltar", variant="error", id="btn-cancel")
         yield Footer()
         
@@ -209,7 +203,6 @@ class RacaFormScreen(Screen):
                 #logging.info(f"O valor do select depois: {self.query_one("#inp-emoji").value}")
             db.close()
         
-        
     def on_button_pressed(self, event: Button.Pressed):
         if event.button.id == "btn-cancel":
             self.app.pop_screen()
@@ -227,9 +220,9 @@ class RacaFormScreen(Screen):
                             emoji=self.query_one("#inp-emoji").value)
                 if self.raca_id:
                     salvar_edicao(self.raca_id, dados, "Raça")
-                    self.notify("Raça criada e salva no banco de dados com sucesso!", title="Sucesso", severity="information")
                 else:
                     salvar_novo(dados, "Raça")
+                    self.notify("Raça criada e salva no banco de dados com sucesso!", title="Sucesso", severity="information")
                 self.app.pop_screen()
             except Exception as e:
                 self.notify("Erro ao criar/atualizar! Verifique se preencheu todos os campos numéricos.", severity="error")
@@ -534,102 +527,7 @@ class ArenaScreen(Screen):
             log_widget.write(f"Vitórias Oponentes: {resultado['vitorias_oponentes']}")
 
 
-# ==========================================
-# ECRÃ: SUBMENU DE PESQUISA E GERENCIAMENTO
-# ==========================================
-# class ManagementMenuScreen(Screen):
-#     def __init__(self, element: int = None):
-#         super().__init__()
-#         self.element = element
-#         self.model_map = {"Raça": RacaDB, "Classe": ClasseRPGDB, "Personagem": PersonagemDB, "Item": ItemDB}
-        
-#     def compose(self) -> ComposeResult:
-#         yield Header()
-#         with Horizontal():
-#             with Vertical(id="side-panel"):
-#                 yield Label("🔍 Pesquisa", id="title")
-#                 yield Select([("Raça", 0), ("Classe", 1), ("Personagem",2), ("Item", 3)], prompt="Tipo de entidade", id="sel-entity")
-#                 yield Input(placeholder="Filtrar por nome...", id="filter-input")
-#                 yield Button("Editar Selecionado", variant="primary", id="btn-edit-sel")
-#                 yield Button("Voltar ao Principal", variant="error", id="btn-back")
-            
-#             with Vertical(id="table-container"):
-#                 yield DataTable(id="search-table")
-#         yield Footer()
-
-        
-#     def mount_table(self):
-#         self.table.clear()
-#         table = self.query_one(DataTable)
-#         table.cursor_type = "row"
-#         if self.element == "Personagem":
-#             table.add_columns(*[c.name for c in PersonagemDB.__table__.columns])
-#         if self.element == "Raça":
-#             table.add_columns(*[c.name for c in RacaDB.__table__.columns])
-#         if self.element == "Classe":
-#             table.add_columns(*[c.name for c in ClasseRPGDB.__table__.columns])
-#         if self.element == "Item":
-#             table.add_columns(*[c.name for c in ItemDB.__table__.columns])
-#         else:
-#             table.add_columns(*[c.name for c in PersonagemDB.__table__.columns])
-#         return table
-
-#     def on_mount(self):
-#         self.table = self.mount_table()
-#         self.refresh_table()
-
-#     def refresh_table(self, filter_text: str = ""):
-#         self.table.clear()
-#         self.mount_table()
-#         db = SessionLocal()
-
-#         query = db.query(self.model_map.get(self.element, PersonagemDB)) if self.element else db.query(PersonagemDB)
-#         if filter_text:
-#             query = query.filter(self.model_map.get(self.element, PersonagemDB).nome.contains(filter_text))
-        
-#         for element in query.all():
-#             if element:
-#                 self.table.add_row(*[str(getattr(element, col.name)) for col in element.__table__.columns], key=str(element.id))
-#         db.close()
-
-#     def on_input_changed(self, event: Input.Changed):
-#         if event.input.id == "filter-input":
-#             self.refresh_table(event.value)
-
-#     def on_select_changed(self, event: Select.Changed):
-#         if event.select.id == "sel-entity":
-#             self.element = event.value
-#             self.refresh_table()
-
-#     def on_button_pressed(self, event: Button.Pressed):
-#         if event.button.id == "btn-back":
-#             self.app.pop_screen()
-        
-#         elif event.button.id == "btn-edit-sel":
-#             table = self.query_one(DataTable)
-#             if table.cursor_row is not None:
-#                 # 1. Recuperar dados da linha selecionada
-#                 row_data = table.get_row_at(table.cursor_row)
-#                 p_id = int(row_data[0]) # O ID está na primeira coluna
-                
-#                 # 2. Chamar o formulário reutilizável passando o ID
-#                 # O callback garante que a tabela seja atualizada ao voltar
-#                 self.app.push_screen(
-#                     CharacterFormScreen(char_id=p_id), 
-#                     callback=lambda _: self.refresh_table()
-#                 )
-                
-#     def on_data_table_row_selected(self, event: DataTable.RowSelected):
-#         """Permite editar ao pressionar Enter na linha."""
-#         p_id = int(event.row_key.value) # Se usou chaves na criação da linha
-#         self.app.push_screen(
-#             CharacterFormScreen(char_id=p_id), 
-#             callback=lambda _: self.refresh_table()
-#         )
-
 class ManagementMenuScreen(Screen):
-    # Dicionário de configuração para mapear Tabelas -> Modelos -> Formulários
-    # Nota: Assumindo que você criará RacaFormScreen, ClasseFormScreen etc.
     TABLE_MAP = {
         "personagens": {"model": PersonagemDB, "label": "Personagens"},
         "racas": {"model": RacaDB, "label": "Raças"},
