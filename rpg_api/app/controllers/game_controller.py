@@ -153,9 +153,13 @@ class GameController:
             raise ValueError(f"{elemento} não encontrado.")
         
         for chave, valor in dados.items():
-            setattr(elemento, chave, valor) 
+            try:
+                setattr(elemento, chave, valor) 
+            except Exception as e:
+                raise ValueError(f" ERRO: {e}")
+            
         self.db.commit()
-        return f"✅ '{elemento.nome}' atualizado com sucesso!"
+        return f"✅  atualizado com sucesso!"
     
 
     def listar_tudo(self, modelo):
