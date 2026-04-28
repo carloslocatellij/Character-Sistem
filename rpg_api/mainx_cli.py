@@ -133,7 +133,7 @@ class ClasseFormScreen(Screen):
         
     def on_button_pressed(self, event: Button.Pressed):
         if event.button.id == "btn-cancel":
-            self.app.pop_screen()
+            self.dismiss(False)
         elif event.button.id == "btn-add-caminho":
             caminho = self.query_one("#sel-caminho").value
             pontos = self.query_one("#inp-caminho").value
@@ -151,14 +151,14 @@ class ClasseFormScreen(Screen):
                     self.notify("Classe reforjada e guardada no banco de dados com sucesso!", title="Sucesso", severity="information")
                 except Exception as e:
                     self.notify(f"Erro ao criar/atualizar! {e}", severity="error")
+                self.dismiss(True)
             else:
                 try:
                     self.notify("Classe forjada e salva no banco de dados com sucesso!", title="Sucesso", severity="information")
                     salvar_novo(dados, "Classe")
                 except Exception as e:
                     self.notify(f"Erro ao criar/atualizar! {e}", severity="error")
-                self.app.pop_screen()
-
+                self.dismiss(False)
                 
 
 class RacaFormScreen(Screen):
@@ -208,7 +208,7 @@ class RacaFormScreen(Screen):
         
     def on_button_pressed(self, event: Button.Pressed):
         if event.button.id == "btn-cancel":
-            self.app.pop_screen()
+            self.dismiss(False)
         elif event.button.id == "btn-save":
             atributos = {
                 "forca": int(self.query_one("#inp-for").value),
@@ -225,16 +225,15 @@ class RacaFormScreen(Screen):
                     salvar_edicao(self.raca_id, dados, "Raça")
                 except Exception as e:
                     self.notify("Erro ao criar/atualizar! Verifique se preencheu todos os campos numéricos.", severity="error")
+                self.dismiss(True)
             else:
                 try:
                     salvar_novo(dados, "Raça")
                     self.notify("Raça criada e salva no banco de dados com sucesso!", title="Sucesso", severity="information")
                 except Exception as e:
                     self.notify("Erro ao criar/atualizar! Verifique se preencheu todos os campos numéricos.", severity="error")
-                self.app.pop_screen()
+                self.dismiss(False)
                 
-        
-
 
 class CharacterFormScreen(Screen):
     def __init__(self, char_id: int = None):
@@ -289,7 +288,7 @@ class CharacterFormScreen(Screen):
 
     def on_button_pressed(self, event: Button.Pressed):
         if event.button.id == "btn-cancel":
-            self.app.pop_screen()
+            self.dismiss(False)
         elif event.button.id == "btn-save":
             dados = dict(nome=self.query_one("#inp-nome").value,
                     raca_id=self.query_one("#sel-raca").value,
@@ -305,16 +304,16 @@ class CharacterFormScreen(Screen):
                     self.notify("Personagem editado com sucesso!", title="Sucesso", severity="information")
                 except Exception as e:
                     self.notify("Erro ao editar! Verifique se preencheu todos os campos numéricos.", severity="error")
+                self.dismiss(True)
             else:
                 try:
                     salvar_novo(dados, "Personagem")
                     self.notify("Personagem forjado com sucesso!", title="Sucesso", severity="information")
                 except Exception as e:
                     self.notify("Erro ao criar! Verifique se preencheu todos os campos numéricos.", severity="error")
-                self.app.pop_screen()
+                self.dismiss(False)
                 
                 
-
 class ItemFormScreen(Screen):
     def __init__(self, item_id: int = None):
         super().__init__()
@@ -377,7 +376,7 @@ class ItemFormScreen(Screen):
 
     def on_button_pressed(self, event: Button.Pressed):
         if event.button.id == "btn-cancel":
-            self.app.pop_screen()
+            self.dismiss(False)
         elif event.button.id == "btn-save":
             
             dados = dict(
@@ -393,9 +392,6 @@ class ItemFormScreen(Screen):
                 dados['defesa'] = 0
             else:
                 dados['defesa_extra'] = 0
-            
-            #self.notify(f"Dados:  {dados}")
-            
             with SessionLocal() as db:
                 if self.item_id:
                     try:
@@ -403,13 +399,14 @@ class ItemFormScreen(Screen):
                         self.notify("Item reforjado com sucesso!", title="Sucesso", severity="information")
                     except Exception as e:
                         self.notify(f"Erro ao editar! {e}", severity="error")
+                    self.dismiss(True)
                 else:
                     try:
                         salvar_novo(dados, "Item")
                         self.notify("Item forjado com sucesso!", title="Sucesso", severity="information")
                     except Exception as e:
                         self.notify(f"Erro ao criar! {e}", severity="error")
-                    self.app.pop_screen()
+                    self.dismiss(False)
                         
 
 # ==========================================
