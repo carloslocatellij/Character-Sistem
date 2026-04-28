@@ -35,7 +35,7 @@ def salvar_edicao(id_entity: int, dados: dict, modelo):
     modelo = map_entidades.get(modelo)
     with SessionLocal() as db:
         ctrl = GameController(db)
-        ctrl.atualizar_elemento(modelo, id_entity, dados)
+        ctrl.atualizar_elemento( int(id_entity), dados, modelo)
 
 def salvar_novo(dados: dict, modelo):
     modelo = map_entidades.get(modelo)
@@ -379,25 +379,37 @@ class ItemFormScreen(Screen):
         if event.button.id == "btn-cancel":
             self.app.pop_screen()
         elif event.button.id == "btn-save":
-            try:
-                dados = dict(
-                    nome=self.query_one("#inp-nome").value,
-                    categoria=self.query_one("#sel-categoria").value,
-                    emoji=self.query_one("#inp-emoji").value,
-                    dano=int(self.query_one("#inp-dano").value) if not self.query_one("#inp-dano").disabled else None,
-                    tipo_ataque=self.query_one("#sel-tipo-ataque").value if not self.query_one("#sel-tipo-ataque").disabled else None,
-                    defesa=int(self.query_one("#inp-defesa").value) if not self.query_one("#inp-defesa").disabled else None
-                            )
+            dano = None
+            defesa = None  
+            if isinstance(self.query_one("#inp-dano").value, str) and self.query_one("#inp-dano").value.isdigit():
+                dano = int(self.query_one("#inp-dano").value)
+            if isinstance(self.query_one("#inp-defesa").value, str) and self.query_one("#inp-defesa").value.isdigit():
+                defesa = int(self.query_one("#inp-defesa").value)
+            dados = dict(
+                nome=self.query_one("#inp-nome").value,
+                categoria=self.query_one("#sel-categoria").value,
+                emoji=self.query_one("#inp-emoji").value,
+                dano=dano,
+                tipo_ataque=self.query_one("#sel-tipo-ataque"),
+                defesa=defesa if self.query_one("#sel-categoria").value != "Escudo" else None,
+                defesa_extra=defesa if self.query_one("#sel-categoria").value == "Escudo" else None
+                        )
+            with SessionLocal() as db:
                 if self.item_id:
-                    salvar_edicao(item_id, dados, "Item")
-                    self.notify("Item forjado com sucesso!", title="Sucesso", severity="information")
-                    self.app.pop_screen()
+                    item = db.query(ItemDB).get(self.item_id)
+                    try:
+                        salvar_edicao(int(self.item_id), dados, "Item")
+                        self.notify("Item reforjado com sucesso!", title="Sucesso", severity="information")
+                    except Exception as e:
+                        self.notify(f"Erro ao editar! {e}", severity="error")
                 else:
-                    salvar_novo(dados, "Item")
-                    
-            except Exception as e:
-                self.notify(f"Erro ao criar! {e}", severity="error")
-
+                    try:
+                        salvar_novo(dados, "Item")
+                        self.notify("Item forjado com sucesso!", title="Sucesso", severity="information")
+                        self.app.pop_screen()
+                    except Exception as e:
+                        self.notify(f"Erro ao criar! {e}", severity="error")
+                        
 
 # ==========================================
 # ECRÃ 2: EQUIPAR PERSONAGEM
@@ -555,24 +567,26 @@ class ManagementMenuScreen(Screen):
         yield Footer()
 
     def on_mount(self):
-        self.refresh_table_data()
+        filter = self.query_one("#filter-input").value
+        self.refresh_table_data(filter)
 
     def on_select_changed(self, event: Select.Changed):
+        filter = self.query_one("#filter-input").value
         """Disparado quando o usuário muda a tabela no seletor."""
         if event.select.id == "table-selector":
-            self.refresh_table_data()
+            self.refresh_table_data(filter)
 
     def refresh_table_data(self, filter_text: str = ""):
-        table_id = self.query_one("#table-selector").value
-        model = self.TABLE_MAP[table_id]["model"]
-        data_table = self.query_one("#universal-table")
-        
-        # Limpa TUDO, inclusive os cabeçalhos das colunas
-        data_table.clear(columns=True)
-        data_table.cursor_type = "row"
-
         with SessionLocal() as db:
-        # 1. Definir Colunas Dinamicamente baseadas no Modelo
+            table_id = self.query_one("#table-selector").value
+            model = self.TABLE_MAP[table_id]["model"]
+            data_table = self.query_one("#universal-table")
+            
+            # Limpa TUDO, inclusive os cabeçalhos das colunas
+            data_table.clear(columns=True)
+            data_table.cursor_type = "row"
+
+            # 1. Definir Colunas Dinamicamente baseadas no Modelo
             if model == PersonagemDB:
                 data_table.add_columns("ID", "Nome", "Nível", "Raça")
                 query = db.query(PersonagemDB)
