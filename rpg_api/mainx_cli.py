@@ -571,34 +571,33 @@ class ManagementMenuScreen(Screen):
         data_table.clear(columns=True)
         data_table.cursor_type = "row"
 
-        db = SessionLocal()
+        with SessionLocal() as db:
         # 1. Definir Colunas Dinamicamente baseadas no Modelo
-        if model == PersonagemDB:
-            data_table.add_columns("ID", "Nome", "Nível", "Raça")
-            query = db.query(PersonagemDB)
-            if filter_text: query = query.filter(PersonagemDB.nome.contains(filter_text))
-            for p in query.all():
-                data_table.add_row(str(p.id), p.nome, str(p.nivel), p.raca.nome, key=str(p.id))
-        
-        elif model == RacaDB:
-            data_table.add_columns("ID", "Nome", "Bónus")
-            if filter_text: query = query.filter(RacaDB.nome.contains(filter_text))
-            for r in db.query(RacaDB).all():
-                data_table.add_row(str(r.id), r.nome, str(r.bonus_atributos), key=str(r.id))
-        
-        elif model == ItemDB:
-            data_table.add_columns("ID", "Nome", "Tipo", "Dano/Def")
-            for i in db.query(ItemDB).all():
-                val = i.dano if i.categoria == "arma" else i.defesa
-                data_table.add_row(str(i.id), i.nome, i.categoria, str(val), key=str(i.id))
-                
-        elif model == ClasseRPGDB:
-            data_table.add_columns("ID", "Nome", "Bónus de Caminhos")
-            for c in db.query(ClasseRPGDB).all():
-                data_table.add_row(str(c.id), c.nome, str(c.bonus_caminhos), key=str(c.id))
-        db.close()
+            if model == PersonagemDB:
+                data_table.add_columns("ID", "Nome", "Nível", "Raça")
+                query = db.query(PersonagemDB)
+                if filter_text: query = query.filter(PersonagemDB.nome.contains(filter_text))
+                for p in query.all():
+                    data_table.add_row(str(p.id), p.nome, str(p.nivel), p.raca.nome, key=str(p.id))
+            
+            elif model == RacaDB:
+                data_table.add_columns("ID", "Nome", "Bónus")
+                if filter_text: query = query.filter(RacaDB.nome.contains(filter_text))
+                for r in db.query(RacaDB).all():
+                    data_table.add_row(str(r.id), r.nome, str(r.bonus_atributos), key=str(r.id))
+            
+            elif model == ItemDB:
+                data_table.add_columns("ID", "Nome", "Tipo", "Dano/Def")
+                for i in db.query(ItemDB).all():
+                    val = i.dano if i.categoria == "arma" else i.defesa
+                    data_table.add_row(str(i.id), i.nome, i.categoria, str(val), key=str(i.id))
+                    
+            elif model == ClasseRPGDB:
+                data_table.add_columns("ID", "Nome", "Bónus de Caminhos")
+                for c in db.query(ClasseRPGDB).all():
+                    data_table.add_row(str(c.id), c.nome, str(c.bonus_caminhos), key=str(c.id))
 
-    def on_data_table_row_selected(self, event: DataTable.RowSelected):
+    async def on_data_table_row_selected(self, event: DataTable.RowSelected):
         """Redireciona para o formulário correto baseado na tabela atual."""
         table_id = self.query_one("#table-selector").value
         if event.row_key:
@@ -610,10 +609,10 @@ class ManagementMenuScreen(Screen):
         
         # Lógica de roteamento para o formulário reutilizável correto
         if table_id == "personagens":
-            self.app.push_screen(CharacterFormScreen(char_id=item_id), callback=lambda _: self.refresh_table_data())
+            await self.app.push_screen(CharacterFormScreen(char_id=item_id), callback= lambda _: self.refresh_table_data())
         # Adicione elif para os outros formulários aqui...
         elif table_id == "racas":
-            self.app.push_screen(RacaFormScreen(raca_id=item_id), callback=lambda _: self.refresh_table_data())
+            self.app.push_screen(RacaFormScreen(raca_id=item_id), callback= self.refresh_table_data())
         elif table_id == "classes":
             self.app.push_screen(ClasseFormScreen(classe_id=item_id), callback=lambda _: self.refresh_table_data())
         elif table_id == "itens":
@@ -659,7 +658,7 @@ class MainScreen(Screen):
 class RPGApp(App):
     CSS_PATH = "app/views/styles.css"
     BINDINGS = [("d", "toggle_dark", "Mudar Tema Escuro/Claro"), ("q", "quit", "Sair"), ("m", "start_stop_music", "Música On/Off")]
-    music.play()
+    #music.play()
     
     def on_mount(self):
         self.push_screen(MainScreen())
