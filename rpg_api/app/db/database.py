@@ -12,11 +12,13 @@ test_version_str = os.getenv("TEST_VERSION", "True").lower()
 IS_TEST_ENV = test_version_str in ("true", "1", "t", "yes")
 
 # 3. Define a URL do banco com base no ambiente
+basedir = os.path.abspath(os.path.dirname(__file__))
+
 if IS_TEST_ENV:
-    SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL_TEST", "sqlite:///./rpg_teste.db")
+    SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL_TEST", "sqlite:///" + os.path.join(basedir, "rpg_teste.db"))
     print("🔧 [DB] MODO DE TESTE ATIVADO: Usando banco de dados de teste.")
 else:
-    SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL_PROD", "sqlite:///./rpg_producao.db")
+    SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL_PROD", "sqlite:///" + os.path.join(basedir, "rpg_producao.db"))
     print("🚀 [DB] MODO DE PRODUÇÃO ATIVADO: Usando banco oficial.")
 
 # 4. Cria o Motor (Engine) do banco de dados

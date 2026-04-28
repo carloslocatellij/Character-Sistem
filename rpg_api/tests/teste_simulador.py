@@ -5,7 +5,7 @@ from app.core.simulador import SimuladorCombate
 def criar_lutadores():
     """Função utilitária para gerar lutadores para o teste."""
     raca = Raca("Humano")
-    classe = ClasseRPG("Guerreiro")
+    classe = ClasseRPG("warrior")
     
     # Herói muito forte
     heroi = Personagem("Aragorn", 1, raca, classe, 5, 5, 5, 2, 2)

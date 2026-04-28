@@ -5,17 +5,17 @@ from app.models.equipamentos_db import ItemDB # NOVO IMPORT NECESSÁRIO
 
 def setup_module(module):
     """Cria as tabelas no banco de teste antes de rodar."""
-    Base.metadata.create_all(bind=engine)
+    #Base.metadata.create_all(bind=engine)
 
 def teardown_module(module):
     """Limpa o banco de teste depois de rodar."""
-    Base.metadata.drop_all(bind=engine)
+    #Base.metadata.drop_all(bind=engine)
 
 def test_criar_personagem_com_relacionamentos():
     db = SessionLocal()
     
     # 1. Criamos e salvamos uma Raça
-    raca_orc = RacaDB(nome="Orc", bonus_atributos={"forca": 2, "agilidade": -1})
+    raca_orc = RacaDB(nome="orco", bonus_atributos={"forca": 2, "agilidade": -1})
     db.add(raca_orc)
     
     # 2. Criamos e salvamos uma Classe
@@ -54,7 +54,7 @@ def test_criar_personagem_com_relacionamentos():
     
     # Validamos a MÁGICA DOS RELACIONAMENTOS:
     # O SQLAlchemy buscou automaticamente a raça e a classe vinculadas!
-    assert personagem_salvo.raca.nome == "Orc"
+    assert personagem_salvo.raca.nome == "orco"
     assert personagem_salvo.raca.bonus_atributos["forca"] == 2
     
     assert personagem_salvo.classe.nome == "Bárbaro"
@@ -66,8 +66,8 @@ def test_personagem_com_equipamentos():
     db = SessionLocal()
     
     # 1. Criamos a Base (Raça e Classe)
-    raca = RacaDB(nome="Humano")
-    classe = ClasseRPGDB(nome="Guerreiro")
+    raca = RacaDB(nome="human")
+    classe = ClasseRPGDB(nome="warrior")
     db.add_all([raca, classe])
     db.commit()
     

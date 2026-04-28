@@ -14,7 +14,7 @@ class SimuladorCombate:
         self.equipa_aliada_base = equipa_aliada
         self.equipa_oponente_base = equipa_oponente
 
-    def _rolar_iniciativa(self, combatentes: List[Personagem]) -> List[Personagem]:
+    def _rolar_iniciativa(self, combatentes: List[Personagem]) -> Tuple[List[Personagem], List[Dict]]:
         """Calcula a ordem de combate baseada em 1d6 + Agilidade."""
         iniciativas = []
         for p in combatentes:
@@ -23,12 +23,15 @@ class SimuladorCombate:
                 "personagem": p,
                 "resultado": rolagem,
                 "agilidade": p.atributos_totais["agilidade"],
+                "rolagem": rolagem - p.atributos_totais["agilidade"],  # a rolagem pura
                 "desempate": random.random() # Evita empates absolutos
             })
             
         # Ordena: Maior Resultado -> Maior Agilidade -> Desempate aleatório
         iniciativas.sort(key=lambda x: (x["resultado"], x["agilidade"], x["desempate"]), reverse=True)
-        return [item["personagem"] for item in iniciativas]
+        ordem = [item["personagem"] for item in iniciativas]
+        detalhes_iniciativa = [{"nome": item["personagem"].nome, "rolagem": item["rolagem"], "agilidade": item["agilidade"], "total": item["resultado"]} for item in iniciativas]
+        return ordem, detalhes_iniciativa
 
     def _obter_vivos(self, equipa: List[Personagem]) -> List[Personagem]:
         """Filtra apenas os combatentes que ainda têm Pontos de Vida."""
@@ -43,15 +46,24 @@ class SimuladorCombate:
         aliados = deepcopy(self.equipa_aliada_base)
         oponentes = deepcopy(self.equipa_oponente_base)
         
-        ordem_turnos = self._rolar_iniciativa(aliados + oponentes)
+        ordem_turnos, detalhes_iniciativa = self._rolar_iniciativa(aliados + oponentes)
         
         # Dicionário para guardar estatísticas desta partida
         estatisticas = {p.nome: {"dano_causado": 0, "abates": 0, "tentativas": 0, "acertos": 0} for p in ordem_turnos}
         vencedor = None
+        rodada = 0
         
-        if not silencioso: print("\n⚔️ INÍCIO DO COMBATE! ⚔️")
+        if not silencioso:
+            print("========================================\n🎲 ROLAGEM DE INICIATIVA 🎲\n========================================")
+            for det in detalhes_iniciativa:
+                print(f"⏩ {det['nome']} rolou {det['rolagem']} de iniciativa.")
+            print()
         
         while True:
+            rodada += 1
+            if not silencioso:
+                print(f"=============== RODADA {rodada} ===============")
+            
             for atacante in ordem_turnos:
                 if atacante.pv_atual <= 0:
                     continue # Mortos não atacam
@@ -82,11 +94,19 @@ class SimuladorCombate:
                     estatisticas[atacante.nome]["dano_causado"] += resultado["dano_causado"]
                     if resultado.get("alvo_morreu", False):
                         estatisticas[atacante.nome]["abates"] += 1
-                        if not silencioso: print(f"💀 {atacante.nome} eliminou {alvo.nome}!")
+                        
                 
                 if not silencioso:
-                    msg_acerto = "Acertou" if resultado["acertou"] else "Errou"
-                    print(f"[{msg_acerto}] {atacante.nome} ataca {alvo.nome} (Dano: {resultado['dano_causado']})")
+                    print(f"⚔️ {atacante.nome} ataca {alvo.nome} com {resultado['arma_nome']}!")
+                    print(f"   Ataque: {resultado['ataque_total']} vs Defesa: {resultado['defesa_alvo']}")
+                    if resultado["acertou"]:
+                        print("   💫 Acertou o golpe!")
+                        print(f"   🛡️ {alvo.nome} tentou absorver! Bloqueou {resultado['defesa_total']} ({resultado['absorcao_dados']} Resistência, {resultado['bonus_armadura']} Armadura).")
+                        print(f"   💥 {alvo.nome} sofreu {resultado['dano_causado']} de dano! PV restante: {resultado['pv_restante']:.1f}")
+                        if resultado.get("alvo_morreu", False) and not silencioso: print(f"💀 {atacante.nome} eliminou {alvo.nome}!")
+                    else:
+                        print("   🔴 O ataque falhou ou foi esquivado!")
+                    print("----------------------------------------")
                 
                 # Processar efeitos no fim do turno
                 atacante.finalizar_turno()
@@ -94,7 +114,12 @@ class SimuladorCombate:
             if vencedor:
                 break
                 
-        if not silencioso: print(f"\n🏆 FIM DE COMBATE! Vencedor: {vencedor}\n")
+        if not silencioso:
+            print(f"\n🏆 FIM DE COMBATE! Vencedor: {vencedor}\n")
+            print("📊 ESTATÍSTICAS DA BATALHA:")
+            if len(estatisticas) > 0:
+                for nome, stats in estatisticas.items():
+                    print(f" - {nome}: {stats['dano_causado']} Dano, {stats['abates']} Abates")
             
         return {"vencedor": vencedor, "estatisticas": estatisticas, "sobreviventes": self._obter_vivos(aliados + oponentes)}
 
@@ -119,15 +144,16 @@ class SimuladorCombate:
                 vitorias_oponentes += 1
                 
             # Somar resultados parciais ao total
-            for nome, stats in relatorio["estatisticas"].items():
-                stats_totais[nome]["dano_total"] += stats["dano_causado"]
-                stats_totais[nome]["abates"] += stats["abates"]
-                stats_totais[nome]["tentativas"] += stats["tentativas"]
-                stats_totais[nome]["acertos"] += stats["acertos"]
-                
-            # Contar quem ficou de pé
-            for sobrevivente in relatorio["sobreviventes"]:
-                stats_totais[sobrevivente.nome]["sobreviveu"] += 1
+            if len(relatorio.get("estatisticas")) > 0:
+                for nome, stats in relatorio["estatisticas"].items():
+                    stats_totais[nome]["dano_total"] += stats["dano_causado"]
+                    stats_totais[nome]["abates"] += stats["abates"]
+                    stats_totais[nome]["tentativas"] += stats["tentativas"]
+                    stats_totais[nome]["acertos"] += stats["acertos"]
+                    
+                # Contar quem ficou de pé
+                for sobrevivente in relatorio["sobreviventes"]:
+                    stats_totais[sobrevivente.nome]["sobreviveu"] += 1
                 
         return {
             "num_simulacoes": num_simulacoes,

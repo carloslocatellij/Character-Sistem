@@ -3,6 +3,8 @@ from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, field
 from app.core.equipamentos import Arma, Armadura, Escudo, Item
 from app.core.habilidades_magias import Magia, Habilidade, Efeito
+from app.core.emojis import dict_emoji_racas
+from math import ceil
 
 # ... (Mantenha as classes Raca e ClasseRPG exatamente como fizemos antes) ...
 
@@ -11,13 +13,16 @@ class Raca:
     nome: str
     bonus_atributos: Dict[str, int] = field(default_factory=dict)
     emoji: str = "👤"
+    
+    def __str__(self) -> str:
+      return f"{dict_emoji_racas.get(self.nome.lower(), self.emoji)}"
 
 @dataclass
 class ClasseRPG:
     nome: str
     bonus_caminhos: Dict[str, int] = field(default_factory=dict) # Agora é um dicionário! Ex: {"fogo": 1}
     habilidades: List[str] = field(default_factory=list)
-    bonus_atributos: Dict[str, int] = field(default_factory=dict)
+    #bonus_atributos: Dict[str, int] = field(default_factory=dict)
 
 # ==========================================
 # DOMÍNIO: PERSONAGEM PRINCIPAL
@@ -57,10 +62,27 @@ class Personagem:
             "luz": 0, "trevas": 0, "fogo": 0, "água": 0, "ar": 0, "terra": 0
         }
         self.caminhos_magia = self.caminhos_magia_base.copy()
-        
         self.magias_conhecidas: List[Magia] = []
         
         self.atualizar_atributos_totais()
+
+    def __str__(self):
+        str_representante = f"""
+        {self.nome} {self.raca} | 
+        |Nv: {self.nivel} |{self.classe.nome}
+        |💚: {self.pv_atual}/{self.pv_max} |🔮: {self.pm_atual}/{self.pm_max}
+        |{self.mao_direita or "👊"}: {self.mod_atq_corpo} |🏹: {self.mod_atq_distancia} 
+        |{self.armadura or "🦵"}: {self.armadura.defesa if self.armadura else 0} |{self.mao_esquerda or "🤜"}: 
+        {self.mao_esquerda.defesa_extra if isinstance(self.mao_esquerda, Escudo) else 0}
+        |🪄: {self.classe.habilidades} | {self.efeitos_ativos}
+        """
+
+        # Adicionar informações de efeitos ativos
+        if self.efeitos_ativos:
+            str_efeitos = ", ".join([f"{ef.nome}{ef} ({dur} turnos)" for ef, dur in self.efeitos_ativos])
+            str_representante += f" |✨ Efeitos Ativos: {str_efeitos}"
+
+        return str_representante
 
     # ... (Mantenha os métodos atualizar_atributos_totais, _calcular_status_derivados e reset_status) ...
     def atualizar_atributos_totais(self):
@@ -71,13 +93,14 @@ class Personagem:
         # Bônus de Atributos
         for attr, valor in self.raca.bonus_atributos.items():
             if attr in self.atributos_totais: self.atributos_totais[attr] += valor
-        for attr, valor in self.classe.bonus_atributos.items():
-            if attr in self.atributos_totais: self.atributos_totais[attr] += valor
+        # for attr, valor in self.classe.bonus_atributos.items():
+        #     if attr in self.atributos_totais: self.atributos_totais[attr] += valor
             
         # NOVO: Bônus de Caminhos de Magia da Classe
-        for caminho, pontos in self.classe.bonus_caminhos.items():
-            if caminho in self.caminhos_magia:
-                self.caminhos_magia[caminho] += pontos
+        if self.classe.bonus_caminhos:
+            for caminho, pontos in self.classe.bonus_caminhos.items():
+                if caminho in self.caminhos_magia:
+                    self.caminhos_magia[caminho] += pontos
                 
         self._calcular_status_derivados()
 
@@ -88,10 +111,17 @@ class Personagem:
         forca = self.atributos_totais["forca"]
         agi = self.atributos_totais["agilidade"]
 
-        self.pv_max = int((((self.nivel + 4) / 4) * (res + 1.5)) ** 2)
-        self.pm_max = int((((self.nivel + 5) / 5) * ((perc + exub + 0.5) / 1.5)) ** 2)
-        self.mod_atq_corpo = int((((self.nivel + 5) / 5) * (forca + (agi / 2))) ** 2)
-        self.mod_atq_distancia = int((((self.nivel + 5) / 5) * (agi + (forca / 2))) ** 2)
+        self.pv_max =  int(7+ (ceil(self.nivel * ceil((res+2) / 2) + ceil((self.nivel + res) *3)))) #int((((self.nivel + 4) / 4) * (res + 1.5)) ** 2)
+        self.pm_max =  int((ceil((self.nivel + 5) / 4) * ceil((perc + exub + 1) / 2)) * 3) #int((((self.nivel + 5) / 5) * ((perc + exub + 0.5) / 1.5)) ** 2)
+        self.mod_atq_corpo = int(self.nivel * ceil(forca + (agi / 2))) #int((((self.nivel + 5) / 5) * (forca + (agi / 2))) ** 2)
+        self.mod_atq_distancia = int(self.nivel * ceil(agi + (forca / 2))) #int((((self.nivel + 5) / 5) * (agi + (forca / 2))) ** 2)
+        
+        # self.pv_max =  int((((self.nivel + 4) / 4) * (res + 1.5)) ** 2)
+        # self.pm_max =  int((((self.nivel + 5) / 5) * ((perc + exub + 0.5) / 1.5)) ** 2)
+        # self.mod_atq_corpo = int((((self.nivel + 5) / 5) * (forca + (agi / 2))) ** 2)
+        # self.mod_atq_distancia = int((((self.nivel + 5) / 5) * (agi + (forca / 2))) ** 2)
+        
+        
         self.reset_status()
 
     def reset_status(self):
@@ -110,14 +140,14 @@ class Personagem:
     def calcular_defesa_esquiva(self) -> int:
         """1d6 + Agilidade + Defesa do Escudo (se houver)."""
         agi = self.atributos_totais["agilidade"]
-        rolagem = self._rolar_d6(1)
+        rolagem = self._rolar_d6(2 + int(agi // 2)) # Mais agilidade dá direito a rolar mais dados
         bonus_escudo = self.mao_esquerda.defesa_extra if isinstance(self.mao_esquerda, Escudo) else 0
-        return rolagem + agi + bonus_escudo
+        return rolagem + (agi * (bonus_escudo+1))
 
     def receber_dano(self, dano_bruto: int) -> Dict[str, Any]:
         """Processa a absorção de dano (1d6 por Res + Armadura)."""
         res = self.atributos_totais["resistencia"]
-        absorcao_dados = self._rolar_d6(res)
+        absorcao_dados = self._rolar_d6((res+1) // 2) # Cada 2 pontos de Resistencia dão direito a 1d6 de absorção
         bonus_armadura = self.armadura.defesa if self.armadura else 0
         
         defesa_total = absorcao_dados + bonus_armadura
@@ -129,6 +159,8 @@ class Personagem:
         return {
             "dano_recebido": dano_real,
             "dano_bloqueado": defesa_total,
+            "absorcao_dados": absorcao_dados,
+            "bonus_armadura": bonus_armadura,
             "pv_restante": self.pv_atual,
             "morreu": self.pv_atual <= 0
         }
@@ -140,20 +172,24 @@ class Personagem:
 
     def atacar(self, alvo: 'Personagem') -> Dict[str, Any]:
         """Realiza a mecânica completa de ataque contra um alvo."""
+        forca = self.atributos_totais["forca"]
         # 1. Identifica a arma ou usa ataque desarmado
         arma = self.mao_direita
+        arma_nome = arma.nome if isinstance(arma, Arma) else "Ataque Desarmado"
         tipo_atq = arma.tipo if isinstance(arma, Arma) else "corpo"
         dano_arma = arma.dano if isinstance(arma, Arma) else 0
         
         # 2. Modificadores e Rolagem de Acerto (3d6)
         modificador = self.mod_atq_corpo if tipo_atq == "corpo" else self.mod_atq_distancia
-        ataque_total = self._rolar_d6(3) + modificador
+        rolagem_ataque = self._rolar_d6(3 + int(forca // 3))
+        ataque_total = rolagem_ataque + modificador
         defesa_alvo = alvo.calcular_defesa_esquiva()
         
         acertou = ataque_total > defesa_alvo
         resultado = {
             "atacante": self.nome, "alvo": alvo.nome,
-            "acertou": acertou, "ataque_total": ataque_total,
+            "arma_nome": arma_nome,
+            "acertou": acertou, "ataque_total": ataque_total, "rolagem_ataque": rolagem_ataque,
             "defesa_alvo": defesa_alvo, "dano_causado": 0
         }
 
@@ -165,27 +201,15 @@ class Personagem:
             # Delega a responsabilidade de sofrer o dano para o alvo
             evento_dano = alvo.receber_dano(dano_bruto)
             resultado["dano_causado"] = evento_dano["dano_recebido"]
+            resultado["dano_bruto"] = dano_bruto
+            resultado["absorcao_dados"] = evento_dano["absorcao_dados"]
+            resultado["bonus_armadura"] = evento_dano["bonus_armadura"]
+            resultado["defesa_total"] = evento_dano["dano_bloqueado"]
+            resultado["pv_restante"] = evento_dano["pv_restante"]
             resultado["alvo_morreu"] = evento_dano["morreu"]
 
         return resultado
-
-    # def lancar_magia(self, nome_magia: str, custo_pm: int, alvo: 'Personagem') -> Dict[str, Any]:
-    #     """Mecânica base para gastar PM e gerar um efeito no alvo."""
-    #     if self.pm_atual < custo_pm:
-    #         return {"sucesso": False, "motivo": "Mana insuficiente"}
-            
-    #     self.pm_atual -= custo_pm
-        
-    #     # O dano/efeito mágico varia, mas aqui estruturamos o gasto e o evento base
-    #     return {
-    #         "sucesso": True, "magia": nome_magia, "pm_restante": self.pm_atual,
-    #         "alvo": alvo.nome
-    #     }
-        
-    # def finalizar_turno(self):
-    #     """Processa efeitos ativos no fim da rodada."""
-    #     # Aqui, futuramente, iteramos sobre self.efeitos_ativos (ex: dano de veneno)
-    #     pass
+    
     
     # ==========================================
     # GERENCIAMENTO DE EFEITOS

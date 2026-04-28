@@ -14,4 +14,5 @@ class ItemDB(Base):
     # Atributos específicos (Podem ser nulos, pois uma poção não tem dano)
     dano = Column(Integer, nullable=True)         # Para Armas
     tipo_ataque = Column(String, nullable=True)   # "corpo" ou "distancia"
-    defesa = Column(Integer, nullable=True)       # Para Armaduras e Escudos
+    defesa = Column(Integer, nullable=True)       # Para Armaduras
+    defesa_extra = Column(Integer, nullable=True) # Para Escudos

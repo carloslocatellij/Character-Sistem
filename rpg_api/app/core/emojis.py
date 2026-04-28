@@ -1,0 +1,67 @@
+
+dict_item_emoji = {
+    "armas": {"espada": "🗡️","espada longa": "🗡️","espada curta": "🗡️", "machado": "🪓", "arco": "🏹",
+              "arco longo": "🏹", "arco curto": "🏹", "picareta": "⛏️",
+              },
+    "armaduras": {"armadura": "🦺", "armadura de placas": "🧥", "cota de malha": "🥼", "couro batido": "🦺",
+                  "capa": "🧥", "luvas": "🧤", "elmo": "🪖", "botas": "👢", "cap": "🧢",},
+    "escudos": {"escudo": "🛡️",  "escudo de ferro": "🛡️", "escudo de madeira": "🛡️",},
+    "outros": {
+            "bau": "💼", 
+            "bau de ferro": "💼",
+            "bau de madeira": "💼",
+            "bau de ouro": "💼",
+            "poção": "🧪",
+            "poção de vida": "🧪",
+            "poção de mana": "🧪",
+            "chave" : "🗝️",
+            "chave de ouro": "🗝️",
+            "livro" : "📖",
+            "livro de feitiços": "📖",
+            "pergaminho": "📜",
+            "amuleto": "🪬",
+            "tocha": "🔥", 
+            "moeda": "🪙",
+            "saco de moedas": "💰",
+            "corda": "🪢",  
+            "anel": "💍",
+            "colar": "📿",
+            "bracelete": "📿",
+            "broche": "📿",
+            "mochila": "👜",
+    }
+        }
+
+dict_emoji_efeito = {
+        "fogo": "🔥", "agua": "🌊", "terra": "🪨", "ar": "🌬️",
+        "luz": "🌅", "trevas": "🪯", "eter": "🌌", "sangue": "🩸",
+        "raio": "⚡", "planta": "🌱", "metal": "🔩", 
+        }
+
+dict_emoji_racas = {
+        "humano": "👨‍🦱", 
+        "orc": "🧌",
+        "goblin": "👾",
+        "elfo": "🧝",
+        "anão": "🧔🏽",
+        "troll": "🧟",
+        "zumbi": "🧟‍♂️",
+        "vampiro": "🧛",
+        "golem": "🤖",
+        "ogro": "👹",
+        "gnomo": "👺",
+        "draconio": "🐉",
+        "anjo": "👼",
+        "demonio": "😈",
+        "fada": "🧚",
+        "sereia": "🧜‍♀️",
+        "centauro": "🐎",
+        "minotauro": "🐂",
+        "esqueleto": "💀",
+        "mumia": "🧟‍♀️",
+        "licantropo": "🐺",
+        "elemental": "🌪️",
+        "homenlagarto": "🦖",
+        "octopus": "🐙", 
+      }
+

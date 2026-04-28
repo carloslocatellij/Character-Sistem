@@ -2,6 +2,7 @@
 from dataclasses import dataclass, field # Add field here
 from typing import Dict
 from typing import Optional
+from app.core.emojis import dict_emoji_efeito
 
 # ==========================================
 # DOMÍNIO: EFEITOS, HABILIDADES E MAGIAS
@@ -28,6 +29,9 @@ class Efeito:
         self.duracao_turnos -= 1
         evento["turnos_restantes"] = self.duracao_turnos
         return evento
+    
+    def __str__(self) -> str:
+      return f"{dict_emoji_efeito.get(self.nome.lower(), self.emoji)}"
 
 @dataclass
 class Habilidade:

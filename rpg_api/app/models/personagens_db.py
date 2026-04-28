@@ -8,7 +8,6 @@ class RacaDB(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     nome = Column(String, unique=True, index=True, nullable=False)
-    # A coluna JSON é perfeita para guardar dicionários como {"forca": 2, "agilidade": -1}
     bonus_atributos = Column(JSON, default=dict)
     emoji = Column(String, default="👤")
 
@@ -24,10 +23,8 @@ class ClasseRPGDB(Base):
     nome = Column(String, unique=True, index=True, nullable=False)
     
     # Armazenando dicionários e listas no banco
-    bonus_caminhos = Column(JSON, default=dict) # Ex: {"fogo": 1}
+    bonus_caminhos = Column(JSON, default=dict)
     habilidades = Column(JSON, default=list)    # Ex: ["Ataque Furtivo"]
-    bonus_atributos = Column(JSON, default=dict)
-
     personagens = relationship("PersonagemDB", back_populates="classe")
 
 

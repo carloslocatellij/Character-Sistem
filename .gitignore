@@ -54,6 +54,7 @@ nosetests.xml
 coverage.xml
 *.cover
 .hypothesis/
+.pytest*/
 
 # ==========================================
 # VSCode / IDEs
@@ -97,3 +98,4 @@ Thumbs.db
 .gemini/
 .copilot/
 .openai/
+.github/
