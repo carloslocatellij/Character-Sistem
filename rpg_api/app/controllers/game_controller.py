@@ -123,6 +123,8 @@ class GameController:
         
     
     def criar_item(db, nome, categoria, emoji, dano=None, tipo_ataque=None, defesa=None,peso=1):
+        if dano: dano = int(dano)
+        if defesa: defesa = int(defesa)
         
         novo_item = ItemDB(nome=nome,
                            categoria=categoria,
@@ -145,7 +147,7 @@ class GameController:
             return self.db.query(PersonagemDB).get(p_id)
         
     
-    def atualizar_elemento(self, model,  el_id:int, dados:dict):
+    def atualizar_elemento(self,  el_id:int, dados:dict, model):
         elemento = self.db.query(model).get(el_id)
         if not elemento:
             raise ValueError(f"{elemento} não encontrado.")
