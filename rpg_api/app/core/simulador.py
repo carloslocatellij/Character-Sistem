@@ -2,6 +2,9 @@ import random
 from copy import deepcopy
 from typing import List, Dict, Any, Tuple
 from app.core.personagens import Personagem
+from rich.console import Console
+console = Console()
+print = console.print
 
 # ==========================================
 # DOMÍNIO: SIMULADOR DE COMBATE
@@ -18,19 +21,21 @@ class SimuladorCombate:
         """Calcula a ordem de combate baseada em 1d6 + Agilidade."""
         iniciativas = []
         for p in combatentes:
-            rolagem = p._rolar_d6(1) + p.atributos_totais["agilidade"]
+            rolagem = p._rolar_d6(3) 
             iniciativas.append({
                 "personagem": p,
-                "resultado": rolagem,
+                "resultado": rolagem + p.atributos_totais["agilidade"],
                 "agilidade": p.atributos_totais["agilidade"],
-                "rolagem": rolagem - p.atributos_totais["agilidade"],  # a rolagem pura
+                "rolagem": rolagem,  # a rolagem pura
                 "desempate": random.random() # Evita empates absolutos
             })
             
         # Ordena: Maior Resultado -> Maior Agilidade -> Desempate aleatório
         iniciativas.sort(key=lambda x: (x["resultado"], x["agilidade"], x["desempate"]), reverse=True)
         ordem = [item["personagem"] for item in iniciativas]
-        detalhes_iniciativa = [{"nome": item["personagem"].nome, "rolagem": item["rolagem"], "agilidade": item["agilidade"], "total": item["resultado"]} for item in iniciativas]
+        detalhes_iniciativa = [{"nome": item["personagem"].nome, "rolagem": item["rolagem"],
+                                "agilidade": item["agilidade"], "total": item["resultado"]
+                                } for item in iniciativas]
         return ordem, detalhes_iniciativa
 
     def _obter_vivos(self, equipa: List[Personagem]) -> List[Personagem]:
@@ -49,7 +54,8 @@ class SimuladorCombate:
         ordem_turnos, detalhes_iniciativa = self._rolar_iniciativa(aliados + oponentes)
         
         # Dicionário para guardar estatísticas desta partida
-        estatisticas = {p.nome: {"dano_causado": 0, "abates": 0, "tentativas": 0, "acertos": 0} for p in ordem_turnos}
+        estatisticas = {p.nome: {"dano_causado": 0, "abates": 0,
+                                 "tentativas": 0, "acertos": 0} for p in ordem_turnos}
         vencedor = None
         rodada = 0
         
