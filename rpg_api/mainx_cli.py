@@ -6,7 +6,7 @@ logging.basicConfig(level=logging.INFO, filename="log.log", filemode="a")
 from textual.app import App, ComposeResult
 from textual.screen import Screen
 from textual.widgets import Header, Footer, Button, Static, Input, Select, Label, RichLog, DataTable
-from textual.containers import Vertical, Horizontal, Center, Middle
+from textual.containers import Vertical, Horizontal, Center, Middle, ScrollableContainer
 from textual import on
 from app.db.database import SessionLocal, engine, Base
 from app.models.personagens_db import PersonagemDB, RacaDB, ClasseRPGDB
@@ -662,6 +662,30 @@ class ManagementMenuScreen(Screen):
                 
 
 # ==========================================
+# GESTÃO DE MAPAS
+# ==========================================
+
+class ExplorerScreen(Screen):
+    """Ecrã onde o jogador vê o mapa gerado."""
+    def __init__(self, mapa_id: int):
+        super().__init__()
+        self.mapa_id = mapa_id
+
+    def compose(self) -> ComposeResult:
+        yield Header()
+        with ScrollableContainer():
+            yield Static(id="map-display", expand=True)
+        yield Footer()
+
+    def on_mount(self):
+        with SessionLocal() as db:
+            mapa_db = db.query(MapaDB).get(self.mapa_id)
+            # Converte a matriz de listas para uma string formatada para o terminal
+            map_str = "\n".join(["".join(linha) for linha in mapa_db.mapa_em_si])
+            self.query_one("#map-display").update(map_str)
+
+
+# ==========================================
 # ECRÃ PRINCIPAL (MENU APP)
 # ==========================================
 class MainScreen(Screen):
@@ -671,7 +695,8 @@ class MainScreen(Screen):
             with Vertical(id="main-menu"):
                 yield Label("🛡️  SIS-CHARLES RPG 🛡️", id="main-title")
                 yield Button("✨ Criar", id="menu-create", variant="success")
-                yield Button("🔍 Pesquisar/Editar", id="menu-search") 
+                yield Button("🔍 Pesquisar/Editar", id="menu-search")
+                yield Button("🗺 Gerenciar Mapas", id="menu-mapas", variant="susses")
                 yield Button("⚔️  Entrar na Arena", id="menu-arena", variant="warning")
                 yield Button("❌ Sair do Sistema", id="menu-quit", variant="error")
         yield Footer()
@@ -679,6 +704,7 @@ class MainScreen(Screen):
     def on_button_pressed(self, event: Button.Pressed):
         btn_id = event.button.id
         if btn_id == "menu-create": self.app.push_screen(CreationScreen())
+        elif btn_id == "menu-mapas": self.app.push_screen(ExplorerScreen())
         elif btn_id == "menu-arena": self.app.push_screen(ArenaScreen())
         elif btn_id == "menu-search": self.app.push_screen(ManagementMenuScreen())
         elif btn_id == "menu-quit": self.app.exit()
