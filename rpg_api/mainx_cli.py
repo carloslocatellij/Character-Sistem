@@ -31,7 +31,7 @@ def action_start_stop_music():
 
 map_entidades = {"Personagem": PersonagemDB, "Raça": RacaDB, "Classe": ClasseRPGDB, "Item": ItemDB}
 
-def salvar_edicao(id_entity: int, dados: dict, modelo):
+def salvar_edicao(id_entity: int, dados: dict, modelo: dict):
     modelo = map_entidades.get(modelo)
     with SessionLocal() as db:
         ctrl = GameController(db)
@@ -116,25 +116,24 @@ class ClasseFormScreen(Screen):
         yield Footer()
         
     def on_mount(self):
-        if self.classe_id:
-            db = SessionLocal()
-            classe = db.query(ClasseRPGDB).get(self.classe_id)
-            if classe:
-                self.query_one("#inp-nome").value = classe.nome
-                self.caminhos_definidos = classe.bonus_caminhos
-                self.query_one("#caminhos-definidos").update(f"Caminhos definidos: {self.caminhos_definidos}")
-                self.query_one("#inp-habilidades").value = ", ".join(classe.habilidades)
+        with SessionLocal() as db:
+            if self.classe_id:
+                classe = db.query(ClasseRPGDB).get(self.classe_id)
+                if classe:
+                    self.query_one("#inp-nome").value = classe.nome
+                    self.caminhos_definidos = classe.bonus_caminhos
+                    self.query_one("#caminhos-definidos").update(f"Caminhos definidos: {self.caminhos_definidos}")
+                    self.query_one("#inp-habilidades").value = ", ".join(classe.habilidades)
+                    caminhos = ["Fogo", "Água", "Terra", "Ar", "Luz", "Trevas"]
+                    self.query_one("#sel-caminho").set_options([(c, c) for c in caminhos])
+            else:
                 caminhos = ["Fogo", "Água", "Terra", "Ar", "Luz", "Trevas"]
                 self.query_one("#sel-caminho").set_options([(c, c) for c in caminhos])
-            db.close()
-        else:
-            caminhos = ["Fogo", "Água", "Terra", "Ar", "Luz", "Trevas"]
-            self.query_one("#sel-caminho").set_options([(c, c) for c in caminhos])
-            self.caminhos_definidos = {}
+                self.caminhos_definidos = {}
         
     def on_button_pressed(self, event: Button.Pressed):
         if event.button.id == "btn-cancel":
-            self.app.pop_screen()
+            self.dismiss(False)
         elif event.button.id == "btn-add-caminho":
             caminho = self.query_one("#sel-caminho").value
             pontos = self.query_one("#inp-caminho").value
@@ -143,19 +142,23 @@ class ClasseFormScreen(Screen):
                 self.query_one("#caminhos-definidos").update(f"Caminhos definidos: {self.caminhos_definidos}")
                 self.query_one("#inp-caminho").value = ""
         elif event.button.id == "btn-save":
-            try:
-                dados = dict(nome=self.query_one("#inp-nome").value,
-                            bonus_caminhos=self.caminhos_definidos,
-                            habilidades=[h.strip() for h in self.query_one("#inp-habilidades").value.split(",") if h.strip()])
-                if self.classe_id:
+            dados = dict(nome=self.query_one("#inp-nome").value,
+                        bonus_caminhos=self.caminhos_definidos,
+                        habilidades=[h.strip() for h in self.query_one("#inp-habilidades").value.split(",") if h.strip()])
+            if self.classe_id:
+                try:
                     salvar_edicao(self.classe_id, dados, "Classe")
-                else:
-                    self.notify("Classe criada e salva no banco de dados com sucesso!", title="Sucesso", severity="information")
+                    self.notify("Classe reforjada e guardada no banco de dados com sucesso!", title="Sucesso", severity="information")
+                except Exception as e:
+                    self.notify(f"Erro ao criar/atualizar! {e}", severity="error")
+                self.dismiss(True)
+            else:
+                try:
+                    self.notify("Classe forjada e salva no banco de dados com sucesso!", title="Sucesso", severity="information")
                     salvar_novo(dados, "Classe")
-                    
-                self.app.pop_screen()
-            except Exception as e:
-                self.notify(f"Erro ao criar/atualizar! {e}", severity="error")
+                except Exception as e:
+                    self.notify(f"Erro ao criar/atualizar! {e}", severity="error")
+                self.dismiss(False)
                 
 
 class RacaFormScreen(Screen):
@@ -205,29 +208,32 @@ class RacaFormScreen(Screen):
         
     def on_button_pressed(self, event: Button.Pressed):
         if event.button.id == "btn-cancel":
-            self.app.pop_screen()
+            self.dismiss(False)
         elif event.button.id == "btn-save":
-            try:
-                atributos = {
-                    "forca": int(self.query_one("#inp-for").value),
-                    "agilidade": int(self.query_one("#inp-agi").value),
-                    "resistencia": int(self.query_one("#inp-res").value),
-                    "percepcao": int(self.query_one("#inp-per").value),
-                    "exuberancia": int(self.query_one("#inp-exu").value)
-                            }
-                dados = dict(nome=self.query_one("#inp-nome").value,
-                            bonus_atributos=atributos,
-                            emoji=self.query_one("#inp-emoji").value)
-                if self.raca_id:
+            atributos = {
+                "forca": int(self.query_one("#inp-for").value),
+                "agilidade": int(self.query_one("#inp-agi").value),
+                "resistencia": int(self.query_one("#inp-res").value),
+                "percepcao": int(self.query_one("#inp-per").value),
+                "exuberancia": int(self.query_one("#inp-exu").value)
+                        }
+            dados = dict(nome=self.query_one("#inp-nome").value,
+                        bonus_atributos=atributos,
+                        emoji=self.query_one("#inp-emoji").value)
+            if self.raca_id:
+                try:
                     salvar_edicao(self.raca_id, dados, "Raça")
-                else:
+                except Exception as e:
+                    self.notify("Erro ao criar/atualizar! Verifique se preencheu todos os campos numéricos.", severity="error")
+                self.dismiss(True)
+            else:
+                try:
                     salvar_novo(dados, "Raça")
                     self.notify("Raça criada e salva no banco de dados com sucesso!", title="Sucesso", severity="information")
-                self.app.pop_screen()
-            except Exception as e:
-                self.notify("Erro ao criar/atualizar! Verifique se preencheu todos os campos numéricos.", severity="error")
-        
-
+                except Exception as e:
+                    self.notify("Erro ao criar/atualizar! Verifique se preencheu todos os campos numéricos.", severity="error")
+                self.dismiss(False)
+                
 
 class CharacterFormScreen(Screen):
     def __init__(self, char_id: int = None):
@@ -282,7 +288,7 @@ class CharacterFormScreen(Screen):
 
     def on_button_pressed(self, event: Button.Pressed):
         if event.button.id == "btn-cancel":
-            self.app.pop_screen()
+            self.dismiss(False)
         elif event.button.id == "btn-save":
             dados = dict(nome=self.query_one("#inp-nome").value,
                     raca_id=self.query_one("#sel-raca").value,
@@ -298,14 +304,16 @@ class CharacterFormScreen(Screen):
                     self.notify("Personagem editado com sucesso!", title="Sucesso", severity="information")
                 except Exception as e:
                     self.notify("Erro ao editar! Verifique se preencheu todos os campos numéricos.", severity="error")
+                self.dismiss(True)
             else:
                 try:
                     salvar_novo(dados, "Personagem")
                     self.notify("Personagem forjado com sucesso!", title="Sucesso", severity="information")
                 except Exception as e:
                     self.notify("Erro ao criar! Verifique se preencheu todos os campos numéricos.", severity="error")
-            self.app.pop_screen()
-
+                self.dismiss(False)
+                
+                
 class ItemFormScreen(Screen):
     def __init__(self, item_id: int = None):
         super().__init__()
@@ -318,11 +326,11 @@ class ItemFormScreen(Screen):
                 yield Label("✨ Forjar Novo Item", id="title")
                 yield Input(placeholder="Nome do Item", id="inp-nome")
                 yield Select([
-                    ("Arma", "Arma"), 
-                    ("Escudo", "Escudo"), 
-                    ("Armadura", "Armadura"), 
-                    ("Acessório", "Acessório"),
-                    ("Outro", "Outro")
+                    ("arma", "arma"), 
+                    ("escudo", "escudo"), 
+                    ("armadura", "armadura"), 
+                    ("acessório", "acessório"),
+                    ("outro", "outro")
                 ], prompt="Selecione a Categoria", id="sel-categoria")
                 yield Label("Efeitos e Bônus:")
                 yield Input(placeholder="Dano", id="inp-dano", disabled=True)
@@ -331,7 +339,7 @@ class ItemFormScreen(Screen):
                     ("Corpo", "Corpo"), 
                     ('Distancia', 'Distancia'),('','')],
                     prompt="Tipo de Ataque (para Armas)", id="sel-tipo-ataque", disabled=True)
-                yield Input(placeholder="Selecione um Emoji", id="inp-emoji", disabled=True)
+                yield Input(placeholder="Selecione um Emoji", id="inp-emoji")
                 yield Horizontal(
                     Button("Salvar", variant="success", id="btn-save"),
                 )
@@ -344,71 +352,61 @@ class ItemFormScreen(Screen):
                 item = db.query(ItemDB).get(self.item_id)
                 if item:
                     self.query_one("#inp-nome").value = item.nome
-                    self.query_one("#sel-categoria").value = item.categoria.capitalize()
-                    self.query_one("#inp-dano").value = str(item.dano) 
+                    self.query_one("#sel-categoria").value = item.categoria
+                    self.query_one("#inp-emoji").value = item.emoji
+                    self.query_one("#inp-dano").value = str(item.dano)
                     self.query_one("#inp-defesa").value = str(item.defesa) if item.categoria != 'escudo' else str(item.defesa_extra) 
                     self.query_one("#sel-tipo-ataque").value = item.tipo_ataque.capitalize() if item.tipo_ataque else ""           
 
     @on(Select.Changed, "#sel-categoria")
     def on_select_changed(self, event: Select.Changed):
         categoria = event.value
-        if categoria == "Arma":
+        if categoria == "arma":
             self.query_one("#inp-dano").disabled = False
             self.query_one("#inp-defesa").disabled = True
             self.query_one("#sel-tipo-ataque").disabled = False
-            self.query_one("#inp-emoji").disabled = False
-        elif categoria == "Escudo":
+        elif categoria == "escudo" or categoria == "armadura":
             self.query_one("#inp-dano").disabled = True
             self.query_one("#inp-defesa").disabled = False
-            self.query_one("#sel-tipo-ataque").disabled = True
-            self.query_one("#inp-emoji").disabled = False
-        elif categoria == "Armadura":
-            self.query_one("#inp-dano").disabled = True
-            self.query_one("#inp-defesa").disabled = False
-            self.query_one("#sel-tipo-ataque").disabled = True
-            self.query_one("#inp-emoji").disabled = False            
+            self.query_one("#sel-tipo-ataque").disabled = True           
         else:
             self.query_one("#inp-dano").disabled = True
             self.query_one("#inp-defesa").disabled = True
             self.query_one("#sel-tipo-ataque").disabled = True
-            self.query_one("#inp-emoji").disabled = False
-            #emojis = [(f'{name}: {emoji}', emoji) for name, emoji in dict_item_emoji.get('outros').items()]
-            #self.query_one("#inp-emoji").set_options(emojis)
 
     def on_button_pressed(self, event: Button.Pressed):
         if event.button.id == "btn-cancel":
-            self.app.pop_screen()
+            self.dismiss(False)
         elif event.button.id == "btn-save":
-            dano = None
-            defesa = None  
-            if isinstance(self.query_one("#inp-dano").value, str) and self.query_one("#inp-dano").value.isdigit():
-                dano = int(self.query_one("#inp-dano").value)
-            if isinstance(self.query_one("#inp-defesa").value, str) and self.query_one("#inp-defesa").value.isdigit():
-                defesa = int(self.query_one("#inp-defesa").value)
+            
             dados = dict(
                 nome=self.query_one("#inp-nome").value,
                 categoria=self.query_one("#sel-categoria").value,
                 emoji=self.query_one("#inp-emoji").value,
-                dano=dano,
-                tipo_ataque=self.query_one("#sel-tipo-ataque"),
-                defesa=defesa if self.query_one("#sel-categoria").value != "Escudo" else None,
-                defesa_extra=defesa if self.query_one("#sel-categoria").value == "Escudo" else None
+                dano= int(self.query_one("#inp-dano").value) if self.query_one("#inp-dano").value.isdigit() else 0,
+                tipo_ataque=self.query_one("#sel-tipo-ataque").value or None,
+                defesa= int(self.query_one("#inp-defesa").value) if self.query_one("#inp-defesa").value.isdigit() else 0
                         )
+            if dados.get('categoria') == "escudo":
+                dados['defesa_extra'] = dados.get('defesa')
+                dados['defesa'] = 0
+            else:
+                dados['defesa_extra'] = 0
             with SessionLocal() as db:
                 if self.item_id:
-                    item = db.query(ItemDB).get(self.item_id)
                     try:
-                        salvar_edicao(int(self.item_id), dados, "Item")
+                        salvar_edicao(self.item_id, dados, "Item")
                         self.notify("Item reforjado com sucesso!", title="Sucesso", severity="information")
                     except Exception as e:
                         self.notify(f"Erro ao editar! {e}", severity="error")
+                    self.dismiss(True)
                 else:
                     try:
                         salvar_novo(dados, "Item")
                         self.notify("Item forjado com sucesso!", title="Sucesso", severity="information")
-                        self.app.pop_screen()
                     except Exception as e:
                         self.notify(f"Erro ao criar! {e}", severity="error")
+                    self.dismiss(False)
                         
 
 # ==========================================
@@ -565,6 +563,13 @@ class ManagementMenuScreen(Screen):
             with Vertical(id="table-container"):
                 yield DataTable(id="universal-table")
         yield Footer()
+        
+    def on_callback(self, event):
+        return super().on_callback(event)
+    
+    def on_input_changed(self, event: Input.Changed):
+        filter = self.query_one("#filter-input").value
+        self.refresh_table_data(filter)
 
     def on_mount(self):
         filter = self.query_one("#filter-input").value
@@ -596,22 +601,35 @@ class ManagementMenuScreen(Screen):
             
             elif model == RacaDB:
                 data_table.add_columns("ID", "Nome", "Bónus")
+                query = db.query(RacaDB)
                 if filter_text: query = query.filter(RacaDB.nome.contains(filter_text))
-                for r in db.query(RacaDB).all():
+                for r in query.all():
                     data_table.add_row(str(r.id), r.nome, str(r.bonus_atributos), key=str(r.id))
             
             elif model == ItemDB:
                 data_table.add_columns("ID", "Nome", "Tipo", "Dano/Def")
-                for i in db.query(ItemDB).all():
-                    val = i.dano if i.categoria == "arma" else i.defesa
+                query = db.query(ItemDB)
+                if filter_text: query = query.filter(ItemDB.nome.contains(filter_text))
+                for i in query.all():
+                    if i.categoria == "arma":
+                        val = i.dano 
+                    elif i.categoria == "escudo":
+                        val = i.defesa_extra
+                    elif i.categoria == "armadura":
+                        val = i.defesa
+                    else:
+                        val = None
+                        
                     data_table.add_row(str(i.id), i.nome, i.categoria, str(val), key=str(i.id))
                     
             elif model == ClasseRPGDB:
                 data_table.add_columns("ID", "Nome", "Bónus de Caminhos")
-                for c in db.query(ClasseRPGDB).all():
+                query = db.query(ClasseRPGDB)
+                if filter_text: query = query.filter(ClasseRPGDB.nome.contains(filter_text))
+                for c in query.all():
                     data_table.add_row(str(c.id), c.nome, str(c.bonus_caminhos), key=str(c.id))
 
-    def on_data_table_row_selected(self, event: DataTable.RowSelected):
+    async def on_data_table_row_selected(self, event: DataTable.RowSelected):
         """Redireciona para o formulário correto baseado na tabela atual."""
         table_id = self.query_one("#table-selector").value
         if event.row_key:
@@ -623,14 +641,14 @@ class ManagementMenuScreen(Screen):
         
         # Lógica de roteamento para o formulário reutilizável correto
         if table_id == "personagens":
-            self.app.push_screen(CharacterFormScreen(char_id=item_id), callback=lambda _: self.refresh_table_data())
+            await self.app.push_screen(CharacterFormScreen(char_id=item_id), callback= lambda _: self.refresh_table_data())
         # Adicione elif para os outros formulários aqui...
         elif table_id == "racas":
-            self.app.push_screen(RacaFormScreen(raca_id=item_id), callback=lambda _: self.refresh_table_data())
+            await self.app.push_screen(RacaFormScreen(raca_id=item_id), callback= self.refresh_table_data())
         elif table_id == "classes":
-            self.app.push_screen(ClasseFormScreen(classe_id=item_id), callback=lambda _: self.refresh_table_data())
+            await self.app.push_screen(ClasseFormScreen(classe_id=item_id), callback=lambda _: self.refresh_table_data())
         elif table_id == "itens":
-            self.app.push_screen(ItemFormScreen(item_id=item_id), callback=lambda _: self.refresh_table_data())
+            await self.app.push_screen(ItemFormScreen(item_id=item_id), callback=lambda _: self.refresh_table_data())
 
     def on_button_pressed(self, event: Button.Pressed):
         if event.button.id == "btn-back":
@@ -672,7 +690,7 @@ class MainScreen(Screen):
 class RPGApp(App):
     CSS_PATH = "app/views/styles.css"
     BINDINGS = [("d", "toggle_dark", "Mudar Tema Escuro/Claro"), ("q", "quit", "Sair"), ("m", "start_stop_music", "Música On/Off")]
-    music.play()
+    #music.play()
     
     def on_mount(self):
         self.push_screen(MainScreen())
