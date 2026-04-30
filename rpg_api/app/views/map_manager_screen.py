@@ -4,10 +4,36 @@ from textual.app import ComposeResult
 from textual.screen import Screen, ModalScreen
 from textual.widgets import Footer, Header, Tree, Static, Label, Button, Input, Select
 from textual.containers import Horizontal, Vertical, Container
+from textual.events import Click
+from textual.message import Message
 from textual import on
 from app.core.mapas import GestorDeMapas
 from app.db.database import SessionLocal
 from app.models.mapas_db import MapaDB
+
+
+class MapaInterativo(Static):
+    """
+    Componente customizado que exibe o mapa e captura cliques do rato.
+    """
+    class Clicado(Message):
+        """Mensagem (Evento) enviada quando o mapa é clicado."""
+        def __init__(self, linha: int, coluna: int):
+            self.linha = linha
+            self.coluna = coluna
+            super().__init__()
+
+    def on_click(self, event: Click) -> None:
+        """Calcula a posição do clique e avisa a tela principal."""
+        # event.y é a linha (vertical)
+        # event.x é a coluna (horizontal). 
+        # Como os emojis costumam ocupar 2 colunas no terminal, dividimos por 2!
+        linha = event.y
+        coluna = event.x // 2 
+        
+        # Dispara o nosso evento customizado
+        self.post_message(self.Clicado(linha, coluna))
+        
 
 class MapManagerScreen(Screen):
     """
@@ -38,7 +64,6 @@ class MapManagerScreen(Screen):
         padding: 1;
         width: 10%;
         height: 10%;        
-        
     }
 
     /* --- RESTANTE DO LAYOUT --- */
@@ -71,12 +96,32 @@ class MapManagerScreen(Screen):
         padding: 1;
         align: center middle; /* Centraliza o conteúdo no meio da tela */
     }
+    
+    #lbl-tile-atual {
+        text-style: bold;
+        color: yellow;
+        margin-bottom: 1;
+    }
+    
+    #grade-paleta {
+        layout: grid;
+        grid-size: 5; /* 5 colunas de botões */
+        grid-gutter: 1; /* Espaço entre os botões */
+    }
+    
+    .btn-paleta {
+        min-width: 4;
+        height: 1;
+        border: none;
+        padding: 0;
+    }
     """
     def __init__(self):
         super().__init__()
-        # 🧠 Memória do Sistema: Variáveis para guardar o mapa antes de salvar
         self.mapa_atual_matriz = None
         self.mapa_atual_dados = None
+        # 🧠 Novo Estado: O nosso "pincel" de pintura
+        self.tile_selecionado = "  "
 
     def compose(self) -> ComposeResult:
         # 1. Nossa Barra Superior (Removido o Header nativo para não haver conflitos)
@@ -91,27 +136,62 @@ class MapManagerScreen(Screen):
 
         # 2. O Layout Principal (Esquerda e Direita)
         with Horizontal(id="main-container"):
-            
-            # --- BARRA LATERAL ESQUERDA ---
             with Vertical(id="sidebar"):
+                
+                # --- A NOVA PALETA CLICÁVEL ---
                 with Container(id="paleta-container"):
                     yield Label("🎨 Paleta", classes="titulo-secao")
-                    yield Static("   🔳 🔲 🟫 🟦\n🌲 🌳 🌴 🌵 🌾\n🌻 🌹 🌼 🍄 🎃\n🏞  ⛺ 🌋 🗻 ⛰\n🏛  🎪 📦 ⚱ 🚪")
-                
+                    yield Label(f"Selecionado: {self.tile_selecionado}", id="lbl-tile-atual")
+                    
+                    # Grade com vários botões de tiles
+                    with Container(id="grade-paleta"):
+                        tiles_disponiveis = ["  ", "🔲", "🔷", "🔵", "🍺","🌲", "🌳", "🌴", "🍄", "🌻", "🚪", "💀", "⛺"]
+                        # for tile in tiles_disponiveis:
+                        #     yield Button(tile, classes="btn-paleta", id=f"tile-{tile}")
+                        for i, tile in enumerate(tiles_disponiveis):
+                            # O 'id' agora fica seguro: "tile-0", "tile-1", etc.
+                            # O texto visual do botão continua a ser o emoji (tile).
+                            yield Button(tile, classes="btn-paleta", id=f"tile-{i}")
+                    
                 with Container(id="arvore-container"):
                     yield Label("📂 Mapas", classes="titulo-secao")
-                    tree: Tree[dict] = Tree("Mundo")
-                    yield tree
+                    yield Tree("Mundo")
 
-            # --- ÁREA PRINCIPAL DO MAPA ---
             with Container(id="map-area"):
                 yield Label("Mapa: Mundo", id="mapa-titulo")
-                yield Static("Matriz do Mapa aparecerá aqui...", id="mapa-view")
+                # --- SUBSTITUÍMOS O STATIC PELO NOSSO NOVO COMPONENTE ---
+                yield MapaInterativo("Matriz do Mapa aparecerá aqui...", id="mapa-view")
         
         yield Footer()
 
+# --- NOVA FUNÇÃO DE PINTURA ---
+    @on(MapaInterativo.Clicado)
+    def pintar_mapa(self, event: MapaInterativo.Clicado):
+        """Escuta o evento do mapa e aplica o tile selecionado na matriz."""
+        if self.mapa_atual_matriz is None:
+            return # Não faz nada se não houver mapa gerado
+            
+        linha = event.linha
+        coluna = event.coluna
+        
+        # Proteção: Verifica se o clique não foi fora dos limites da matriz
+        if 0 <= linha < len(self.mapa_atual_matriz):
+            if 0 <= coluna < len(self.mapa_atual_matriz[0]):
+                
+                # 1. Altera o dado na memória
+                self.mapa_atual_matriz[linha][coluna] = self.tile_selecionado
+                
+                # 2. Manda redesenhar a tela para refletir a mudança
+                self.exibir_mapa_na_tela()
+
     def on_button_pressed(self, event: Button.Pressed) -> None:
         """Gerencia os cliques na tela principal."""
+        if event.button.has_class("btn-paleta"):
+            # O texto do botão (label) é o nosso novo tile!
+            self.tile_selecionado = str(event.button.label)
+            # Atualiza o aviso visual na tela
+            self.query_one("#lbl-tile-atual", Label).update(f"Selecionado: {self.tile_selecionado}")
+            return # Termina aqui
         
         if event.button.id == "btn-fechar":
             self.dismiss()
@@ -122,6 +202,7 @@ class MapManagerScreen(Screen):
 
         elif event.button.id == "btn-salvar":
             self.salvar_mapa_no_banco()
+    
 
     def ao_terminar_form(self, dados_do_form: dict | None):
         """Callback acionado quando o usuário clica em 'Gerar' ou 'Cancelar' no form."""
@@ -243,8 +324,8 @@ class NovoMapaFormScreen(ModalScreen[dict]):
             yield Select((("Masmorra", "masmorra"), ("Caverna", "caverna")), prompt="Tipo de Mapa", id="select-tipo", value="masmorra")
             
             with Horizontal(classes="linha-dupla"):
-                yield Input(placeholder="Largura (ex: 40)", id="input-largura", value="40")
-                yield Input(placeholder="Altura (ex: 20)", id="input-altura", value="20")
+                yield Input(placeholder="Largura (ex: 40)", id="input-largura")
+                yield Input(placeholder="Altura (ex: 20)", id="input-altura")
                 
             with Horizontal(classes="linha-dupla"):
                 yield Input(placeholder="Tile Parede", id="input-tile-parede", value="🔲")
@@ -255,10 +336,10 @@ class NovoMapaFormScreen(ModalScreen[dict]):
             # 1. Configurações de Masmorra
             with Vertical(id="configs-masmorra", classes="caixa-config"):
                 yield Label("⚙️ Configurações da Masmorra")
-                yield Input(placeholder="Máx de Salas", id="input-max-salas", value="15")
+                yield Input(placeholder="Máx de Salas", id="input-max-salas", value="25")
                 with Horizontal(classes="linha-dupla"):
-                    yield Input(placeholder="Tam. Mínimo Sala", id="input-tam-min", value="4")
-                    yield Input(placeholder="Tam. Máximo Sala", id="input-tam-max", value="10")
+                    yield Input(placeholder="Tam. Mínimo Sala", id="input-tam-min", value="3")
+                    yield Input(placeholder="Tam. Máximo Sala", id="input-tam-max", value="15")
 
             # 2. Configurações de Caverna (Inicialmente oculta)
             with Vertical(id="configs-caverna", classes="caixa-config"):
@@ -312,8 +393,8 @@ class NovoMapaFormScreen(ModalScreen[dict]):
             dados_mapa = {
                 "nome": nome,
                 "tipo": str(tipo),
-                "largura": int(self.query_one("#input-largura").value),
-                "altura": int(self.query_one("#input-altura").value),
+                "largura": int(self.query_one("#input-largura").value or 30),
+                "altura": int(self.query_one("#input-altura").value or 30),
                 "tile_parede": self.query_one("#input-tile-parede").value,
                 "tile_chao": self.query_one("#input-tile-chao").value,
                 "configs": {}
