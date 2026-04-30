@@ -16,6 +16,7 @@ from app.controllers.game_controller import GameController, simular_arena
 from app.core.emojis import dict_emoji_racas, dict_item_emoji
 from musics.audio_player import music
 from app.models.mapas_db import MapaDB
+from app.views.map_manager_screen import MapManagerScreen
 
 # Garante que as tabelas existem
 Base.metadata.create_all(bind=engine)
@@ -699,7 +700,7 @@ class MainScreen(Screen):
                 yield Label("🛡️  SIS-CHARLES RPG 🛡️", id="main-title")
                 yield Button("✨ Criar", id="menu-create", variant="success")
                 yield Button("🔍 Pesquisar/Editar", id="menu-search")
-                yield Button("🗺 Gerenciar Mapas", id="menu-mapas", variant="success")
+                yield Button("🗺  Gerenciar Mapas", id="menu-mapas", variant="success")
                 yield Button("⚔️  Entrar na Arena", id="menu-arena", variant="warning")
                 yield Button("❌ Sair do Sistema", id="menu-quit", variant="error")
         yield Footer()
@@ -707,7 +708,7 @@ class MainScreen(Screen):
     def on_button_pressed(self, event: Button.Pressed):
         btn_id = event.button.id
         if btn_id == "menu-create": self.app.push_screen(CreationScreen())
-        elif btn_id == "menu-mapas": self.app.push_screen(ExplorerScreen())
+        elif btn_id == "menu-mapas": self.app.push_screen(MapManagerScreen())
         elif btn_id == "menu-arena": self.app.push_screen(ArenaScreen())
         elif btn_id == "menu-search": self.app.push_screen(ManagementMenuScreen())
         elif btn_id == "menu-quit": self.app.exit()

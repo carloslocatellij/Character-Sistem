@@ -13,8 +13,8 @@ class GestorDeMapas:
         Lê as configurações do RPG e aciona o gerador independente correspondente.
         """
         # Extrai configurações seguras com valores padrão
-        tile_chao = configs.get("tile_chao", "⬛")
-        tile_parede = configs.get("tile_parede", "🔲")
+        tile_chao = configs.get("tile_chao", "  ")
+        tile_parede = configs.get("tile_parede", "🔳")
         
         # Inicializa o gerador agnóstico
         gerador = DungeonGenerator(

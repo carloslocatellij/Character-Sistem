@@ -9,7 +9,7 @@ class MapaDB(Base):
     tipo = Column(String) # 'masmorra', 'caverna', 'cidade'
     altura = Column(Integer)
     largura = Column(Integer)
-    tile_parede = Column(String(1), default="🔲")
+    tile_parede = Column(String(1), default="🔳")
     tile_chao = Column(String(1), default="⬛")
     configs = Column(JSON) # Parâmetros usados na geração
     aleatorio = Column(Boolean, default=True)
