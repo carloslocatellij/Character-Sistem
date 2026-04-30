@@ -1,0 +1,49 @@
+
+==========================================
+|[menu]|[editar]|[opçoes]				X|
+==========================================
+|Paleta_____| ->, O, #, Ev! 		  	 |
+|			|----------------------------|
+|# @ $ * +	| Mapa: Mundo				 |
+|% X ~ ^ ;	|----------------------------|
+|% X ~ ^ ;	|							 |
+|& ? ! Q .	|							 |
+|___________|							 |
+|Mapas______|							 |
+|			|							 |
+|Mundo		|							 |
+||\			|			mundo.csv		 |
+|\_Cidade1	|							 |
+|| \_loja1	|							 |
+|| \_loja2	|							 |
+|| \_casa1	|							 |
+||			|							 |
+| \_Caverna1|							 |
+|			|							 |
+++++++++++++++++++++++++++++++++++++++++++
+
+Menus:
+Menu  -> Novo, Salvar, Importar_csv, Exportar_csv, Sair
+Editar-> Recorta, Cola, Propriedades
+Opções-> Paleta, Eventos, Musica, Dados
+
+Novo: abre o formulário de criação de mapas.
+Salvar: salva o mapa no banco de dados.
+Importar/Exportar: csv importa ou exporta csv.
+Sair: sai, assim como o 'X'.
+Recortar: recorta uma área quadrada do mapa para colar.
+Colar: cola a parte de mapa da transferência.
+Propriedades: acessa e altera as propriedades do mapa.
+Paleta: Fornece opções de tiles para edição.
+Eventos: Permite colocar um tile especial que ao acionado dispara eventos programados.
+Musica: vai permitir gerenciar músicas.
+Dados: o formulário de Pesquisa/Edição de dados do sistema.
+---
+
+A Paleta permite a seleção de tiles para colocar no mapa.
+
+Mapas é uma árvore de mapas criados, aninhados pela propriedade mapa_pai e que podem ser selecionados paara edição.
+
+
+
+

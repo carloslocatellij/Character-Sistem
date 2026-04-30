@@ -1,6 +1,7 @@
 import sys
 import io
 import logging
+
 # Configuração básica
 logging.basicConfig(level=logging.INFO, filename="log.log", filemode="a")
 from textual.app import App, ComposeResult
@@ -14,6 +15,7 @@ from app.models.equipamentos_db import ItemDB
 from app.controllers.game_controller import GameController, simular_arena
 from app.core.emojis import dict_emoji_racas, dict_item_emoji
 from musics.audio_player import music
+from app.models.mapas_db import MapaDB
 
 # Garante que as tabelas existem
 Base.metadata.create_all(bind=engine)
@@ -667,7 +669,7 @@ class ManagementMenuScreen(Screen):
 
 class ExplorerScreen(Screen):
     """Ecrã onde o jogador vê o mapa gerado."""
-    def __init__(self, mapa_id: int):
+    def __init__(self, mapa_id: int = None):
         super().__init__()
         self.mapa_id = mapa_id
 
@@ -681,8 +683,9 @@ class ExplorerScreen(Screen):
         with SessionLocal() as db:
             mapa_db = db.query(MapaDB).get(self.mapa_id)
             # Converte a matriz de listas para uma string formatada para o terminal
-            map_str = "\n".join(["".join(linha) for linha in mapa_db.mapa_em_si])
-            self.query_one("#map-display").update(map_str)
+            if mapa_db:
+                map_str = "\n".join(["".join(linha) for linha in mapa_db.mapa_em_si])
+                self.query_one("#map-display").update(map_str)
 
 
 # ==========================================
@@ -696,7 +699,7 @@ class MainScreen(Screen):
                 yield Label("🛡️  SIS-CHARLES RPG 🛡️", id="main-title")
                 yield Button("✨ Criar", id="menu-create", variant="success")
                 yield Button("🔍 Pesquisar/Editar", id="menu-search")
-                yield Button("🗺 Gerenciar Mapas", id="menu-mapas", variant="susses")
+                yield Button("🗺 Gerenciar Mapas", id="menu-mapas", variant="success")
                 yield Button("⚔️  Entrar na Arena", id="menu-arena", variant="warning")
                 yield Button("❌ Sair do Sistema", id="menu-quit", variant="error")
         yield Footer()
