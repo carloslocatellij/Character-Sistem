@@ -35,9 +35,13 @@ class GestorDeMapas:
             return matriz
             
         elif tipo.lower() == "caverna":
-            # Poderia chamar um gerador.gerar_cellular_automata() do dungeon_gen
-            pass
+            max_casas = configs.get("max_casas", 10)
+            tam_min = configs.get("tam_min_casa", 3)
+            tam_max = configs.get("tam_max_casa", 6)
             
+            matriz = gerador.generete_village(max_casas, tam_min, tam_max)
+            return matriz
+        
         return gerador.mapa # Retorna um mapa em branco/cheio se o tipo for desconhecido
 
     @staticmethod

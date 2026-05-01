@@ -38,3 +38,204 @@ DataTable {
     border: thick $success;
     background: $surface;
 }
+
+
+/* --- ETILOS DO EDITOR DE MAPA --- */
+/* --- BARRA SUPERIOR (NOSSO HEADER CUSTOMIZADO) --- */
+#top-menu {
+    layout: horizontal;
+    height: 4;
+    /* 3 linhas para os botões + 1 linha para a borda inferior */
+    border-bottom: solid green;
+    padding: 0 1;
+}
+
+#top-menu Button {
+    width: auto;
+    /* O botão cresce o suficiente para caber o nome */
+    height: 3;
+    /* Altura padrão e perfeita para botões no Textual */
+    margin-right: 1;
+    /* Apenas uma margem por fora, sem padding por dentro */
+    min-width: 10;
+    /* Garante que não fiquem pequenos demais */
+}
+
+/* O botão de fechar fica alinhado à extrema direita */
+#btn-fechar {
+    dock: right;
+    margin-right: 1;
+    /* padding: 1; */
+    width: 10%;
+    height: 10%;
+}
+
+/* --- RESTANTE DO LAYOUT --- */
+#main-container {
+    layout: horizontal;
+    width: 100%;
+    height: 100%;
+}
+
+#sidebar {
+    width: 25%;
+    height: 100%;
+    border-right: solid green;
+}
+
+#paleta-container {
+    height: 50%;
+    border-bottom: dashed green;
+    padding: 1;
+}
+
+#arvore-container {
+    height: 50%;
+    padding: 1;
+}
+
+#map-area {
+    width: 75%;
+    height: 100%;
+    padding: 1;
+    overflow: auto;
+    align: center middle;
+    /* MÁGICA: Cria barras de rolagem se o mapa crescer! */
+    /* Remova a linha 'align: center middle' se existir, para o mapa começar no topo/esquerda */
+}
+
+#mapa-view {
+    width: auto;
+    /* Permite que o componente cresça além do tamanho da tela sem quebrar as linhas */
+    height: auto;
+}
+
+#lbl-tile-atual {
+    text-style: bold;
+    color: yellow;
+    margin-bottom: 1;
+}
+
+#grade-paleta {
+    layout: grid;
+    grid-size: 5;
+    /* 5 colunas de botões */
+    grid-gutter: 1;
+    /* Espaço entre os botões */
+}
+
+.btn-paleta {
+    min-width: 4;
+    height: 1;
+    border: none;
+    padding: 0;
+}
+
+NovoMapaFormScreen {
+    align: center middle;
+    background: $background 50%;
+}
+
+#form-caixa {
+    width: 50;
+    /* Aumentei um pouco a largura para caberem mais campos */
+    height: auto;
+    padding: 1 2;
+    background: $surface;
+    border: solid green;
+}
+
+/* Organização dos campos lado a lado para economizar espaço vertical */
+.linha-dupla {
+    layout: horizontal;
+    height: auto;
+}
+
+.linha-dupla Input {
+    width: 1fr;
+    /* Divide o espaço igualmente */
+}
+
+#form-botoes {
+    layout: horizontal;
+    align: center middle;
+    margin-top: 1;
+    height: auto;
+    width: 100%;
+}
+
+#form-botoes Button {
+    margin: 0 1;
+    width: auto;
+    height: 3;
+    margin-right: 1;
+    min-width: 10;
+    /* Garante que não fiquem pequenos demais */
+}
+
+/* As caixas de configuração dinâmicas */
+.caixa-config {
+    height: auto;
+    border: round grey;
+    padding: 1;
+    margin-top: 1;
+}
+
+/*Formulário de Propriedades*/
+PropriedadesFormScreen {
+    align: center middle;
+    background: $background 50%;
+}
+
+#prop-caixa {
+    width: 40;
+    height: auto;
+    padding: 1 2;
+    background: $surface;
+    border: solid blue;
+}
+
+#prop-botoes {
+    layout: horizontal;
+    align: center middle;
+    margin-top: 1;
+    height: auto;
+    width: 100%;
+}
+
+#prop-botoes Button {
+    margin: 0 1;
+    width: auto;
+    height: 3;
+    margin-right: 1;
+    min-width: 10;
+}
+
+ConfirmacaoSalvarScreen {
+    align: center middle;
+    background: $background 50%;
+}
+
+#conf-caixa {
+    width: 40;
+    height: auto;
+    padding: 1 2;
+    background: $surface;
+    border: solid yellow;
+}
+
+#conf-botoes {
+    layout: horizontal;
+    align: center middle;
+    margin-top: 1;
+    height: auto;
+    width: 100%;
+}
+
+#conf-botoes Button {
+    margin: 0 1;
+    width: auto;
+    height: 3;
+    margin-right: 1;
+    min-width: 10;
+}

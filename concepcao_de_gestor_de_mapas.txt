@@ -43,7 +43,3 @@ Dados: o formulário de Pesquisa/Edição de dados do sistema.
 A Paleta permite a seleção de tiles para colocar no mapa.
 
 Mapas é uma árvore de mapas criados, aninhados pela propriedade mapa_pai e que podem ser selecionados paara edição.
-
-
-
-
