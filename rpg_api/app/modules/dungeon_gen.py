@@ -56,11 +56,11 @@ class DungeonGenerator:
         """Cria uma casa com paredes e um chão, além de uma porta aleatória."""
         for x in range(casa.x1 , casa.x2 + 1):
             for y in range(casa.y1 , casa.y2 + 1):
-                self.grid[y][x] = self.tile_parede
+                self.mapa[y][x] = self.tile_parede
 
         for x in range(casa.x1 + 1, casa.x2):
             for y in range(casa.y1 + 1, casa.y2):
-                self.grid[y][x] = self.tile_chao
+                self.mapa[y][x] = self.tile_chao
 
         north_door = (casa.y1, random.choice(range(casa.x1 +1, casa.x2 -1)))
         south_door = (casa.y2, random.choice(range(casa.x1 +1, casa.x2 -1)))
@@ -68,7 +68,7 @@ class DungeonGenerator:
         east_door =  (random.choice(range(casa.y1 +1, casa.y2 -1)), casa.x2)
 
         choice_door = random.choice([north_door, south_door, west_door, east_door])
-        self.grid[choice_door[0]][choice_door[1]] = '🚪'
+        self.mapa[choice_door[0]][choice_door[1]] = '🚪'
 
     def gerar_bsp_dungeon(self, max_salas: int, tam_min_sala: int, tam_max_sala: int) -> List[List[str]]:
         """
@@ -104,45 +104,46 @@ class DungeonGenerator:
         return self.mapa
     
     def generate_caves(self, fill_percent=45, smoothing_iterations=5):
-        for y in range(self.height):
-            for x in range(self.width):
-                if x == 0 or x == self.width - 1 or y == 0 or y == self.height - 1:
-                    self.grid[y][x] = self.tile_parede
+        for y in range(self.altura):
+            for x in range(self.largura):
+                if x == 0 or x == self.largura - 1 or y == 0 or y == self.altura - 1:
+                    self.mapa[y][x] = self.tile_parede
                 else:
-                    self.grid[y][x] = self.tile_chao if random.randint(0, 100) < fill_percent else self.tile_parede
+                    self.mapa[y][x] = self.tile_chao if random.randint(0, 100) < fill_percent else self.tile_parede
 
 
         for _ in range(smoothing_iterations):
-            new_grid = [row[:] for row in self.grid]
-            for y in range(1, self.height - 1):
-                for x in range(1, self.width - 1):
+            new_mapa = [row[:] for row in self.mapa]
+            for y in range(1, self.altura - 1):
+                for x in range(1, self.largura - 1):
                     neighbors = 0
                     for ny in range(y - 1, y + 2):
                         for nx in range(x - 1, x + 2):
                             if nx == x and ny == y: continue
-                            if self.grid[ny][nx] ==  self.tile_parede:
+                            if self.mapa[ny][nx] ==  self.tile_parede:
                                 neighbors += 1
                     if neighbors > 4:
-                        new_grid[y][x] = self.tile_parede
+                        new_mapa[y][x] = self.tile_parede
                     elif neighbors < 4:
-                        new_grid[y][x] = self.tile_chao
-            self.grid = new_grid
+                        new_mapa[y][x] = self.tile_chao
+            self.mapa = new_mapa
+        return self.mapa
             
             
 
     def generete_village(self, max_casas, casa_min_size, casa_max_size):
-        for y in range(self.height):
-              for x in range(self.width):
-                  if x == 0 or x == self.width - 1 or y == 0 or y == self.height - 1:
-                      self.grid[y][x] = self.tile_parede
+        for y in range(self.altura):
+              for x in range(self.largura):
+                  if x == 0 or x == self.largura - 1 or y == 0 or y == self.altura - 1:
+                      self.mapa[y][x] = self.tile_parede
                   else:
-                    self.grid[y][x] = self.tile_chao
+                    self.mapa[y][x] = self.tile_chao
 
         for r in range(max_casas):
             w = random.randint(casa_min_size, casa_max_size)
             h = random.randint(casa_min_size, casa_max_size)
-            x = random.randint(2, self.width - w - 3)
-            y = random.randint(2, self.height - h - 3)
+            x = random.randint(2, self.largura - w - 3)
+            y = random.randint(2, self.altura - h - 3)
 
             new_casa = Rect(x, y, w, h)
             failed = False
@@ -155,3 +156,4 @@ class DungeonGenerator:
                 self.create_casa(new_casa)
                 (new_x, new_y) = new_casa.center()
                 self.casas.append(new_casa)
+        return self.mapa

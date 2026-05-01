@@ -356,7 +356,7 @@ class NovoMapaFormScreen(ModalScreen[dict]):
             # --- CAMPOS GERAIS (Sempre visíveis) ---
             yield Input(placeholder="Nome do Mapa", id="input-nome")
             yield Select([], prompt="Mapa Pai (Opcional)", id="select-pai")
-            yield Select((("Masmorra", "masmorra"), ("Caverna", "caverna")), prompt="Tipo de Mapa", id="select-tipo", value="masmorra")
+            yield Select((("Masmorra", "masmorra"), ("Vila", "vila")), prompt="Tipo de Mapa", id="select-tipo", value="masmorra")
             with Horizontal(classes="linha-dupla"):
                 yield Input(placeholder="Largura (ex: 40)", id="input-largura")
                 yield Input(placeholder="Altura (ex: 20)", id="input-altura")
@@ -375,11 +375,15 @@ class NovoMapaFormScreen(ModalScreen[dict]):
                     yield Input(placeholder="Tam. Mínimo Sala", id="input-tam-min", value="3")
                     yield Input(placeholder="Tam. Máximo Sala", id="input-tam-max", value="15")
 
-            # 2. Configurações de Caverna (Inicialmente oculta)
-            with Vertical(id="configs-caverna", classes="caixa-config"):
-                yield Label("⚙️ Configurações da Caverna")
-                yield Input(placeholder="Taxa de Preenchimento %", id="input-taxa-caverna", value="45")
-                # Futuramente você pode adicionar mais configurações de caverna aqui
+            # 2. Configurações de Vila (Inicialmente oculta)
+            with Vertical(id="configs-vila", classes="caixa-config"):
+                yield Label("⚙️ Configurações da Vila")
+                yield Input(placeholder="Máx de Casas", id="input-max-casas", value="20")
+                with Horizontal(classes="linha-dupla"):
+                    yield Input(placeholder="Tam. Mínimo Casa", id="input-tam-min", value="4")
+                    yield Input(placeholder="Tam. Máximo Casa", id="input-tam-max", value="10")
+                #yield Input(placeholder="Taxa de Preenchimento %", id="input-taxa-vila", value="45")
+                # Futuramente você pode adicionar mais configurações de vila aqui
 
             # --- BOTÕES DE AÇÃO ---
             with Horizontal(id="form-botoes"):
@@ -406,12 +410,12 @@ class NovoMapaFormScreen(ModalScreen[dict]):
     def atualizar_visibilidade_configs(self, tipo_selecionado: str):
         """Esconde todas as caixas de configuração e mostra apenas a do tipo selecionado."""
         self.query_one("#configs-masmorra").display = False
-        self.query_one("#configs-caverna").display = False
+        self.query_one("#configs-vila").display = False
         
         if tipo_selecionado == "masmorra":
             self.query_one("#configs-masmorra").display = True
-        elif tipo_selecionado == "caverna":
-            self.query_one("#configs-caverna").display = True
+        elif tipo_selecionado == "vila":
+            self.query_one("#configs-vila").display = True
 
     def on_button_pressed(self, event: Button.Pressed):
         """Captura os cliques dos botões."""
@@ -444,9 +448,12 @@ class NovoMapaFormScreen(ModalScreen[dict]):
                     "tam_min_sala": int(self.query_one("#input-tam-min").value),
                     "tam_max_sala": int(self.query_one("#input-tam-max").value)
                 }
-            elif tipo == "caverna":
+            elif tipo == "vila":
                 dados_mapa["configs"] = {
-                    "taxa_preenchimento": int(self.query_one("#input-taxa-caverna").value)
+                    "max_casas": int(self.query_one("#input-max-casas").value),
+                    "tam_min_casa": int(self.query_one("#input-tam-min").value),
+                    "tam_max_casa": int(self.query_one("#input-tam-max").value),
+                    #"taxa_preenchimento": int(self.query_one("#input-taxa-vila").value)
                 }
             
             self.dismiss(dados_mapa)

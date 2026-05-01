@@ -34,7 +34,7 @@ class GestorDeMapas:
             # matriz = GestorDeMapas._espalhar_monstros(matriz, configs)
             return matriz
             
-        elif tipo.lower() == "caverna":
+        elif tipo.lower() == "vila":
             max_casas = configs.get("max_casas", 10)
             tam_min = configs.get("tam_min_casa", 3)
             tam_max = configs.get("tam_max_casa", 6)
