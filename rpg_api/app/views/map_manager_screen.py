@@ -1,5 +1,6 @@
 # app/screens/map_manager_screen.py
 
+import copy
 from textual.app import ComposeResult
 from textual.screen import Screen, ModalScreen
 from textual.widgets import Footer, Header, Tree, Static, Label, Button, Input, Select
@@ -7,6 +8,7 @@ from textual.containers import Horizontal, Vertical, Container
 from textual.events import Click
 from textual.message import Message
 from textual import on
+from textual.events import MouseDown, MouseUp, MouseMove
 from app.core.mapas import GestorDeMapas
 from app.db.database import SessionLocal
 from app.models.mapas_db import MapaDB
@@ -15,22 +17,49 @@ from rich.text import Text
 CSS_PATH = "styles.css"
 
 class MapaInterativo(Static):
-    """
-    Componente customizado que exibe o mapa e captura cliques do mouse.
-    """
-    class Clicado(Message):
-        """Mensagem (Evento) enviada quando o mapa é clicado."""
-        def __init__(self, linha: int, coluna: int):
+    """Componente customizado que exibe o mapa e captura movimentos contínuos do rato."""
+    
+    
+    class Pintar(Message):
+        """Mensagem enviada continuamente enquanto o rato é arrastado."""
+        def __init__(self, linha: int, coluna: int, inicio_de_traco: bool = False):
             self.linha = linha
             self.coluna = coluna
+            # Esta flag ajuda o sistema a saber quando tirar a "foto" para o Desfazer
+            self.inicio_de_traco = inicio_de_traco 
             super().__init__()
 
-    def on_click(self, event: Click) -> None:
-        """Calcula a posição do clique e avisa a tela principal."""
-        # Como os emojis costumam ocupar 2 colunas no terminal, dividimos por 2!
-        linha = event.y
-        coluna = event.x // 2 
-        self.post_message(self.Clicado(linha, coluna))
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.mouse_pressionado = False # O nosso "sensor" de clique
+
+    def on_mouse_down(self, event: MouseDown) -> None:
+        """Apertou o botão do rato: começa o traço."""
+        self.mouse_pressionado = True
+        self.post_message(self.Pintar(event.y, event.x // 2, inicio_de_traco=True))
+
+    def on_mouse_up(self, event: MouseUp) -> None:
+        """Soltou o botão do rato: termina o traço."""
+        self.mouse_pressionado = False
+
+    def on_mouse_move(self, event: MouseMove) -> None:
+        """Moveu o rato: se estiver apertado, continua a pintar."""
+        if self.mouse_pressionado:
+            self.post_message(self.Pintar(event.y, event.x // 2, inicio_de_traco=False))
+            
+    # class Clicado(Message):
+    #     """Mensagem (Evento) enviada quando o mapa é clicado."""
+    #     def __init__(self, linha: int, coluna: int):
+    #         self.linha = linha
+    #         self.coluna = coluna
+    #         super().__init__()
+
+    # def on_click(self, event: Click) -> None:
+    #     """Calcula a posição do clique e avisa a tela principal."""
+    #     # Como os emojis costumam ocupar 2 colunas no terminal, dividimos por 2!
+    #     linha = event.y
+    #     coluna = event.x // 2 
+    #     self.post_message(self.Clicado(linha, coluna))
         
 
 class MapManagerScreen(Screen):
@@ -47,6 +76,10 @@ class MapManagerScreen(Screen):
         self.tile_selecionado = "  "
         self.tem_alteracoes = False
         self.id_mapa_na_agulha = None
+        
+        # 🧠 NOVA MEMÓRIA: Máquina do Tempo
+        self.historico_desfazer = []
+        self.historico_refazer = []
 
     def compose(self) -> ComposeResult:
         # 1. Nossa Barra Superior (Removido o Header nativo para não haver conflitos)
@@ -66,6 +99,10 @@ class MapManagerScreen(Screen):
                 with Container(id="paleta-container"):
                     yield Label("🎨 Paleta", classes="titulo-secao")
                     yield Label(f"Selecionado: {self.tile_selecionado}", id="lbl-tile-atual")
+                    
+                    with Horizontal(id="ferramentas-hist"):
+                        yield Button("↩️ Desfazer", id="btn-desfazer", classes="btn-pequeno")
+                        yield Button("↪️ Refazer", id="btn-refazer", classes="btn-pequeno")
                     
                     with Container(id="grade-paleta"):
                         tiles_disponiveis = ["  ", "🔲", "🏔️", "🟦", "🏰","🌲",
@@ -173,34 +210,70 @@ class MapManagerScreen(Screen):
             self.notify(f"Mapa '{mapa_db.nome}' carregado!")
 
 # --- FUNÇÃO DE PINTURA ---
-    @on(MapaInterativo.Clicado)
-    def pintar_mapa(self, event: MapaInterativo.Clicado):
-        """Escuta o evento do mapa e aplica o tile selecionado na matriz."""
-        if self.mapa_atual_matriz is None: return
+    # @on(MapaInterativo.Clicado)
+    # def pintar_mapa(self, event: MapaInterativo.Clicado):
+    #     """Escuta o evento do mapa e aplica o tile selecionado na matriz."""
+    #     if self.mapa_atual_matriz is None: return
          
+    #     linha, coluna = event.linha, event.coluna
+        
+    #     # Proteção: Verifica se o clique não foi fora dos limites da matriz
+    #     if 0 <= linha < len(self.mapa_atual_matriz):
+    #         if 0 <= coluna < len(self.mapa_atual_matriz[0]):
+    #             # 1. Altera o dado na memória
+    #             self.mapa_atual_matriz[linha][coluna] = self.tile_selecionado
+    #             self.tem_alteracoes = True
+    #             # 2. Manda redesenhar a tela para refletir a mudança
+    #             self.exibir_mapa_na_tela()
+
+    
+    def salvar_estado_historico(self):
+        """Tira uma fotografia à matriz atual antes de a alterarmos."""
+        # Limitamos o histórico a 20 passos para não consumir muita RAM
+        if len(self.historico_desfazer) > 20:
+            self.historico_desfazer.pop(0)
+            
+        # O deepcopy entra em todas as listas e sub-listas criando clones independentes
+        copia_matriz = copy.deepcopy(self.mapa_atual_matriz)
+        self.historico_desfazer.append(copia_matriz)
+        
+        # Sempre que começamos a pintar algo novo, o "futuro" do refazer é apagado
+        self.historico_refazer.clear()
+
+    @on(MapaInterativo.Pintar)
+    def processar_pintura(self, event: MapaInterativo.Pintar):
+        """Pinta os blocos à medida que o rato é arrastado."""
+        if self.mapa_atual_matriz is None:
+            return 
+            
         linha, coluna = event.linha, event.coluna
         
-        # Proteção: Verifica se o clique não foi fora dos limites da matriz
-        if 0 <= linha < len(self.mapa_atual_matriz):
-            if 0 <= coluna < len(self.mapa_atual_matriz[0]):
-                # 1. Altera o dado na memória
+        # Verifica se o rato está dentro dos limites da grelha
+        if 0 <= linha < len(self.mapa_atual_matriz) and 0 <= coluna < len(self.mapa_atual_matriz[0]):
+            
+            # Se for o primeiro bloco que tocamos ao apertar o botão, guardamos a foto!
+            if event.inicio_de_traco:
+                self.salvar_estado_historico()
+
+            # Evita repintar o mesmo bloco se o rato estiver a passar por cima dele repetidamente
+            if self.mapa_atual_matriz[linha][coluna] != self.tile_selecionado:
                 self.mapa_atual_matriz[linha][coluna] = self.tile_selecionado
                 self.tem_alteracoes = True
-                # 2. Manda redesenhar a tela para refletir a mudança
-                self.exibir_mapa_na_tela()
+                self.exibir_mapa_na_tela()    
+    
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         """Gerencia os cliques na tela principal."""
+        if event.button.id == "btn-fechar":
+            self.dismiss()
+        elif event.button.id == "btn-novo":
+            self.app.push_screen(NovoMapaFormScreen(), self.ao_terminar_form)
+            
         if event.button.has_class("btn-paleta"):
             # O texto do botão (label) é o nosso novo tile!
             self.tile_selecionado = str(event.button.label)
             self.query_one("#lbl-tile-atual", Label).update(f"Selecionado: {self.tile_selecionado}")
             return
-        
-        if event.button.id == "btn-fechar":
-            self.dismiss()
-        elif event.button.id == "btn-novo":
-            self.app.push_screen(NovoMapaFormScreen(), self.ao_terminar_form)
             
         elif event.button.id == "btn-opcoes":
             if self.mapa_atual_dados is None:
@@ -213,6 +286,11 @@ class MapManagerScreen(Screen):
                                 )
         elif event.button.id == "btn-salvar":
             self.salvar_mapa_no_banco()
+        elif event.button.id == "btn-desfazer":
+            self.desfazer_acao()
+            
+        elif event.button.id == "btn-refazer":
+            self.refazer_acao()
     
 
     def ao_terminar_form(self, dados_do_form: dict | None):
@@ -252,7 +330,38 @@ class MapManagerScreen(Screen):
         # Atualiza o título na tela
         self.query_one("#mapa-titulo", Label).update(f"Mapa: {self.mapa_atual_dados['nome']}")
         self.notify("Propriedades atualizadas na memória! Lembre-se de Salvar.")
+    
+    def desfazer_acao(self):
+        """Retrocede a matriz para o último estado guardado."""
+        if not self.historico_desfazer:
+            self.notify("Não há mais ações para desfazer!", severity="warning")
+            return
+            
+        # 1. Guarda a foto atual no "Refazer" caso nos arrependamos do Desfazer
+        estado_atual = copy.deepcopy(self.mapa_atual_matriz)
+        self.historico_refazer.append(estado_atual)
         
+        # 2. Puxa a foto antiga
+        estado_anterior = self.historico_desfazer.pop()
+        self.mapa_atual_matriz = estado_anterior
+        self.tem_alteracoes = True
+        self.exibir_mapa_na_tela()
+
+    def refazer_acao(self):
+        """Avança a matriz para o estado guardado no futuro."""
+        if not self.historico_refazer:
+            self.notify("Não há ações para refazer!", severity="warning")
+            return
+
+        # 1. Guarda a foto atual de volta no "Desfazer"
+        estado_atual = copy.deepcopy(self.mapa_atual_matriz)
+        self.historico_desfazer.append(estado_atual)
+        
+        # 2. Puxa a foto do futuro
+        estado_futuro = self.historico_refazer.pop()
+        self.mapa_atual_matriz = estado_futuro
+        self.tem_alteracoes = True
+        self.exibir_mapa_na_tela()
 
     def exibir_mapa_na_tela(self):
         """Converte a matriz numa string visível e joga na tela de forma segura."""
@@ -356,13 +465,14 @@ class NovoMapaFormScreen(ModalScreen[dict]):
             # --- CAMPOS GERAIS (Sempre visíveis) ---
             yield Input(placeholder="Nome do Mapa", id="input-nome")
             yield Select([], prompt="Mapa Pai (Opcional)", id="select-pai")
-            yield Select((("Masmorra", "masmorra"), ("Vila", "vila")), prompt="Tipo de Mapa", id="select-tipo", value="masmorra")
+            yield Select((("Masmorra", "masmorra"), ("Vila", "vila"), ("Caverna", "caverna")), prompt="Tipo de Mapa", id="select-tipo")
             with Horizontal(classes="linha-dupla"):
                 yield Input(placeholder="Largura (ex: 40)", id="input-largura")
                 yield Input(placeholder="Altura (ex: 20)", id="input-altura")
                 
             with Horizontal(classes="linha-dupla"):
-                yield Input(placeholder="Tile Parede", id="input-tile-parede", value="🔲")
+                #yield Input(placeholder="Tile Parede", id="input-tile-parede", value="🔲")
+                yield Select([("🔲", "🔲"), ("🧱", "🧱"), ("🌳", "🌳") ,("🟫", "🟫")], prompt="Tile Parede", id="input-tile-parede")
                 yield Input(placeholder="Tile Chão", id="input-tile-chao", value="  ")
 
             # --- CAIXAS DE CONFIGURAÇÃO ESPECÍFICAS ---
@@ -374,8 +484,14 @@ class NovoMapaFormScreen(ModalScreen[dict]):
                 with Horizontal(classes="linha-dupla"):
                     yield Input(placeholder="Tam. Mínimo Sala", id="input-tam-min", value="3")
                     yield Input(placeholder="Tam. Máximo Sala", id="input-tam-max", value="15")
+                    
+            # 2. Configurações de Cavernas
+            with Vertical(id="configs-caverna", classes="caixa-config"):
+                yield Label("⚙️ Configurações da Caverna")
+                yield Input(placeholder="Taxa de Preenchimento %", id="input-taxa-caverna", value="45")
+                yield Input(placeholder="Iterações de Suavização", id="input-iteracoes", value="5")  
 
-            # 2. Configurações de Vila (Inicialmente oculta)
+            # 3. Configurações de Vila (Inicialmente oculta)
             with Vertical(id="configs-vila", classes="caixa-config"):
                 yield Label("⚙️ Configurações da Vila")
                 yield Input(placeholder="Máx de Casas", id="input-max-casas", value="20")
@@ -411,11 +527,15 @@ class NovoMapaFormScreen(ModalScreen[dict]):
         """Esconde todas as caixas de configuração e mostra apenas a do tipo selecionado."""
         self.query_one("#configs-masmorra").display = False
         self.query_one("#configs-vila").display = False
+        self.query_one("#configs-caverna").display = False
         
         if tipo_selecionado == "masmorra":
             self.query_one("#configs-masmorra").display = True
         elif tipo_selecionado == "vila":
             self.query_one("#configs-vila").display = True
+        elif tipo_selecionado == "caverna":
+            self.query_one("#configs-caverna").display = True
+
 
     def on_button_pressed(self, event: Button.Pressed):
         """Captura os cliques dos botões."""
@@ -455,6 +575,12 @@ class NovoMapaFormScreen(ModalScreen[dict]):
                     "tam_max_casa": int(self.query_one("#input-tam-max").value),
                     #"taxa_preenchimento": int(self.query_one("#input-taxa-vila").value)
                 }
+            elif tipo == "caverna":
+                dados_mapa["configs"] = {
+                    "taxa_preenchimento": int(self.query_one("#input-taxa-caverna").value),
+                    "iteracoes": int(self.query_one("#input-iteracoes").value)
+                }    
+            
             
             self.dismiss(dados_mapa)
             

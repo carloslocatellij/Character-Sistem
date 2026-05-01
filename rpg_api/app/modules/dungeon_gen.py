@@ -131,7 +131,7 @@ class DungeonGenerator:
             
             
 
-    def generete_village(self, max_casas, casa_min_size, casa_max_size):
+    def generate_village(self, max_casas, casa_min_size, casa_max_size):
         for y in range(self.altura):
               for x in range(self.largura):
                   if x == 0 or x == self.largura - 1 or y == 0 or y == self.altura - 1:

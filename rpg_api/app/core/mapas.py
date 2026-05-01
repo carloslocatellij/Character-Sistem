@@ -39,7 +39,14 @@ class GestorDeMapas:
             tam_min = configs.get("tam_min_casa", 3)
             tam_max = configs.get("tam_max_casa", 6)
             
-            matriz = gerador.generete_village(max_casas, tam_min, tam_max)
+            matriz = gerador.generate_village(max_casas, tam_min, tam_max)
+            return matriz
+        
+        elif tipo.lower() == "caverna":
+            taxa_preenchimento = configs.get("taxa_preenchimento", 45)
+            suavisações = configs.get("iteracoes", 5)
+            
+            matriz = gerador.generate_caves(taxa_preenchimento, suavisações)
             return matriz
         
         return gerador.mapa # Retorna um mapa em branco/cheio se o tipo for desconhecido

@@ -239,3 +239,17 @@ ConfirmacaoSalvarScreen {
     margin-right: 1;
     min-width: 10;
 }
+
+#ferramentas-hist {
+    height: auto;
+    width: auto;
+    margin-bottom: 1;
+}
+
+.btn-pequeno {
+    margin: 0 1;
+    width: auto;
+    height: 3;
+    min-width: 5;
+    margin-right: 1;
+}
