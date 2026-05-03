@@ -35,7 +35,7 @@ class GestorDeMapas:
             return matriz
             
         elif tipo.lower() == "vila":
-            max_casas = configs.get("max_casas", 10)
+            max_casas = configs.get("max_casas", 15)
             tam_min = configs.get("tam_min_casa", 3)
             tam_max = configs.get("tam_max_casa", 6)
             
@@ -43,8 +43,8 @@ class GestorDeMapas:
             return matriz
         
         elif tipo.lower() == "caverna":
-            taxa_preenchimento = configs.get("taxa_preenchimento", 45)
-            suavisações = configs.get("iteracoes", 5)
+            taxa_preenchimento = configs.get("taxa_preenchimento", 55)
+            suavisações = configs.get("iteracoes", 3)
             
             matriz = gerador.generate_caves(taxa_preenchimento, suavisações)
             return matriz

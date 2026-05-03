@@ -84,13 +84,13 @@ DataTable {
 }
 
 #paleta-container {
-    height: 50%;
+    height: 65%;
     border-bottom: dashed green;
-    padding: 1;
+    padding: 0;
 }
 
 #arvore-container {
-    height: 50%;
+    height: 35%;
     padding: 1;
 }
 
@@ -125,7 +125,7 @@ DataTable {
 }
 
 .btn-paleta {
-    min-width: 4;
+    min-width: 3;
     height: 1;
     border: none;
     padding: 0;
@@ -247,6 +247,57 @@ ConfirmacaoSalvarScreen {
 }
 
 .btn-pequeno {
+    margin: 0 1;
+    width: auto;
+    height: 3;
+    min-width: 5;
+    margin-right: 1;
+}
+
+MenuAcoesScreen {
+    align: center middle;
+    background: $background 50%;
+}
+
+#menu-caixa {
+    width: auto;
+    height: auto;
+    padding: 1 2;
+    background: $surface;
+    border: solid green;
+}
+
+#menu-caixa Button {
+    margin: 0 1;
+    padding: 0 1;
+    width: auto;
+    height: 3;
+    min-width: 5;
+    margin-right: 1;
+}
+
+ArquivoCSVScreen {
+    align: center middle;
+    background: $background 50%;
+}
+
+#csv-caixa {
+    width: auto;
+    height: auto;
+    padding: 1 2;
+    background: $surface;
+    border: solid blue;
+}
+
+#csv-botoes {
+    layout: horizontal;
+    align: center middle;
+    margin-top: 1;
+    height: auto;
+    width: 100%;
+}
+
+#csv-botoes Button {
     margin: 0 1;
     width: auto;
     height: 3;

@@ -697,11 +697,11 @@ class MainScreen(Screen):
         yield Header()
         with Center(), Middle():
             with Vertical(id="main-menu"):
-                yield Label("🛡️  SIS-CHARLES RPG 🛡️", id="main-title")
+                yield Label("📖  SIS-CHARLES RPG 📖", id="main-title")
                 yield Button("✨ Criar", id="menu-create", variant="success")
                 yield Button("🔍 Pesquisar/Editar", id="menu-search")
                 yield Button("🗺  Gerenciar Mapas", id="menu-mapas", variant="success")
-                yield Button("⚔️  Entrar na Arena", id="menu-arena", variant="warning")
+                yield Button("🏆  Entrar na Arena", id="menu-arena", variant="warning")
                 yield Button("❌ Sair do Sistema", id="menu-quit", variant="error")
         yield Footer()
 

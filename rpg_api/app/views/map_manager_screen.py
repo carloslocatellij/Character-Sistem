@@ -5,7 +5,6 @@ from textual.app import ComposeResult
 from textual.screen import Screen, ModalScreen
 from textual.widgets import Footer, Header, Tree, Static, Label, Button, Input, Select
 from textual.containers import Horizontal, Vertical, Container
-from textual.events import Click
 from textual.message import Message
 from textual import on
 from textual.events import MouseDown, MouseUp, MouseMove
@@ -16,12 +15,21 @@ from rich.text import Text
 
 CSS_PATH = "styles.css"
 
+def padronizar_largura_tile(tile_string: str) -> str:
+    """
+    Verifica a largura visual do caractere no terminal.
+    Se for um caractere magro (tamanho 1), adiciona um espaço para ficar com tamanho 2.
+    """
+    if Text(tile_string).cell_len == 1:
+        return f"{tile_string}"
+    return tile_string
+
 class MapaInterativo(Static):
-    """Componente customizado que exibe o mapa e captura movimentos contínuos do rato."""
+    """Componente customizado que exibe o mapa e captura movimentos contínuos do mouse."""
     
     
     class Pintar(Message):
-        """Mensagem enviada continuamente enquanto o rato é arrastado."""
+        """Mensagem enviada continuamente enquanto o mouse é arrastado."""
         def __init__(self, linha: int, coluna: int, inicio_de_traco: bool = False):
             self.linha = linha
             self.coluna = coluna
@@ -32,18 +40,23 @@ class MapaInterativo(Static):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.mouse_pressionado = False # O nosso "sensor" de clique
+        self.capture_mouse()
+        self.release_mouse()
 
     def on_mouse_down(self, event: MouseDown) -> None:
-        """Apertou o botão do rato: começa o traço."""
+        """Apertou o botão do mouse: começa o traço e captura o foco."""
         self.mouse_pressionado = True
+        self.capture_mouse() 
         self.post_message(self.Pintar(event.y, event.x // 2, inicio_de_traco=True))
 
     def on_mouse_up(self, event: MouseUp) -> None:
-        """Soltou o botão do rato: termina o traço."""
+        """Soltou o botão do mouse: termina o traço e liberta o foco."""
         self.mouse_pressionado = False
+        if self.has_focus or self.mouse_pressionado == False: 
+            self.release_mouse()
 
     def on_mouse_move(self, event: MouseMove) -> None:
-        """Moveu o rato: se estiver apertado, continua a pintar."""
+        """Moveu o mouse: se estiver apertado, continua a pintar."""
         if self.mouse_pressionado:
             self.post_message(self.Pintar(event.y, event.x // 2, inicio_de_traco=False))
             
@@ -101,15 +114,15 @@ class MapManagerScreen(Screen):
                     yield Label(f"Selecionado: {self.tile_selecionado}", id="lbl-tile-atual")
                     
                     with Horizontal(id="ferramentas-hist"):
-                        yield Button("↩️ Desfazer", id="btn-desfazer", classes="btn-pequeno")
-                        yield Button("↪️ Refazer", id="btn-refazer", classes="btn-pequeno")
+                        yield Button(" Desfazer", id="btn-desfazer", classes="btn-pequeno")
+                        yield Button(" Refazer", id="btn-refazer", classes="btn-pequeno")
                     
                     with Container(id="grade-paleta"):
-                        tiles_disponiveis = ["  ", "🔲", "🏔️", "🟦", "🏰","🌲",
+                        tiles_disponiveis = ["  ", "🔲", "🟫", "🟦", "🏰","🌲",
                                              "🌳", "🌴", "🌵", "🍄", "🌻", "🚪",
                                              "💀", "⛺", "🪨", "⛲", "🔥", "🕋",
                                              "💎", "🧊", "📦", "📖", "🪑", "🪦",
-                                             "👻"]
+                                             "🌭", "🍔", "🍕", "🍺", "🍫", "🌹"]
                                              
                         for i, tile in enumerate(tiles_disponiveis):
                             yield Button(tile, classes="btn-paleta", id=f"tile-{i}")
@@ -141,8 +154,14 @@ class MapManagerScreen(Screen):
 
         from collections import defaultdict
         filhos_de = defaultdict(list)
+        
         for mapa in todos_mapas:
-            filhos_de[mapa.mapa_pai_id].append(mapa)
+            pai_id = mapa.mapa_pai_id
+            
+            if pai_id == 0 or pai_id == "" or str(pai_id).lower() == "none":
+                pai_id = None
+                
+            filhos_de[pai_id].append(mapa)
             
         def adicionar_ramos(pai_id_db, no_da_arvore):
             for mapa in filhos_de[pai_id_db]:
@@ -242,20 +261,20 @@ class MapManagerScreen(Screen):
 
     @on(MapaInterativo.Pintar)
     def processar_pintura(self, event: MapaInterativo.Pintar):
-        """Pinta os blocos à medida que o rato é arrastado."""
+        """Pinta os blocos à medida que o mouse é arrastado."""
         if self.mapa_atual_matriz is None:
             return 
             
         linha, coluna = event.linha, event.coluna
         
-        # Verifica se o rato está dentro dos limites da grelha
+        # Verifica se o mouse está dentro dos limites da grelha
         if 0 <= linha < len(self.mapa_atual_matriz) and 0 <= coluna < len(self.mapa_atual_matriz[0]):
             
             # Se for o primeiro bloco que tocamos ao apertar o botão, guardamos a foto!
             if event.inicio_de_traco:
                 self.salvar_estado_historico()
 
-            # Evita repintar o mesmo bloco se o rato estiver a passar por cima dele repetidamente
+            # Evita repintar o mesmo bloco se o mouse estiver a passar por cima dele repetidamente
             if self.mapa_atual_matriz[linha][coluna] != self.tile_selecionado:
                 self.mapa_atual_matriz[linha][coluna] = self.tile_selecionado
                 self.tem_alteracoes = True
@@ -268,10 +287,18 @@ class MapManagerScreen(Screen):
             self.dismiss()
         elif event.button.id == "btn-novo":
             self.app.push_screen(NovoMapaFormScreen(), self.ao_terminar_form)
+        elif event.button.id == "btn-salvar":
+            self.salvar_mapa_no_banco()
+        elif event.button.id == "btn-desfazer":
+            self.desfazer_acao()
+        elif event.button.id == "btn-refazer":
+            self.refazer_acao()
             
         if event.button.has_class("btn-paleta"):
-            # O texto do botão (label) é o nosso novo tile!
-            self.tile_selecionado = str(event.button.label)
+            # ✅ DEPOIS: Passamos o texto do botão pelo nosso padronizador!
+            tile_bruto = str(event.button.label)
+            self.tile_selecionado = padronizar_largura_tile(tile_bruto)
+
             self.query_one("#lbl-tile-atual", Label).update(f"Selecionado: {self.tile_selecionado}")
             return
             
@@ -282,16 +309,12 @@ class MapManagerScreen(Screen):
             
             self.app.push_screen(
                 PropriedadesFormScreen(self.mapa_atual_dados), 
-                self.ao_terminar_propriedades
-                                )
-        elif event.button.id == "btn-salvar":
-            self.salvar_mapa_no_banco()
-        elif event.button.id == "btn-desfazer":
-            self.desfazer_acao()
+                self.ao_terminar_propriedades)
             
-        elif event.button.id == "btn-refazer":
-            self.refazer_acao()
-    
+        elif event.button.id == "btn-menu":
+            # Abre o menu flutuante!
+            self.app.push_screen(MenuAcoesScreen(), self.ao_escolher_acao_menu)
+
 
     def ao_terminar_form(self, dados_do_form: dict | None):
         """Callback acionado quando o usuário clica em 'Gerar' ou 'Cancelar' no form."""
@@ -367,8 +390,8 @@ class MapManagerScreen(Screen):
         """Converte a matriz numa string visível e joga na tela de forma segura."""
         if self.mapa_atual_matriz:
             texto_mapa = "\n".join(["".join(linha) for linha in self.mapa_atual_matriz])
-            texto_seguro = Text(texto_mapa, no_wrap=True)
-            
+            texto_seguro = Text(texto_mapa, no_wrap=True, style="pointer: wait", )
+
             self.query_one("#mapa-titulo", Label).update(f"Mapa: {self.mapa_atual_dados['nome']}")
             self.query_one("#mapa-view", MapaInterativo).update(texto_seguro)
 
@@ -449,6 +472,78 @@ class MapManagerScreen(Screen):
             
             # Mostra a mensagem de sucesso verde
             self.notify(f"Mapa '{nome_mapa}' {acao_realizada} com sucesso!", severity="success")
+    
+    def ao_escolher_acao_menu(self, acao: str | None):
+        """Callback após o utilizador clicar em algo no Menu Principal."""
+        if acao is None: return
+        
+        if acao == "exportar" and self.mapa_atual_matriz is None:
+            self.notify("Não há nenhum mapa carregado para exportar!", severity="warning")
+            return
+            
+        # Pede o nome do ficheiro para a ação escolhida
+        self.app.push_screen(ArquivoCSVScreen(acao), lambda nome_arq: self.processar_csv(acao, nome_arq))
+
+    def processar_csv(self, acao: str, nome_arquivo: str | None):
+        """Redireciona para importar ou exportar com base no nome do ficheiro."""
+        if nome_arquivo is None: return # Utilizador cancelou
+        
+        if acao == "exportar":
+            self.exportar_para_csv(nome_arquivo)
+        elif acao == "importar":
+            self.importar_de_csv(nome_arquivo)
+
+    def exportar_para_csv(self, nome_arquivo: str):
+        """Transforma a matriz atual em texto com vírgulas e guarda no disco."""
+        try:
+            with open(nome_arquivo, "w", encoding="utf-8") as f:
+                for linha in self.mapa_atual_matriz:
+                    # Junta os elementos da linha com uma vírgula e adiciona quebra de linha
+                    linha_csv = ",".join(linha)
+                    f.write(linha_csv + "\n")
+            
+            self.notify(f"Mapa exportado com sucesso para '{nome_arquivo}'!", severity="success")
+        except Exception as e:
+            self.notify(f"Erro ao exportar: {e}", severity="error")
+
+    def importar_de_csv(self, nome_arquivo: str):
+        """Lê um ficheiro CSV do disco e transforma numa matriz para o nosso programa."""
+        if not os.path.exists(nome_arquivo):
+            self.notify(f"O ficheiro '{nome_arquivo}' não foi encontrado!", severity="error")
+            return
+            
+        try:
+            nova_matriz = []
+            with open(nome_arquivo, "r", encoding="utf-8") as f:
+                for linha in f:
+                    linha = linha.strip() # Remove quebras de linha e espaços no final
+                    if linha: # Ignora linhas vazias
+                        # Separa pela vírgula para recriar a lista
+                        elementos = linha.split(",")
+                        nova_matriz.append(elementos)
+            
+            # Carrega a matriz para a memória do programa
+            self.mapa_atual_matriz = nova_matriz
+            
+            # Atualiza os dados de controlo para fingir que é um mapa novo (ainda não salvo no banco)
+            self.mapa_atual_dados = {
+                "nome": nome_arquivo.replace(".csv", ""),
+                "tipo": "importado",
+                "largura": len(nova_matriz[0]) if nova_matriz else 0,
+                "altura": len(nova_matriz),
+                "mapa_pai_id": None
+            }
+            
+            # Limpa o histórico e marca como alterado (para o utilizador ter de o salvar no banco depois)
+            self.historico_desfazer.clear()
+            self.historico_refazer.clear()
+            self.tem_alteracoes = True
+            
+            self.exibir_mapa_na_tela()
+            self.notify(f"Mapa importado de '{nome_arquivo}'!", severity="success")
+            
+        except Exception as e:
+            self.notify(f"Erro ao importar: {e}", severity="error")
             
 
 class NovoMapaFormScreen(ModalScreen[dict]):
@@ -465,15 +560,16 @@ class NovoMapaFormScreen(ModalScreen[dict]):
             # --- CAMPOS GERAIS (Sempre visíveis) ---
             yield Input(placeholder="Nome do Mapa", id="input-nome")
             yield Select([], prompt="Mapa Pai (Opcional)", id="select-pai")
-            yield Select((("Masmorra", "masmorra"), ("Vila", "vila"), ("Caverna", "caverna")), prompt="Tipo de Mapa", id="select-tipo")
+            yield Select((("Masmorra", "masmorra"), ("Vila", "vila"), ("Caverna", "caverna")), prompt="Tipo de Mapa", id="select-tipo", value="caverna")
             with Horizontal(classes="linha-dupla"):
                 yield Input(placeholder="Largura (ex: 40)", id="input-largura")
                 yield Input(placeholder="Altura (ex: 20)", id="input-altura")
                 
             with Horizontal(classes="linha-dupla"):
                 #yield Input(placeholder="Tile Parede", id="input-tile-parede", value="🔲")
-                yield Select([("🔲", "🔲"), ("🧱", "🧱"), ("🌳", "🌳") ,("🟫", "🟫")], prompt="Tile Parede", id="input-tile-parede")
-                yield Input(placeholder="Tile Chão", id="input-tile-chao", value="  ")
+                yield Select([("🔲", "🔲"), ("🧱", "🧱"), ("🌳", "🌳") , ("🟦", "🟦")], prompt="Tile Parede", id="input-tile-parede", value="🔲")
+                yield Select([("  ", "  "), ("🟦", "🟦"), ("░░", "░░"), ("⬛", "⬛"), ("🟫", "🟫")], prompt="Tile Chão", id="input-tile-chao", value="  " )
+                #yield Input(placeholder="Tile Chão", id="input-tile-chao", value="  ")
 
             # --- CAIXAS DE CONFIGURAÇÃO ESPECÍFICAS ---
             
@@ -488,8 +584,8 @@ class NovoMapaFormScreen(ModalScreen[dict]):
             # 2. Configurações de Cavernas
             with Vertical(id="configs-caverna", classes="caixa-config"):
                 yield Label("⚙️ Configurações da Caverna")
-                yield Input(placeholder="Taxa de Preenchimento %", id="input-taxa-caverna", value="45")
-                yield Input(placeholder="Iterações de Suavização", id="input-iteracoes", value="5")  
+                yield Input(placeholder="Taxa de Preenchimento %", id="input-taxa-caverna", value="55")
+                yield Input(placeholder="Iterações de Suavização", id="input-iteracoes", value="3")  
 
             # 3. Configurações de Vila (Inicialmente oculta)
             with Vertical(id="configs-vila", classes="caixa-config"):
@@ -515,7 +611,7 @@ class NovoMapaFormScreen(ModalScreen[dict]):
         """Busca os mapas no banco de dados e preenche o menu de seleção."""
         with SessionLocal() as db:
             mapas = db.query(MapaDB).all()
-            opcoes = [("Nenhum (Raiz)", None)] + [(m.nome, m.id) for m in mapas]
+            opcoes = [("Nenhum (Raiz)", 0)] + [(m.nome, m.id) for m in mapas]
             self.query_one("#select-pai", Select).set_options(opcoes)
 
     @on(Select.Changed, "#select-tipo")
@@ -546,18 +642,20 @@ class NovoMapaFormScreen(ModalScreen[dict]):
             nome = self.query_one("#input-nome").value
             tipo = self.query_one("#select-tipo").value
             mapa_pai_id = self.query_one("#select-pai").value
-            if not nome or tipo == Select.BLANK:
+            if mapa_pai_id == Select.NULL or mapa_pai_id == Select.BLANK or mapa_pai_id == 0:
+                mapa_pai_id = None
+            if not nome or tipo == Select.BLANK or tipo == Select.NULL:
                 self.notify("Preencha o nome e escolha um tipo!", severity="error")
                 return
 
             dados_mapa = {
                 "nome": nome,
                 "tipo": str(tipo),
-                "mapa_pai_id": mapa_pai_id,
+                "mapa_pai_id": mapa_pai_id ,
                 "largura": int(self.query_one("#input-largura").value or 30),
                 "altura": int(self.query_one("#input-altura").value or 30),
-                "tile_parede": self.query_one("#input-tile-parede").value,
-                "tile_chao": self.query_one("#input-tile-chao").value,
+                "tile_parede": self.query_one("#input-tile-parede").value if self.query_one("#input-tile-parede").value else "🔲",
+                "tile_chao": self.query_one("#input-tile-chao").value if self.query_one("#input-tile-chao").value else "  ",
                 "configs": {}
             }
             
@@ -615,7 +713,7 @@ class PropriedadesFormScreen(ModalScreen[dict]):
         """Ao abrir, carrega os mapas do banco para o Select de Mapa Pai."""
         with SessionLocal() as db:
             mapas = db.query(MapaDB).all()
-            opcoes = [("Nenhum (Raiz)", None)] + [(m.nome, m.id) for m in mapas]
+            opcoes = [("Nenhum (Raiz)", 0)] + [(m.nome, m.id) for m in mapas]
             
             select_pai = self.query_one("#prop-pai", Select)
             select_pai.set_options(opcoes)
@@ -624,6 +722,8 @@ class PropriedadesFormScreen(ModalScreen[dict]):
             pai_atual = self.dados_atuais.get("mapa_pai_id")
             if pai_atual is not None:
                 select_pai.value = pai_atual
+            else:
+                select_pai.clear()
 
     def on_button_pressed(self, event: Button.Pressed):
         if event.button.id == "btn-prop-cancelar":
@@ -632,8 +732,8 @@ class PropriedadesFormScreen(ModalScreen[dict]):
         elif event.button.id == "btn-prop-salvar":
             novo_nome = self.query_one("#prop-nome").value
             novo_pai = self.query_one("#prop-pai").value
-            if novo_pai == Select.BLANK:
-                novo_pai = None
+            if novo_pai == Select.BLANK or novo_pai == Select.NULL or novo_pai ==  0:
+                novo_pai.clear()
 
             # Retornamos apenas o que foi alterado
             alteracoes = {
@@ -669,3 +769,65 @@ class ConfirmacaoSalvarScreen(ModalScreen[str]):
             self.dismiss("descartar")
         elif event.button.id == "btn-conf-salvar":
             self.dismiss("salvar")
+            
+import os # Importante para verificar se o ficheiro existe na hora de importar
+
+# ==============================================================================
+# TELA 4: MENU PRINCIPAL (AÇÕES)
+# ==============================================================================
+class MenuAcoesScreen(ModalScreen[str]):
+    """Tela de menu acionada pelo botão 'Menu' no topo."""
+
+
+    def compose(self):
+        with Vertical(id="menu-caixa"):
+            yield Label("🛠️ Menu Principal", classes="titulo-secao")
+            yield Button("📥 Importar CSV", id="btn-menu-importar", variant="primary")
+            yield Button("📤 Exportar CSV", id="btn-menu-exportar", variant="success")
+            yield Button("Voltar", id="btn-menu-voltar", variant="error")
+
+    def on_button_pressed(self, event: Button.Pressed):
+        # Retorna a ação escolhida (ou None se cancelar)
+        if event.button.id == "btn-menu-voltar":
+            self.dismiss(None)
+        elif event.button.id == "btn-menu-importar":
+            self.dismiss("importar")
+        elif event.button.id == "btn-menu-exportar":
+            self.dismiss("exportar")
+
+
+# ==============================================================================
+# TELA 5: FORMULÁRIO DE NOME DO FICHEIRO CSV
+# ==============================================================================
+class ArquivoCSVScreen(ModalScreen[str]):
+    """Pede ao utilizador o caminho/nome do ficheiro CSV."""
+
+    def __init__(self, acao: str):
+        super().__init__()
+        self.acao = acao # Guarda se estamos a importar ou a exportar
+
+    def compose(self):
+        with Vertical(id="csv-caixa"):
+            titulo = "📤 Exportar para CSV" if self.acao == "exportar" else "📥 Importar de CSV"
+            yield Label(titulo, classes="titulo-secao")
+            yield Label("Digite o nome do ficheiro:")
+            yield Input(placeholder="ex: mapa_caverna.csv", id="input-csv-nome")
+
+            with Horizontal(id="csv-botoes"):
+                yield Button("Cancelar", id="btn-csv-cancelar", variant="error")
+                yield Button("Confirmar", id="btn-csv-confirmar", variant="primary")
+
+    def on_button_pressed(self, event: Button.Pressed):
+        if event.button.id == "btn-csv-cancelar":
+            self.dismiss(None)
+        elif event.button.id == "btn-csv-confirmar":
+            nome_arquivo = self.query_one("#input-csv-nome").value
+            if not nome_arquivo:
+                self.notify("Por favor, digite um nome!", severity="error")
+                return
+            
+            # Garante que termina com .csv
+            if not nome_arquivo.endswith(".csv"):
+                nome_arquivo += ".csv"
+                
+            self.dismiss(nome_arquivo)

@@ -13,10 +13,32 @@ class Rect:
         """Retorna as coordenadas do centro do retângulo."""
         return ((self.x1 + self.x2) // 2, (self.y1 + self.y2) // 2)
 
-    def intersect(self, other: 'Rect') -> bool:
+    def intersect(self, other: 'Rect', casa=False) -> bool:
         """Verifica se este retângulo se sobrepõe a outro."""
-        return (self.x1 <= other.x2 and self.x2 >= other.x1 and
-                self.y1 <= other.y2 and self.y2 >= other.y1)
+        if not casa:
+            return (self.x1 <= other.x2 and self.x2 >= other.x1 and
+                        self.y1 <= other.y2 and self.y2 >= other.y1)
+        else:
+            return (self.x1 <= other.x2 + 1 and self.x2 >= other.x1 - 1 and
+                        self.y1 <= other.y2 + 1 and self.y2 >= other.y1 - 1)
+            
+class circle:
+    """Representa um círculo, usado para criar poços ou lagos."""
+    def __init__(self, x: int, y: int, r: int):
+        self.x = x
+        self.y = y
+        self.r = r
+        
+    def center(self) -> Tuple[int, int]:
+        """Retorna as coordenadas do centro do retângulo."""
+        return ((self.x1 + self.x2) // 2, (self.y1 + self.y2) // 2)
+
+    def intersect(self, other: 'circle') -> bool:
+        """Verifica se este círculo se sobrepõe a outro."""
+        distance_squared = (self.x - other.x) ** 2 + (self.y - other.y) ** 2
+        radius_sum_squared = (self.r + other.r) ** 2
+        return distance_squared < radius_sum_squared
+    
 
 class DungeonGenerator:
     """
@@ -52,7 +74,7 @@ class DungeonGenerator:
             if 0 < x < self.largura - 1 and 0 < y < self.altura - 1:
                 self.mapa[y][x] = self.tile_chao
                 
-    def create_casa(self, casa):
+    def criar_casa(self, casa):
         """Cria uma casa com paredes e um chão, além de uma porta aleatória."""
         for x in range(casa.x1 , casa.x2 + 1):
             for y in range(casa.y1 , casa.y2 + 1):
@@ -103,7 +125,7 @@ class DungeonGenerator:
 
         return self.mapa
     
-    def generate_caves(self, fill_percent=45, smoothing_iterations=5):
+    def generate_caves(self, fill_percent=55, smoothing_iterations=3):
         for y in range(self.altura):
             for x in range(self.largura):
                 if x == 0 or x == self.largura - 1 or y == 0 or y == self.altura - 1:
@@ -148,12 +170,12 @@ class DungeonGenerator:
             new_casa = Rect(x, y, w, h)
             failed = False
             for other_casa in self.casas:
-                if new_casa.intersect(other_casa):
+                if new_casa.intersect(other_casa, casa=True):
                     failed = True
                     break
             
             if not failed:
-                self.create_casa(new_casa)
+                self.criar_casa(new_casa)
                 (new_x, new_y) = new_casa.center()
                 self.casas.append(new_casa)
         return self.mapa
