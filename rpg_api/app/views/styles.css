@@ -116,7 +116,7 @@ DataTable {
     margin-bottom: 1;
 }
 
-#grade-paleta {
+.grade-paleta {
     layout: grid;
     grid-size: 5;
     /* 5 colunas de botões */

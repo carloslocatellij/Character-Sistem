@@ -4,6 +4,7 @@ import copy
 from textual.app import ComposeResult
 from textual.screen import Screen, ModalScreen
 from textual.widgets import Footer, Header, Tree, Static, Label, Button, Input, Select
+from textual.widgets import TabbedContent, TabPane
 from textual.containers import Horizontal, Vertical, Container
 from textual.message import Message
 from textual import on
@@ -14,6 +15,43 @@ from app.models.mapas_db import MapaDB
 from rich.text import Text
 
 CSS_PATH = "styles.css"
+
+class CatalogoTiles:
+    """Registo central que define as categorias e propriedades visuais dos emojis."""
+    
+    # Listas para construir as abas
+    TERRENOS = ["  ", "⬛", "🟫", "🟩", "🔲", "🟦"]
+    
+    OBJETOS = [ "🌲", "🌳", "🌴", "🌵", "🍄", " 🕸️ ",
+                "🌻", "🌹", "🌷", "🪴", "🪵", "🏰", 
+                "🚪", " 🏘️ ", " 🏚️ ", "🏯", "🏩", "🕍",
+                "💀", "⛺", "🪨", "⛲", "⌛", "🕋",
+                "🛶", "🧊", "📦", "📖", "🪑", "🪦",
+                "🌭", "🍔", "🍕", "🍺", "🍫", "♟️"]
+    
+    # Mapeamento de cores de fundo para os terrenos
+    CORES_BG = {
+        "⬛": "#606060",
+        "🟫": "#B45428",
+        "🟩": "#228B22",
+        "🔲": "#808080",
+        "🟦": "#0000FF"
+    }
+
+    @classmethod
+    def obter_tipo(cls, tile: str) -> str:
+        """Verifica de qual aba o pincel pertence."""
+        tile_limpo = tile.strip()
+        if tile_limpo in cls.TERRENOS:
+            return "terreno"
+        return "objeto" # Por padrão, trata tudo o resto (e a borracha) como objeto
+
+    @classmethod
+    def obter_cor_fundo(cls, tile: str) -> str:
+        """Pega o código hexadecimal da cor de fundo de um chão."""
+        tile_limpo = tile.strip()
+        return cls.CORES_BG.get(tile_limpo, "")
+
 
 def padronizar_largura_tile(tile_string: str) -> str:
     """
@@ -85,12 +123,14 @@ class MapManagerScreen(Screen):
     def __init__(self):
         super().__init__()
         self.mapa_atual_matriz = None
+        # 🧠 NOVA MEMÓRIA PARA AS ENTIDADES/OBJETOS
+        # Vai guardar dados no formato: {(linha, coluna): "🪑"}
+        self.mapa_atual_objetos = {} 
+        
         self.mapa_atual_dados = None
-        self.tile_selecionado = "  "
+        self.tile_selecionado = "⬛"
         self.tem_alteracoes = False
         self.id_mapa_na_agulha = None
-        
-        # 🧠 NOVA MEMÓRIA: Máquina do Tempo
         self.historico_desfazer = []
         self.historico_refazer = []
 
@@ -114,18 +154,28 @@ class MapManagerScreen(Screen):
                     yield Label(f"Selecionado: {self.tile_selecionado}", id="lbl-tile-atual")
                     
                     with Horizontal(id="ferramentas-hist"):
-                        yield Button(" Desfazer", id="btn-desfazer", classes="btn-pequeno")
-                        yield Button(" Refazer", id="btn-refazer", classes="btn-pequeno")
+                        yield Button("↩ Desfazer", id="btn-desfazer", classes="btn-pequeno")
+                        yield Button("↪ Refazer", id="btn-refazer", classes="btn-pequeno")
+                        # NOVO: Borracha para apagar objetos
+                        yield Button("❌ Borracha", id="btn-borracha", classes="btn-pequeno", variant="error")
                     
-                    with Container(id="grade-paleta"):
-                        tiles_disponiveis = ["  ", "🔲", "🟫", "🟦", "🏰","🌲",
-                                             "🌳", "🌴", "🌵", "🍄", "🌻", "🚪",
-                                             "💀", "⛺", "🪨", "⛲", "🔥", "🕋",
-                                             "💎", "🧊", "📦", "📖", "🪑", "🪦",
-                                             "🌭", "🍔", "🍕", "🍺", "🍫", "🌹"]
-                                             
-                        for i, tile in enumerate(tiles_disponiveis):
-                            yield Button(tile, classes="btn-paleta", id=f"tile-{i}")
+                    # 🪄 O NOVO SISTEMA DE ABAS!
+                    with TabbedContent(id="tabs-paleta"):
+                        # ABA 1: TERRENOS E PAREDES
+                        with TabPane("🌍 Terrenos", id="tab-terrenos"):
+                            with Container(classes="grade-paleta"): # Note que mudei id="grade-paleta" para classes="grade-paleta" no seu CSS depois
+                                for i, tile in enumerate(CatalogoTiles.TERRENOS):
+                                    yield Button(tile, classes="btn-paleta", id=f"tile-terr-{i}")
+                        
+                        # ABA 2: OBJETOS SOLTOS
+                        with TabPane("📦 Objetos", id="tab-objetos"):
+                            with Container(classes="grade-paleta"):
+                                for i, tile in enumerate(CatalogoTiles.OBJETOS):
+                                    yield Button(tile, classes="btn-paleta", id=f"tile-obj-{i}")
+                                    
+                        # ABA 3: FUTURA ABA DE EVENTOS
+                        with TabPane("⚙️ Eventos", id="tab-eventos", disabled=True):
+                            yield Label("Em breve: NPCs, Inimigos e Triggers...", id="aviso-eventos")
                     
                 with Container(id="arvore-container"):
                     yield Label("📂 Mapas", classes="titulo-secao")
@@ -219,7 +269,6 @@ class MapManagerScreen(Screen):
                 "largura": mapa_db.largura,
                 "altura": mapa_db.altura,
             }
-            
             # Limpa o estado
             self.tem_alteracoes = False
             self.id_mapa_na_agulha = None
@@ -228,28 +277,11 @@ class MapManagerScreen(Screen):
             self.exibir_mapa_na_tela()
             self.notify(f"Mapa '{mapa_db.nome}' carregado!")
 
-# --- FUNÇÃO DE PINTURA ---
-    # @on(MapaInterativo.Clicado)
-    # def pintar_mapa(self, event: MapaInterativo.Clicado):
-    #     """Escuta o evento do mapa e aplica o tile selecionado na matriz."""
-    #     if self.mapa_atual_matriz is None: return
-         
-    #     linha, coluna = event.linha, event.coluna
-        
-    #     # Proteção: Verifica se o clique não foi fora dos limites da matriz
-    #     if 0 <= linha < len(self.mapa_atual_matriz):
-    #         if 0 <= coluna < len(self.mapa_atual_matriz[0]):
-    #             # 1. Altera o dado na memória
-    #             self.mapa_atual_matriz[linha][coluna] = self.tile_selecionado
-    #             self.tem_alteracoes = True
-    #             # 2. Manda redesenhar a tela para refletir a mudança
-    #             self.exibir_mapa_na_tela()
-
     
     def salvar_estado_historico(self):
         """Tira uma fotografia à matriz atual antes de a alterarmos."""
-        # Limitamos o histórico a 20 passos para não consumir muita RAM
-        if len(self.historico_desfazer) > 20:
+        # Limitamos o histórico a 10 passos para não consumir muita RAM
+        if len(self.historico_desfazer) > 10:
             self.historico_desfazer.pop(0)
             
         # O deepcopy entra em todas as listas e sub-listas criando clones independentes
@@ -261,24 +293,31 @@ class MapManagerScreen(Screen):
 
     @on(MapaInterativo.Pintar)
     def processar_pintura(self, event: MapaInterativo.Pintar):
-        """Pinta os blocos à medida que o mouse é arrastado."""
-        if self.mapa_atual_matriz is None:
-            return 
+        if self.mapa_atual_matriz is None: return 
             
         linha, coluna = event.linha, event.coluna
         
-        # Verifica se o mouse está dentro dos limites da grelha
         if 0 <= linha < len(self.mapa_atual_matriz) and 0 <= coluna < len(self.mapa_atual_matriz[0]):
             
-            # Se for o primeiro bloco que tocamos ao apertar o botão, guardamos a foto!
             if event.inicio_de_traco:
                 self.salvar_estado_historico()
 
-            # Evita repintar o mesmo bloco se o mouse estiver a passar por cima dele repetidamente
-            if self.mapa_atual_matriz[linha][coluna] != self.tile_selecionado:
-                self.mapa_atual_matriz[linha][coluna] = self.tile_selecionado
-                self.tem_alteracoes = True
-                self.exibir_mapa_na_tela()    
+            tipo_pincel = CatalogoTiles.obter_tipo(self.tile_selecionado)
+            
+            if self.tile_selecionado == "❌":
+                # MODO BORRACHA: Apaga o objeto daquela coordenada (se existir)
+                if (linha, coluna) in self.mapa_atual_objetos:
+                    del self.mapa_atual_objetos[(linha, coluna)]
+            elif tipo_pincel == "terreno":
+                # MODO TERRENO: Atualiza apenas a matriz base
+                if self.mapa_atual_matriz[linha][coluna] != self.tile_selecionado:
+                    self.mapa_atual_matriz[linha][coluna] = self.tile_selecionado
+            elif tipo_pincel == "objeto":
+                # MODO OBJETO: Adiciona/Atualiza no dicionário de entidades
+                self.mapa_atual_objetos[(linha, coluna)] = self.tile_selecionado
+
+            self.tem_alteracoes = True
+            self.exibir_mapa_na_tela()    
     
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
@@ -293,7 +332,11 @@ class MapManagerScreen(Screen):
             self.desfazer_acao()
         elif event.button.id == "btn-refazer":
             self.refazer_acao()
-            
+        # (Junto aos botões desfazer/refazer)
+        elif event.button.id == "btn-borracha":
+            self.tile_selecionado = "❌"
+            self.query_one("#lbl-tile-atual", Label).update("Selecionado: ❌ Borracha")
+        
         if event.button.has_class("btn-paleta"):
             # ✅ DEPOIS: Passamos o texto do botão pelo nosso padronizador!
             tile_bruto = str(event.button.label)
@@ -387,13 +430,35 @@ class MapManagerScreen(Screen):
         self.exibir_mapa_na_tela()
 
     def exibir_mapa_na_tela(self):
-        """Converte a matriz numa string visível e joga na tela de forma segura."""
-        if self.mapa_atual_matriz:
-            texto_mapa = "\n".join(["".join(linha) for linha in self.mapa_atual_matriz])
-            texto_seguro = Text(texto_mapa, no_wrap=True, style="pointer: wait", )
-
-            self.query_one("#mapa-titulo", Label).update(f"Mapa: {self.mapa_atual_dados['nome']}")
-            self.query_one("#mapa-view", MapaInterativo).update(texto_seguro)
+        """Monta o mapa base e sobrepõe os objetos aplicando transparência (cor de fundo)."""
+        if self.mapa_atual_matriz is None: return
+        
+        texto_mapa = Text(no_wrap=True)
+        
+        for linha_idx in range(len(self.mapa_atual_matriz)):
+            for col_idx in range(len(self.mapa_atual_matriz[0])):
+                
+                # 1. Pega o terreno base da matriz
+                tile_chao = self.mapa_atual_matriz[linha_idx][col_idx]
+                
+                # 2. Verifica se existe um objeto nesta coordenada
+                tile_objeto = self.mapa_atual_objetos.get((linha_idx, col_idx))
+                
+                # 3. Lógica de Renderização
+                if tile_objeto is not None:
+                    # Desenha o Objeto, mas copia o background do terreno abaixo dele!
+                    cor_bg = CatalogoTiles.obter_cor_fundo(tile_chao)
+                    estilo = f"on {cor_bg}" if cor_bg else ""
+                    texto_mapa.append(tile_objeto, style=estilo)
+                else:
+                    # Não há objetos, desenha apenas o chão limpo
+                    texto_mapa.append(tile_chao)
+            
+            # Quebra de linha no fim de cada linha da grelha
+            texto_mapa.append("\n")
+        
+        self.query_one("#mapa-titulo", Label).update(f"Mapa: {self.mapa_atual_dados['nome']}")
+        self.query_one("#mapa-view", MapaInterativo).update(texto_mapa)
 
     def salvar_mapa_no_banco(self):
         """
