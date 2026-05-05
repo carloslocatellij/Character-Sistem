@@ -20,13 +20,13 @@ class CatalogoTiles:
     """Registo central que define as categorias e propriedades visuais dos emojis."""
     
     # Listas para construir as abas
-    TERRENOS = ["  ", "⬛", "🟫", "🟩", "🔲", "🟦"]
+    TERRENOS = ["  ", "🔳", "⬜", "░░",  "🟫", "🟩", "🔲", "🟦"]
     
-    OBJETOS = [ "🌲", "🌳", "🌴", "🌵", "🍄", " 🕸️ ",
-                "🌻", "🌹", "🌷", "🪴", "🪵", "🏰", 
-                "🚪", " 🏘️ ", " 🏚️ ", "🏯", "🏩", "🕍",
-                "💀", "⛺", "🪨", "⛲", "⌛", "🕋",
-                "🛶", "🧊", "📦", "📖", "🪑", "🪦",
+    OBJETOS = [ "🌲", "🌳", "🌴", "🌵", "🍄", "🕸️",
+                "🌻", "🌹", "🌷", "🔮", "🗿", "🏰", 
+                "🚪", "🏘️", "🏚️", "🏯", "🏩", "🕍",
+                "💀", "⛺", "🛕", "⛲", "⌛", "🕋",
+                "🛶", "🧊", "📦", "📖", "🪑", "🏴‍☠️",
                 "🌭", "🍔", "🍕", "🍺", "🍫", "♟️"]
     
     # Mapeamento de cores de fundo para os terrenos
@@ -50,7 +50,7 @@ class CatalogoTiles:
     def obter_cor_fundo(cls, tile: str) -> str:
         """Pega o código hexadecimal da cor de fundo de um chão."""
         tile_limpo = tile.strip()
-        return cls.CORES_BG.get(tile_limpo, "")
+        return padronizar_largura_tile(cls.CORES_BG.get(tile_limpo, ""))
 
 
 def padronizar_largura_tile(tile_string: str) -> str:
@@ -97,21 +97,7 @@ class MapaInterativo(Static):
         """Moveu o mouse: se estiver apertado, continua a pintar."""
         if self.mouse_pressionado:
             self.post_message(self.Pintar(event.y, event.x // 2, inicio_de_traco=False))
-            
-    # class Clicado(Message):
-    #     """Mensagem (Evento) enviada quando o mapa é clicado."""
-    #     def __init__(self, linha: int, coluna: int):
-    #         self.linha = linha
-    #         self.coluna = coluna
-    #         super().__init__()
-
-    # def on_click(self, event: Click) -> None:
-    #     """Calcula a posição do clique e avisa a tela principal."""
-    #     # Como os emojis costumam ocupar 2 colunas no terminal, dividimos por 2!
-    #     linha = event.y
-    #     coluna = event.x // 2 
-    #     self.post_message(self.Clicado(linha, coluna))
-        
+                    
 
 class MapManagerScreen(Screen):
     """
@@ -133,6 +119,30 @@ class MapManagerScreen(Screen):
         self.id_mapa_na_agulha = None
         self.historico_desfazer = []
         self.historico_refazer = []
+        
+# ==========================================
+    # UTILITÁRIOS DE SERIALIZAÇÃO DE OBJETOS
+    # ==========================================
+    def _empacotar_objetos_para_banco(self) -> dict:
+        """Transforma as chaves de tupla (1, 2) em texto '1,2' para poder salvar no Banco."""
+        objetos_formatados = {}
+        for (linha, coluna), emoji in self.mapa_atual_objetos.items():
+            chave_texto = f"{linha},{coluna}"
+            objetos_formatados[chave_texto] = emoji
+        return objetos_formatados
+
+    def _desempacotar_objetos_do_banco(self, objetos_json: dict) -> dict:
+        """Transforma o texto '1,2' do Banco de volta em tupla matemática (1, 2)."""
+        objetos_na_memoria = {}
+        if not objetos_json:
+            return objetos_na_memoria # Retorna vazio se não houver objetos
+            
+        for chave_texto, emoji in objetos_json.items():
+            partes = chave_texto.split(",")
+            linha = int(partes[0])
+            coluna = int(partes[1])
+            objetos_na_memoria[(linha, coluna)] = emoji
+        return objetos_na_memoria
 
     def compose(self) -> ComposeResult:
         # 1. Nossa Barra Superior (Removido o Header nativo para não haver conflitos)
@@ -252,15 +262,22 @@ class MapManagerScreen(Screen):
             self.tem_alteracoes = False # Esquece a sujeira
             self.carregar_mapa_do_banco(self.id_mapa_na_agulha)
 
+
     def carregar_mapa_do_banco(self, mapa_id: int):
-        """Puxa os dados reais do banco e exibe na tela principal."""
         with SessionLocal() as db:
             mapa_db = db.query(MapaDB).filter(MapaDB.id == mapa_id).first()
             if not mapa_db:
                 return
 
-            # Alimenta a memória do sistema
             self.mapa_atual_matriz = mapa_db.mapa_em_si
+            
+            # ✅ DEPOIS: Agora puxamos diretamente da nova coluna 'objetos'
+            objetos_salvos = mapa_db.objetos if mapa_db.objetos else {}
+            self.mapa_atual_objetos = self._desempacotar_objetos_do_banco(objetos_salvos)
+
+            # E guardamos as configs originais para não as perdermos
+            configs_salvas = mapa_db.configs if mapa_db.configs else {}
+
             self.mapa_atual_dados = {
                 "id": mapa_db.id,
                 "nome": mapa_db.nome,
@@ -268,12 +285,12 @@ class MapManagerScreen(Screen):
                 "mapa_pai_id": mapa_db.mapa_pai_id,
                 "largura": mapa_db.largura,
                 "altura": mapa_db.altura,
+                "configs": configs_salvas # Resgata as configurações de geração!
             }
-            # Limpa o estado
+            
             self.tem_alteracoes = False
             self.id_mapa_na_agulha = None
             
-            # Exibe!
             self.exibir_mapa_na_tela()
             self.notify(f"Mapa '{mapa_db.nome}' carregado!")
 
@@ -363,9 +380,8 @@ class MapManagerScreen(Screen):
         """Callback acionado quando o usuário clica em 'Gerar' ou 'Cancelar' no form."""
         if dados_do_form is None:
             return 
-
-        # 1. Guarda os dados na memória temporária do sistema
         self.mapa_atual_dados = dados_do_form
+        self.mapa_atual_objetos.clear()
         
         # 2. PREPARAÇÃO DOS DADOS: Juntamos os tiles e as configurações num único pacote
         configs_completas = dados_do_form.get("configs", {})
@@ -499,9 +515,9 @@ class MapManagerScreen(Screen):
                     mapa_para_atualizar.mapa_pai_id = self.mapa_atual_dados.get("mapa_pai_id")
                     mapa_para_atualizar.largura = self.mapa_atual_dados.get("largura")
                     mapa_para_atualizar.altura = self.mapa_atual_dados.get("altura")
-                    # Atualizamos a matriz (o desenho) com as últimas pinceladas
+                    mapa_para_atualizar.configs = self.mapa_atual_dados.get("configs", {})
                     mapa_para_atualizar.mapa_em_si = self.mapa_atual_matriz 
-                    
+                    mapa_para_atualizar.objetos = self._empacotar_objetos_para_banco()
                     acao_realizada = "atualizado"
                 else:
                     self.notify("Erro: Mapa original não foi encontrado no banco de dados.", severity="error")
@@ -515,7 +531,8 @@ class MapManagerScreen(Screen):
                     largura=self.mapa_atual_dados.get("largura"),
                     altura=self.mapa_atual_dados.get("altura"),
                     mapa_em_si=self.mapa_atual_matriz,
-                    configs={} 
+                    configs=self.mapa_atual_dados.get("configs", {}),
+                    objetos=self._empacotar_objetos_para_banco()
                 )
                 db.add(novo_mapa)
                 acao_realizada = "criado"
@@ -633,9 +650,8 @@ class NovoMapaFormScreen(ModalScreen[dict]):
             with Horizontal(classes="linha-dupla"):
                 #yield Input(placeholder="Tile Parede", id="input-tile-parede", value="🔲")
                 yield Select([("🔲", "🔲"), ("🧱", "🧱"), ("🌳", "🌳") , ("🟦", "🟦")], prompt="Tile Parede", id="input-tile-parede", value="🔲")
-                yield Select([("  ", "  "), ("🟦", "🟦"), ("░░", "░░"), ("⬛", "⬛"), ("🟫", "🟫")], prompt="Tile Chão", id="input-tile-chao", value="  " )
+                yield Select([("  ", "  "), ("🟦", "🟦"), ("🟩", "🟩"), ("⬛", "⬛"), ("🟫", "🟫")], prompt="Tile Chão", id="input-tile-chao", value="  " )
                 #yield Input(placeholder="Tile Chão", id="input-tile-chao", value="  ")
-
             # --- CAIXAS DE CONFIGURAÇÃO ESPECÍFICAS ---
             
             # 1. Configurações de Masmorra
