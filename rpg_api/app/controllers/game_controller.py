@@ -190,21 +190,22 @@ def simular_arena(db, ids_aliados: List[int], ids_oponentes: List[int], num_bata
         return simulador.simular_multiplas_batalhas(num_batalhas)
     
     
-    def criar_e_salvar_mapa(self, nome: str, tipo: str, h: int, w: int, configs: dict):
-        # 1. Gera a matriz usando o Core
-        matriz = GestorDeMapas.gerar_masmorra(h, w, configs)
-        
-        # 2. Cria o registro no banco
-        novo_mapa = MapaDB(
-            nome=nome, tipo=tipo, altura=h, largura=w,
-            mapa_em_si=matriz, configs=configs
-        )
-        self.db.add(novo_mapa)
-        self.db.commit()
-        return novo_mapa
+def criar_e_salvar_mapa(self, nome: str, tipo: str, h: int, w: int, configs: dict):
+    # 1. Gera a matriz usando o Core
+    matriz = GestorDeMapas.gerar_masmorra(h, w, configs)
+    
+    # 2. Cria o registro no banco
+    novo_mapa = MapaDB(
+        nome=nome, tipo=tipo, altura=h, largura=w,
+        mapa_em_si=matriz, configs=configs
+    )
+    self.db.add(novo_mapa)
+    self.db.commit()
+    return novo_mapa
 
-    def exportar_mapa_para_csv(self, mapa_id: int, caminho_arquivo: str):
-        mapa_db = self.db.query(MapaDB).get(mapa_id)
-        csv_text = GestorDeMapas.para_csv(mapa_db.mapa_em_si)
-        with open(caminho_arquivo, 'w', encoding='utf-8') as f:
-            f.write(csv_text)
+
+def exportar_mapa_para_csv(self, mapa_id: int, caminho_arquivo: str):
+    mapa_db = self.db.query(MapaDB).get(mapa_id)
+    csv_text = GestorDeMapas.para_csv(mapa_db.mapa_em_si)
+    with open(caminho_arquivo, 'w', encoding='utf-8') as f:
+        f.write(csv_text)

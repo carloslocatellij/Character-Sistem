@@ -17,4 +17,4 @@ class MapaDB(Base):
     mapa_pai_id = Column(Integer, nullable=True)
     # A matriz do mapa guardada como JSON (Lista de Listas)
     mapa_em_si = Column(JSON, nullable=False)
-    objetos = Column(JSON, default=dict)
+    objetos = Column(JSON, nullable=True , default=dict)
