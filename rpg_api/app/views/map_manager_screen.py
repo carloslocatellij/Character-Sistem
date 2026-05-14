@@ -1,5 +1,6 @@
 # app/screens/map_manager_screen.py
 
+import os
 import copy
 from textual.app import ComposeResult
 from textual.screen import Screen, ModalScreen
@@ -20,21 +21,21 @@ class CatalogoTiles:
     """Registo central que define as categorias e propriedades visuais dos emojis."""
     
     # Listas para construir as abas
-    TERRENOS = ["  ", "🔳", "⬜", "░░",  "🟫", "🟩", "🔲", "🟦"]
+    TERRENOS = ["  ", "🔳", "⬜",  "🟫", "🟩", "🔲", "🟦"]
     
     OBJETOS = [ "🌲", "🌳", "🌴", "🌵", "🍄", "🕸️",
                 "🌻", "🌹", "🌷", "🔮", "🗿", "🏰", 
-                "🚪", "🏘️", "🏚️", "🏯", "🏩", "🕍",
-                "💀", "⛺", "🛕", "⛲", "⌛", "🕋",
-                "🛶", "🧊", "📦", "📖", "🪑", "🏴‍☠️",
+                "🚪", "🏘️ ", "🏚️ ", "🏯", "🕍",
+                "💀", "⛺",  "⛲", "⌛", "🕋",
+                "🛶", "🧊", "📦", "📖", "🪑", "🏴",
                 "🌭", "🍔", "🍕", "🍺", "🍫", "♟️"]
     
     # Mapeamento de cores de fundo para os terrenos
     CORES_BG = {
-        "⬛": "#606060",
+        "⬛": "#221F1F",
         "🟫": "#B45428",
         "🟩": "#228B22",
-        "🔲": "#808080",
+        "🔳": "#808080",
         "🟦": "#0000FF"
     }
 
@@ -50,17 +51,32 @@ class CatalogoTiles:
     def obter_cor_fundo(cls, tile: str) -> str:
         """Pega o código hexadecimal da cor de fundo de um chão."""
         tile_limpo = tile.strip()
-        return padronizar_largura_tile(cls.CORES_BG.get(tile_limpo, ""))
+        return cls.CORES_BG.get(tile_limpo, "")
 
 
 def padronizar_largura_tile(tile_string: str) -> str:
     """
-    Verifica a largura visual do caractere no terminal.
-    Se for um caractere magro (tamanho 1), adiciona um espaço para ficar com tamanho 2.
+    Verifica a largura visual do caractere e adapta o preenchimento
+    com base nas peculiaridades do emulador de terminal atual.
     """
-    if Text(tile_string).cell_len == 1:
-        return f"{tile_string}"
-    return tile_string
+    tile_limpo = tile_string.strip()
+    eh_gnome_ou_linux = "VTE_VERSION" in os.environ or "GNOME_TERMINAL_SCREEN" in os.environ or os.name == "posix"
+
+    # 2. Calcula a largura teórica pela biblioteca Rich
+    largura_teorica = Text(tile_limpo).cell_len
+
+    # 3. Estratégia de Ajuste Multiplataforma
+    if largura_teorica == 1:
+        return f"{tile_limpo} "
+    elif largura_teorica == 2:
+        emojis_rebeldes = ["🕸️", "🏘️", "🏚️", "🏯",] 
+        
+        if eh_gnome_ou_linux and tile_limpo in emojis_rebeldes:
+
+            return f"{tile_limpo} " 
+        return tile_limpo
+
+    return tile_limpo
 
 class MapaInterativo(Static):
     """Componente customizado que exibe o mapa e captura movimentos contínuos do mouse."""
@@ -175,16 +191,16 @@ class MapManagerScreen(Screen):
                         with TabPane("🌍 Terrenos", id="tab-terrenos"):
                             with Container(classes="grade-paleta"): # Note que mudei id="grade-paleta" para classes="grade-paleta" no seu CSS depois
                                 for i, tile in enumerate(CatalogoTiles.TERRENOS):
-                                    yield Button(tile, classes="btn-paleta", id=f"tile-terr-{i}")
+                                    yield Button(padronizar_largura_tile(tile), classes="btn-paleta", id=f"tile-terr-{i}")
                         
                         # ABA 2: OBJETOS SOLTOS
                         with TabPane("📦 Objetos", id="tab-objetos"):
                             with Container(classes="grade-paleta"):
                                 for i, tile in enumerate(CatalogoTiles.OBJETOS):
-                                    yield Button(tile, classes="btn-paleta", id=f"tile-obj-{i}")
+                                    yield Button(padronizar_largura_tile(tile), classes="btn-paleta", id=f"tile-obj-{i}")
                                     
                         # ABA 3: FUTURA ABA DE EVENTOS
-                        with TabPane("⚙️ Eventos", id="tab-eventos", disabled=True):
+                        with TabPane(f" Eventos {' '}", id="tab-eventos", disabled=True):
                             yield Label("Em breve: NPCs, Inimigos e Triggers...", id="aviso-eventos")
                     
                 with Container(id="arvore-container"):
@@ -210,8 +226,11 @@ class MapManagerScreen(Screen):
         tree.root.expand()
         
         with SessionLocal() as db:
-            todos_mapas = db.query(MapaDB).all()
-
+            try:
+                todos_mapas = db.query(MapaDB).all()
+            except:
+                todos_mapas = []
+                
         from collections import defaultdict
         filhos_de = defaultdict(list)
         
@@ -301,11 +320,12 @@ class MapManagerScreen(Screen):
         if len(self.historico_desfazer) > 10:
             self.historico_desfazer.pop(0)
             
-        # O deepcopy entra em todas as listas e sub-listas criando clones independentes
-        copia_matriz = copy.deepcopy(self.mapa_atual_matriz)
-        self.historico_desfazer.append(copia_matriz)
+        snapshot = {
+            "matriz": copy.deepcopy(self.mapa_atual_matriz),
+            "objetos": copy.deepcopy(self.mapa_atual_objetos)
+        }
         
-        # Sempre que começamos a pintar algo novo, o "futuro" do refazer é apagado
+        self.historico_desfazer.append(snapshot)
         self.historico_refazer.clear()
 
     @on(MapaInterativo.Pintar)
@@ -420,28 +440,38 @@ class MapManagerScreen(Screen):
             return
             
         # 1. Guarda a foto atual no "Refazer" caso nos arrependamos do Desfazer
-        estado_atual = copy.deepcopy(self.mapa_atual_matriz)
-        self.historico_refazer.append(estado_atual)
+        snapshot_atual = {
+            "matriz": copy.deepcopy(self.mapa_atual_matriz),
+            "objetos": copy.deepcopy(self.mapa_atual_objetos)
+        }
+        self.historico_refazer.append(snapshot_atual)
         
-        # 2. Puxa a foto antiga
-        estado_anterior = self.historico_desfazer.pop()
-        self.mapa_atual_matriz = estado_anterior
+        # 2. Puxa o snapshot do passado e restaura as duas camadas
+        snapshot_passado = self.historico_desfazer.pop()
+        self.mapa_atual_matriz = snapshot_passado["matriz"]
+        self.mapa_atual_objetos = snapshot_passado["objetos"]
+        
         self.tem_alteracoes = True
         self.exibir_mapa_na_tela()
 
     def refazer_acao(self):
-        """Avança a matriz para o estado guardado no futuro."""
+        """Avança Terrenos e Objetos para o estado do futuro."""
         if not self.historico_refazer:
             self.notify("Não há ações para refazer!", severity="warning")
             return
 
-        # 1. Guarda a foto atual de volta no "Desfazer"
-        estado_atual = copy.deepcopy(self.mapa_atual_matriz)
-        self.historico_desfazer.append(estado_atual)
+        # 1. Guarda o estado atual no Desfazer
+        snapshot_atual = {
+            "matriz": copy.deepcopy(self.mapa_atual_matriz),
+            "objetos": copy.deepcopy(self.mapa_atual_objetos)
+        }
+        self.historico_desfazer.append(snapshot_atual)
         
-        # 2. Puxa a foto do futuro
-        estado_futuro = self.historico_refazer.pop()
-        self.mapa_atual_matriz = estado_futuro
+        # 2. Puxa o snapshot do futuro e restaura
+        snapshot_futuro = self.historico_refazer.pop()
+        self.mapa_atual_matriz = snapshot_futuro["matriz"]
+        self.mapa_atual_objetos = snapshot_futuro["objetos"]
+        
         self.tem_alteracoes = True
         self.exibir_mapa_na_tela()
 
@@ -465,7 +495,7 @@ class MapManagerScreen(Screen):
                     # Desenha o Objeto, mas copia o background do terreno abaixo dele!
                     cor_bg = CatalogoTiles.obter_cor_fundo(tile_chao)
                     estilo = f"on {cor_bg}" if cor_bg else ""
-                    texto_mapa.append(tile_objeto, style=estilo)
+                    texto_mapa.append(padronizar_largura_tile(tile_objeto), style=estilo)
                 else:
                     # Não há objetos, desenha apenas o chão limpo
                     texto_mapa.append(tile_chao)
@@ -497,12 +527,17 @@ class MapManagerScreen(Screen):
             
             # --- VALIDAÇÃO DE NOME ÚNICO ---
             # Busca no banco qualquer mapa que tenha exatamente este nome
-            mapa_existente = db.query(MapaDB).filter(MapaDB.nome == nome_mapa).first()
+            try:
+                mapa_existente = db.query(MapaDB).filter(MapaDB.nome == nome_mapa).first()
+            except:
+                mapa_existente = None
 
             # Se achou um mapa com este nome, E o ID dele é diferente do nosso mapa atual
-            if mapa_existente and mapa_existente.id != mapa_id_atual:
-                self.notify(f"Já existe um mapa chamado '{nome_mapa}'. Escolha outro nome em Opções!", severity="error")
-                return # Interrompe a função aqui, não salva nada.
+            if mapa_existente:
+                mapa_id_existente = mapa_existente.id
+                if mapa_id_existente != mapa_id_atual:
+                    self.notify(f"Já existe um mapa chamado '{nome_mapa}'. Escolha outro nome em Opções!", severity="error")
+                    return # Interrompe a função aqui, não salva nada
 
             # --- DECISÃO: UPDATE OU INSERT ---
             if mapa_id_atual is not None:
@@ -691,7 +726,10 @@ class NovoMapaFormScreen(ModalScreen[dict]):
     def carregar_mapas_pai(self):
         """Busca os mapas no banco de dados e preenche o menu de seleção."""
         with SessionLocal() as db:
-            mapas = db.query(MapaDB).all()
+            try:
+                mapas = db.query(MapaDB).all()
+            except:
+                mapas = []
             opcoes = [("Nenhum (Raiz)", 0)] + [(m.nome, m.id) for m in mapas]
             self.query_one("#select-pai", Select).set_options(opcoes)
 
