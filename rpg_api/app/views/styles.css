@@ -304,3 +304,29 @@ ArquivoCSVScreen {
     min-width: 5;
     margin-right: 1;
 }
+
+GamePlayScreen {
+    background: #0c0c0c;
+    align: center middle;
+}
+
+#mapa-fundo {
+    width: auto;
+    height: auto;
+    border: thick #228B22;
+}
+
+/* As entidades dinâmicas flutuam de forma absoluta sobre o ecrã */
+WidgetEntidade {
+    position: absolute;
+    width: 2;
+    height: 1;
+}
+
+#mapa-fundo {
+    width: auto;
+    height: auto;
+    border: thick #228B22;
+    layout: vertical;
+    /* Garante o contexto de posicionamento para os filhos */
+}
