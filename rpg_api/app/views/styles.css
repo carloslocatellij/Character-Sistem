@@ -308,25 +308,23 @@ ArquivoCSVScreen {
 GamePlayScreen {
     background: #0c0c0c;
     align: center middle;
+    #mapa-fundo {
+            width: 100%;
+            height: 100%;
+            border: thick #228B22;
+    
+            /* Garante o contexto de posicionamento para os filhos */
+            /* As entidades dinâmicas flutuam de forma absoluta sobre o ecrã */
+            WidgetEntidade {
+                position: relative;
+                width: 3;
+                height: 1;
+                content-align: left middle;
+                /* Garante que o emoji fique sempre ancorado à esquerda da caixa */
+                background: transparent;
+            }
+        }
 }
 
-#mapa-fundo {
-    width: auto;
-    height: auto;
-    border: thick #228B22;
-}
 
-/* As entidades dinâmicas flutuam de forma absoluta sobre o ecrã */
-WidgetEntidade {
-    position: absolute;
-    width: 2;
-    height: 1;
-}
 
-#mapa-fundo {
-    width: auto;
-    height: auto;
-    border: thick #228B22;
-    layout: vertical;
-    /* Garante o contexto de posicionamento para os filhos */
-}

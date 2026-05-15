@@ -34,6 +34,24 @@ class WidgetEntidade(Static):
     linha = reactive(0)
     coluna = reactive(0)
     emoji = reactive("")
+    
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # Força o estilo diretamente no core da classe para segurança
+        self.styles.width = 2 
+        self.styles.content_align = ("center", "middle")
+        #self.styles.background = "transparent",
+        
+        
+    # def render(self) -> Text:
+    #     """
+    #     Sobrescreve a renderização padrão.
+    #     Empacota o emoji complexo num objeto Text do Rich para estabilizar
+    #     o cálculo de largura da célula no terminal.
+    #     """
+    #     # Adicionar espaços ao redor ajuda o terminal a não "vazar" 
+    #     # a renderização do ZWJ para a célula vizinha.
+    #     return Text(f" {self.emoji} ", justify="center")
 
     def watch_linha(self, _) -> None:
         self._atualizar_posicao_visual()
@@ -43,11 +61,17 @@ class WidgetEntidade(Static):
 
     def watch_emoji(self, novo_emoji: str) -> None:
         self.update(novo_emoji)
+        if self.parent:
+            # Re-renderiza a área do mapa para limpar a sujeira
+            self.parent.refresh()
 
     def _atualizar_posicao_visual(self) -> None:
         """Sincroniza a coordenada matricial lógica com o offset visual do terminal."""
         # Multiplica a coluna por 2 para compensar a largura dos caracteres no terminal
         self.styles.offset = (self.coluna * 2, self.linha)
+        if self.parent:
+            # Re-renderiza a área do mapa para limpar a sujeira
+            self.parent.refresh()
 
 
 # ==============================================================================
@@ -67,7 +91,7 @@ class GamePlayScreen(Screen):
         Binding("s,down", "processar_movimento('baixo')", "Mover Baixo"),
         Binding("a,left", "processar_movimento('esquerda')", "Mover Esquerda"),
         Binding("d,right", "processar_movimento('direita')", "Mover Direita"),
-        Binding("q", "app.pop_screen", "Sair do Mapa")
+        Binding("q", "app.exit", "Sair do Mapa")
     ]
 
     def __init__(self, mapa_id: int):
@@ -163,8 +187,12 @@ class GamePlayScreen(Screen):
 
         # Define o estado global da camada de eventos
         self.estado_dinamico = {
-            "jogador": {"linha": linha_j, "coluna": col_j, "emoji": "🧙🏻‍♂️", "solido": True},
-            "monstro_1": {"linha": linha_m, "coluna": col_m, "emoji": "👾", "solido": True}
+            "player_1": {"linha": linha_j, "coluna": col_j, "emoji": "🧙🏻‍♂️", "solido": True},
+            "monstro_1": {"linha": linha_m, "coluna": col_m, "emoji": "👾", "solido": True},
+            "monstro_2":{"linha":self._obter_coordenada_livre()[0],
+                         "coluna":self._obter_coordenada_livre()[1],
+                         "emoji": "👻", "solido": True
+                        }
         }
         mapa_container = self.query_one("#mapa-fundo", Static)
         
@@ -239,27 +267,29 @@ class GamePlayScreen(Screen):
             self._sincronizar_widget("jogador", jogador)
 
     @work(thread=True)
-    def iniciar_motor_de_eventos(self) -> None:
+    async def iniciar_motor_de_eventos(self) -> None:
         """
         Processo independente que rege o mundo de jogo (IA dos monstros).
         Emite atualizações contínuas para o loop de eventos principal do Textual.
         """
-        import time
+        #import time
         while self.motor_rodando:
-            time.sleep(0.8)  # Ciclo de IA: o monstro move-se a cada 0.8 segundos
             
-            monstro = self.estado_dinamico.get("monstro_1")
-            if monstro:
-                direcao = random.choice([(0, 1), (0, -1), (1, 0), (-1, 0)])
-                nl = monstro["linha"] + direcao[0]
-                nc = monstro["coluna"] + direcao[1]
-
-                # O motor central valida a física antes de aplicar o estado
-                if self._posicao_valida_para_movimento(nl, nc, "monstro_1"):
-                    monstro["linha"] = nl
-                    monstro["coluna"] = nc
-                    
-                    # Envia a mensagem de forma thread-safe para atualizar a interface
+            for entidade_id in self.estado_dinamico.keys():
+                entidade = self.estado_dinamico.get(entidade_id)
+                
+                if entidade and 'player' not in entidade_id:
+                    #time.sleep(0.7)  # Ciclo de IA: o monstro move-se a cada 0.8 segundos
+                    await asyncio.sleep(0.6)
+                    direcao = random.choice([(0, 1), (0, -1), (1, 0), (-1, 0)])
+                    nl = entidade["linha"] + direcao[0]
+                    nc = entidade["coluna"] + direcao[1]
+                    # O motor central valida a física antes de aplicar o estado
+                    if self._posicao_valida_para_movimento(nl, nc, entidade):
+                        entidade["linha"] = nl
+                        entidade["coluna"] = nc
+                        self.post_message(AtualizacaoCamadaEventos(self.estado_dinamico))
+                if entidade:
                     self.post_message(AtualizacaoCamadaEventos(self.estado_dinamico))
 
     @on(AtualizacaoCamadaEventos)
@@ -296,6 +326,7 @@ if __name__ == "__main__":
         def on_mount(self) -> None:
             # Puxa o mapa com ID 1 (ou adapte para um ID existente na sua BD oficial)
             self.push_screen(GamePlayScreen(mapa_id=2))
+        
 
     app = JogoTesteApp()
     app.run()
