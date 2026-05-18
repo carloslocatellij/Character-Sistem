@@ -1,6 +1,8 @@
 import pytest
 from app.db.database import Base, engine, SessionLocal
 from app.models.equipamentos_db import ItemDB
+from app.models.mapas_db import MapaDB
+from app.models.eventos_db import EventoDB 
 
 # Esta rotina roda ANTES dos testes. Ela cria as tabelas no banco de teste.
 def setup_module(module):
@@ -38,3 +40,44 @@ def test_salvar_e_recuperar_arma_no_banco():
         assert arma_salva.id == 1
         assert arma_salva.dano == 6
         assert arma_salva.categoria == "arma"
+        
+# rpg_api/tests/test_database.py
+
+
+
+def test_salvar_e_recuperar_evento_no_mapa():
+    with SessionLocal() as db:
+        # 1. Criamos um Mapa para servir de "Pai" do evento
+        novo_mapa = MapaDB(
+            nome="Caverna do Iniciante",
+            tipo="caverna",
+            altura=10,
+            largura=10,
+            mapa_em_si=[["  " for _ in range(10)] for _ in range(10)]
+        )
+        db.add(novo_mapa)
+        db.commit()
+        db.refresh(novo_mapa) # Atualiza para pegarmos o ID gerado (novo_mapa.id)
+
+        # 2. Criamos o Evento (Ex: Um Baú)
+        novo_evento = EventoDB(
+            mapa_id=novo_mapa.id,
+            nome="Baú de Madeira",
+            emoji="📦",
+            pos_x=5,
+            pos_y=5,
+            tipo_evento="bau",
+            # No ECS, estes parâmetros vão alimentar o InteractableComponent
+            parametros={"item_id": 1, "quantidade": 1, "mensagem": "Você encontrou uma Poção!"} 
+        )
+        db.add(novo_evento)
+        db.commit()
+
+        # 3. Consultamos o evento no banco
+        evento_salvo = db.query(EventoDB).filter(EventoDB.nome == "Baú de Madeira").first()
+
+        # 4. Asserções (Validações)
+        assert evento_salvo is not None
+        assert evento_salvo.mapa_id == novo_mapa.id
+        assert evento_salvo.tipo_evento == "bau"
+        assert evento_salvo.parametros["item_id"] == 1

@@ -84,10 +84,11 @@ def padronizar_largura_tile(tile_string: str) -> str:
     elif largura_teorica == 2:
         emojis_rebeldes = ["🕸️", "🏘️", "🏚️", "🏯",] 
         
-        if eh_gnome_ou_linux and tile_limpo in emojis_rebeldes:
-
+        # if eh_gnome_ou_linux and tile_limpo in emojis_rebeldes:
+        #     return f"{tile_limpo} " 
+        # return tile_limpo
+        if tile_limpo in emojis_rebeldes:
             return f"{tile_limpo} " 
-        return tile_limpo
 
     return tile_limpo
 

@@ -36,12 +36,19 @@ class WidgetEntidade(Static):
     coluna = reactive(0)
     emoji = reactive("")
     
-    def __init__(self, **kwargs):
+    def __init__(self, linha: int = 0, coluna: int = 0, emoji: str = "", **kwargs):
         super().__init__(**kwargs)
-        # Força o estilo diretamente no core da classe para segurança
-        self.styles.width = 2 
-        #self.styles.content_align = ("center", "middle")
-        #self.styles.background = "#B45428",
+        self.styles.width = 2
+        self.styles.position = "absolute"
+        self.linha = linha
+        self.coluna = coluna
+        self.emoji = emoji
+    
+    def on_mount(self) -> None:
+        """Quando o widget é montado na tela, força o cálculo da posição."""
+        self._atualizar_posicao_visual()
+        from rich.text import Text
+        self.update(Text(self.emoji, no_wrap=True))
         
         
     def render(self) -> Text:
@@ -61,17 +68,15 @@ class WidgetEntidade(Static):
         self._atualizar_posicao_visual()
 
     def watch_emoji(self, novo_emoji: str) -> None:
-        self.update(novo_emoji)
+        self.update(Text(novo_emoji, no_wrap=True))
         if self.parent:
-            # Re-renderiza a área do mapa para limpar a sujeira
             self.parent.refresh()
 
     def _atualizar_posicao_visual(self) -> None:
         """Sincroniza a coordenada matricial lógica com o offset visual do terminal."""
-        # Multiplica a coluna por 2 para compensar a largura dos caracteres no terminal
-        self.styles.offset = (self.coluna * 2, self.linha)
+        self.styles.left = self.coluna * 2
+        self.styles.top = self.linha
         if self.parent:
-            # Re-renderiza a área do mapa para limpar a sujeira
             self.parent.refresh()
 
 
@@ -92,7 +97,7 @@ class GamePlayScreen(Screen):
         Binding("s,down", "processar_movimento('baixo')", "Mover Baixo"),
         Binding("a,left", "processar_movimento('esquerda')", "Mover Esquerda"),
         Binding("d,right", "processar_movimento('direita')", "Mover Direita"),
-        Binding("q", "app.exit", "Sair do Mapa")
+        Binding("q", "app.exit()", "Sair do Mapa")
     ]
 
     def __init__(self, mapa_id: int):
@@ -120,14 +125,39 @@ class GamePlayScreen(Screen):
         """Carrega os dados e inicializa os ciclos lógicos quando o ecrã é montado."""
         sucesso = self._carregar_mapa_da_base_de_dados()
         if not sucesso:
-            self.notify("Erro: Não foi possível carregar o mapa especificado.", severity="error")
+            self.notify("Erro: Não foi possível carregar o mapa.", severity="error")
             self.app.pop_screen()
             return
 
         self._renderizar_camadas_estaticas()
         self._inicializar_camada_eventos()
+        
+        # Inicia o motor usando o sistema nativo de Timers do Textual (Thread-safe)
         self.motor_rodando = True
-        self.iniciar_motor_de_eventos()
+        self.set_interval(0.7, self.tick_motor_eventos)
+
+    def tick_motor_eventos(self) -> None:
+        """Ciclo de IA executado periodicamente e de forma segura na thread principal."""
+        if not self.motor_rodando:
+            return
+            
+        houve_movimento = False
+        for entidade_id, entidade in self.estado_dinamico.items():
+            if 'player' not in entidade_id:
+                direcao = random.choice([(0, 1), (0, -1), (1, 0), (-1, 0)])
+                nl = entidade["linha"] + direcao[0]
+                nc = entidade["coluna"] + direcao[1]
+                
+                # CORREÇÃO: Passamos a string 'entidade_id' em vez do dicionário
+                if self._posicao_valida_para_movimento(nl, nc, entidade_id):
+                    entidade["linha"] = nl
+                    entidade["coluna"] = nc
+                    houve_movimento = True
+        
+        if houve_movimento:
+            # Sincroniza todos os monstros de uma só vez na interface
+            for ent_id, dados in self.estado_dinamico.items():
+                self._sincronizar_widget(ent_id, dados)
 
     def _desempacotar_objetos(self, objetos_json: dict) -> Dict[Tuple[int, int], str]:
         """Converte as chaves de texto gravadas na BD de volta para tuplas lógicas."""
@@ -206,9 +236,7 @@ class GamePlayScreen(Screen):
                          "coluna":self._obter_coordenada_livre()[1],
                          "emoji": "👻", "solido": True},
             
-            "monstro_5":{"linha":self._obter_coordenada_livre()[0],
-                         "coluna":self._obter_coordenada_livre()[1],
-                         "emoji": "👻", "solido": True},
+            
                          
                         }
         
@@ -216,10 +244,18 @@ class GamePlayScreen(Screen):
         
         # Injeta programaticamente os widgets correspondentes no ecrã
         for ent_id, dados in self.estado_dinamico.items():
-            widget = WidgetEntidade(id=ent_id)
-            widget.linha = dados["linha"]
-            widget.coluna = dados["coluna"]
-            widget.emoji = dados["emoji"]
+            # Passamos as configurações diretamente na criação do objeto!
+            widget = WidgetEntidade(
+                id=ent_id,
+                linha=dados["linha"],
+                coluna=dados["coluna"],
+                emoji=dados["emoji"]
+            )
+            # A cor de fundo para disfarçar o recorte
+            cor_bg = CatalogoTiles.obter_cor_fundo(self.matriz_terrenos[dados["linha"]][dados["coluna"]])
+            if cor_bg:
+                widget.styles.background = cor_bg
+                
             mapa_container.mount(widget)
 
     def _obter_coordenada_livre(self) -> Tuple[int, int]:
@@ -268,49 +304,45 @@ class GamePlayScreen(Screen):
 
     def action_processar_movimento(self, direcao: str) -> None:
         """Capta a intenção do utilizador e solicita validação ao motor lógico."""
-        
-        for entidade_id in self.estado_dinamico.keys():
-            
-            entidade = self.estado_dinamico.get(entidade_id)
-            if not entidade or 'player' not in entidade_id:
-                return
-            else:
-                jogador = entidade
-                nl, nc = jogador["linha"], jogador["coluna"]
+        for entidade_id, entidade in self.estado_dinamico.items():
+            if 'player' in entidade_id:
+                nl, nc = entidade["linha"], entidade["coluna"]
+                
                 if direcao == "cima": nl -= 1
                 elif direcao == "baixo": nl += 1
                 elif direcao == "esquerda": nc -= 1
                 elif direcao == "direita": nc += 1
 
                 if self._posicao_valida_para_movimento(nl, nc, entidade_id):
-                    jogador["linha"] = nl
-                    jogador["coluna"] = nc
+                    entidade["linha"] = nl
+                    entidade["coluna"] = nc
                     # Atualiza imediatamente o widget local do jogador
-                    self._sincronizar_widget(entidade_id, jogador)
+                    self._sincronizar_widget(entidade_id, entidade)
 
-    @work(thread=True)
-    async def iniciar_motor_de_eventos(self) -> None:
-        """
-        Processo independente que rege o mundo de jogo (IA dos monstros).
-        Emite atualizações contínuas para o loop de eventos principal do Textual.
-        """
-        #import time
-        while self.motor_rodando:
+    # METODO INVALIDADO PELA MODIFICAÇÃO PARA TICK_MOTOR_EVENTOS NO ON_MOUNT
+    # @work(thread=True)
+    # async def iniciar_motor_de_eventos(self) -> None:
+    #     """
+    #     Processo independente que rege o mundo de jogo (IA dos monstros).
+    #     Emite atualizações contínuas para o loop de eventos principal do Textual.
+    #     """
+    #     #import time
+    #     while self.motor_rodando:
             
-            for entidade_id in self.estado_dinamico.keys():
-                entidade = self.estado_dinamico.get(entidade_id)
+    #         for entidade_id in self.estado_dinamico.keys():
+    #             entidade = self.estado_dinamico.get(entidade_id)
                 
-                if entidade and 'player' not in entidade_id:
-                    #time.sleep(0.7)  # Ciclo de IA: o monstro move-se a cada 0.8 segundos
-                    await asyncio.sleep(0.08)
-                    direcao = random.choice([(0, 1), (0, -1), (1, 0), (-1, 0)])
-                    nl = entidade["linha"] + direcao[0]
-                    nc = entidade["coluna"] + direcao[1]
-                    # O motor central valida a física antes de aplicar o estado
-                    if self._posicao_valida_para_movimento(nl, nc, entidade):
-                        entidade["linha"] = nl
-                        entidade["coluna"] = nc
-                        self.post_message(AtualizacaoCamadaEventos(self.estado_dinamico))
+    #             if entidade and 'player' not in entidade_id:
+    #                 #time.sleep(0.7)  # Ciclo de IA: o monstro move-se a cada 0.8 segundos
+    #                 await asyncio.sleep(0.08)
+    #                 direcao = random.choice([(0, 1), (0, -1), (1, 0), (-1, 0)])
+    #                 nl = entidade["linha"] + direcao[0]
+    #                 nc = entidade["coluna"] + direcao[1]
+    #                 # O motor central valida a física antes de aplicar o estado
+    #                 if self._posicao_valida_para_movimento(nl, nc, entidade):
+    #                     entidade["linha"] = nl
+    #                     entidade["coluna"] = nc
+    #                     self.post_message(AtualizacaoCamadaEventos(self.estado_dinamico))
                 
 
     @on(AtualizacaoCamadaEventos)
@@ -321,27 +353,29 @@ class GamePlayScreen(Screen):
 
     def _sincronizar_widget(self, ent_id: str, dados: dict) -> None:
         """Procura o widget dinâmico correspondente e injeta os novos valores reativos."""
+        cor_bg = CatalogoTiles.obter_cor_fundo(self.matriz_terrenos[dados["linha"]][dados["coluna"]])
+        
         try:
             widget = self.query_one(f"#{ent_id}", WidgetEntidade)
-            widget.linha = dados["linha"]
+            # Atualizar coluna e linha de forma contínua
             widget.coluna = dados["coluna"]
+            widget.linha = dados["linha"]
             widget.emoji = dados["emoji"]
-            
-            # cor_bg = CatalogoTiles.obter_cor_fundo(self.matriz_terrenos[dados["linha"]][dados["coluna"]])
-            # estilo = f"on {cor_bg}" if cor_bg else ""
-            # widget.styles.background = estilo
-            
-            
+            # O Textual espera cores no formato "#FF0000" ou "red" em background
+            if cor_bg:
+                widget.styles.background = cor_bg
+                
         except Exception:
-            # Se a entidade não existir na tela (ex: monstro invocado agora), cria e monta no mapa
+            # Se a entidade não existir na tela, cria e monta no mapa
             novo_widget = WidgetEntidade(id=ent_id)
-            novo_widget.linha = dados["linha"]
             novo_widget.coluna = dados["coluna"]
+            novo_widget.linha = dados["linha"]
             novo_widget.emoji = dados["emoji"]
+            
+            if cor_bg:
+                novo_widget.styles.background = cor_bg
+                
             self.query_one("#mapa-fundo", Static).mount(novo_widget)
-            cor_bg = CatalogoTiles.obter_cor_fundo(self.matriz_terrenos[dados["linha"]][dados["coluna"]])
-            estilo = f"on {cor_bg}" if cor_bg else ""
-            widget.styles.background = estilo
 
     def on_unmount(self) -> None:
         """Garante a terminação limpa da thread do motor ao encerrar o ecrã."""

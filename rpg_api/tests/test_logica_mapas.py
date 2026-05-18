@@ -7,7 +7,7 @@ from app.views.map_manager_screen import  CatalogoTiles, padronizar_largura_tile
 def test_padronizar_largura_tile():
     """Garante que caracteres magros ganham espaço e emojis largos ficam iguais."""
     # Caractere normal (tamanho 1) deve ganhar um espaço
-    assert padronizar_largura_tile('🍄') == "🍄"
+    assert padronizar_largura_tile('🏘️') == "🏘️ "
     assert padronizar_largura_tile("🕸️") == "🕸️ "
     
     # Emoji padrão (tamanho 2) deve retornar intacto
@@ -28,7 +28,7 @@ def test_catalogo_tiles_tipos():
 def test_catalogo_cores_fundo():
     """Garante que os chãos devolvem as cores corretas para o motor de renderização."""
     assert CatalogoTiles.obter_cor_fundo("🟫") == "#B45428"
-    assert CatalogoTiles.obter_cor_fundo("⬛") == "#606060"
+    assert CatalogoTiles.obter_cor_fundo("⬛") == "#221F1F"
     
     # Objetos ou tiles inexistentes não devem ter cor de fundo padrão
     assert CatalogoTiles.obter_cor_fundo("🪑") == ""

@@ -1,4 +1,5 @@
 from sqlalchemy import Column, Integer, String, Boolean, JSON, ForeignKey
+from sqlalchemy.orm import relationship
 from app.db.database import Base
 
 class MapaDB(Base):
@@ -18,3 +19,5 @@ class MapaDB(Base):
     # A matriz do mapa guardada como JSON (Lista de Listas)
     mapa_em_si = Column(JSON, nullable=False)
     objetos = Column(JSON, nullable=True , default=dict)
+    
+    eventos = relationship("EventoDB", back_populates="mapa", cascade="all, delete-orphan")
