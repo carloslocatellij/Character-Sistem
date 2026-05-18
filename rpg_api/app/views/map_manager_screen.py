@@ -15,6 +15,19 @@ from app.db.database import SessionLocal
 from app.models.mapas_db import MapaDB
 from rich.text import Text
 
+import rich.cells
+from rich.cells import cell_len as rich_cell_len
+
+def patched_cell_len(text: str) -> int:
+    # Lógica robusta para emojis complexos do RPG
+    if "\u200d" in text or "\ufe0f" in text:
+        return 2
+    # Fallback para a lógica original para manter compatibilidade com texto comum
+    return rich_cell_len(text)
+
+# Substituição global na biblioteca Rich
+rich.cells.cell_len = patched_cell_len
+
 CSS_PATH = "styles.css"
 
 class CatalogoTiles:

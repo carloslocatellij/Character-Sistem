@@ -22,7 +22,7 @@ if IS_TEST_ENV:
     poolclass=StaticPool,)
     print("🔧 [DB] MODO DE TESTE ATIVADO: Usando banco de dados de teste.")
 else:
-    SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL_PROD", "sqlite:///" + os.path.join(basedir, "rpg_producao.db"))
+    SQLALCHEMY_DATABASE_URL = "sqlite:///" + os.path.join(basedir, "rpg_producao.db") or os.getenv("DATABASE_URL", "sqlite:///" + os.path.join(basedir, "rpg_producao.db"))
     print("🚀 [DB] MODO DE PRODUÇÃO ATIVADO: Usando banco oficial.")    
     # 4. Cria o Motor (Engine) do banco de dados
     # O argumento connect_args={"check_same_thread": False} é necessário apenas para o SQLite trabalhar bem com o FastAPI.
