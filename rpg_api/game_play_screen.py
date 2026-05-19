@@ -73,7 +73,6 @@ class WidgetEntidade(Static):
             self.parent.refresh()
 
     def _atualizar_posicao_visual(self) -> None:
-        """Sincroniza a coordenada matricial lógica com o offset visual do terminal."""
         self.styles.left = self.coluna * 2
         self.styles.top = self.linha
         if self.parent:
@@ -178,8 +177,8 @@ class GamePlayScreen(Screen):
 
             self.nome_mapa = mapa_db.nome
             self.matriz_terrenos = mapa_db.mapa_em_si
-            self.altura_mapa = len(self.matriz_terrenos)
-            self.largura_mapa = len(self.matriz_terrenos[0]) if self.altura_mapa > 0 else 0
+            self.altura_mapa =  mapa_db.altura #len(self.matriz_terrenos)
+            self.largura_mapa = mapa_db.largura #len(self.matriz_terrenos[0]) if self.altura_mapa > 0 else 0
             
             # Desempacota a camada de objetos que atuará como obstáculo
             objetos_bd = mapa_db.objetos if mapa_db.objetos else {}
@@ -260,8 +259,8 @@ class GamePlayScreen(Screen):
 
     def _obter_coordenada_livre(self) -> Tuple[int, int]:
         """Procura uma coordenada que não contenha paredes lógicas nem objetos sólidos."""
-        paredes_bloqueantes = ["🔳", "🧱", "🔲"]
-        for _ in range(100):
+        paredes_bloqueantes = ["🔳", "🧱", "🔲" , "⬜", "🔲", "🟦"]
+        for _ in range(self.altura_mapa * self.largura_mapa):  # Tentativas limitadas para evitar loop infinito
             l = random.randint(1, self.altura_mapa - 2)
             c = random.randint(1, self.largura_mapa - 2)
             
@@ -270,7 +269,7 @@ class GamePlayScreen(Screen):
             
             if terreno_valido and sem_objetos:
                 return l, c
-        return 2, 2 # Coordenada de salvaguarda
+        return 3, 3 # Coordenada de salvaguarda
 
     # ==========================================================================
     # 3. MOTOR INTERNO DE EVENTOS E VERIFICAÇÃO DE COLISÕES
@@ -286,7 +285,7 @@ class GamePlayScreen(Screen):
             return False
 
         # 2. Camada de Terrenos (Paredes fecham a passagem)
-        tiles_bloqueantes = ["🔳", "🧱", "🔲"]
+        tiles_bloqueantes = ["🔳", "🧱", "🔲" , "⬜", "🔲", "🟦"]
         if self.matriz_terrenos[nova_linha][nova_coluna] in tiles_bloqueantes:
             return False
 
@@ -367,7 +366,7 @@ class GamePlayScreen(Screen):
                 
         except Exception:
             # Se a entidade não existir na tela, cria e monta no mapa
-            novo_widget = WidgetEntidade(id=ent_id)
+            novo_widget = WidgetEntidade(id=ent_id, emoji=dados["emoji"], linha=dados["linha"], coluna=dados["coluna"])
             novo_widget.coluna = dados["coluna"]
             novo_widget.linha = dados["linha"]
             novo_widget.emoji = dados["emoji"]
