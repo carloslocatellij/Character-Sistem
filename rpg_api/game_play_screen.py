@@ -36,19 +36,13 @@ class WidgetEntidade(Static):
     coluna = reactive(0)
     emoji = reactive("")
     
-    def __init__(self, linha: int = 0, coluna: int = 0, emoji: str = "", **kwargs):
+    def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.styles.width = 2
-        self.styles.position = "absolute"
-        self.linha = linha
-        self.coluna = coluna
-        self.emoji = emoji
-    
-    def on_mount(self) -> None:
-        """Quando o widget é montado na tela, força o cálculo da posição."""
-        self._atualizar_posicao_visual()
-        from rich.text import Text
-        self.update(Text(self.emoji, no_wrap=True))
+        # Força o estilo diretamente no core da classe para segurança
+        self.styles.width = 2 
+        self.styles.position = 'absolute'
+        self.styles.content_align = ("center", "middle")
+        #self.styles.background = "#B45428",
         
         
     def render(self) -> Text:
@@ -68,14 +62,17 @@ class WidgetEntidade(Static):
         self._atualizar_posicao_visual()
 
     def watch_emoji(self, novo_emoji: str) -> None:
-        self.update(Text(novo_emoji, no_wrap=True))
+        self.update(novo_emoji)
         if self.parent:
+            # Re-renderiza a área do mapa para limpar a sujeira
             self.parent.refresh()
 
     def _atualizar_posicao_visual(self) -> None:
-        self.styles.left = self.coluna * 2
-        self.styles.top = self.linha
+        """Sincroniza a coordenada matricial lógica com o offset visual do terminal."""
+        # Multiplica a coluna por 2 para compensar a largura dos caracteres no terminal
+        self.styles.offset = (self.coluna * 2, self.linha)
         if self.parent:
+            # Re-renderiza a área do mapa para limpar a sujeira
             self.parent.refresh()
 
 
@@ -177,8 +174,8 @@ class GamePlayScreen(Screen):
 
             self.nome_mapa = mapa_db.nome
             self.matriz_terrenos = mapa_db.mapa_em_si
-            self.altura_mapa =  mapa_db.altura #len(self.matriz_terrenos)
-            self.largura_mapa = mapa_db.largura #len(self.matriz_terrenos[0]) if self.altura_mapa > 0 else 0
+            self.altura_mapa = len(self.matriz_terrenos)
+            self.largura_mapa = len(self.matriz_terrenos[0]) if self.altura_mapa > 0 else 0
             
             # Desempacota a camada de objetos que atuará como obstáculo
             objetos_bd = mapa_db.objetos if mapa_db.objetos else {}
@@ -243,24 +240,16 @@ class GamePlayScreen(Screen):
         
         # Injeta programaticamente os widgets correspondentes no ecrã
         for ent_id, dados in self.estado_dinamico.items():
-            # Passamos as configurações diretamente na criação do objeto!
-            widget = WidgetEntidade(
-                id=ent_id,
-                linha=dados["linha"],
-                coluna=dados["coluna"],
-                emoji=dados["emoji"]
-            )
-            # A cor de fundo para disfarçar o recorte
-            cor_bg = CatalogoTiles.obter_cor_fundo(self.matriz_terrenos[dados["linha"]][dados["coluna"]])
-            if cor_bg:
-                widget.styles.background = cor_bg
-                
+            widget = WidgetEntidade(id=ent_id)
+            widget.linha = dados["linha"]
+            widget.coluna = dados["coluna"]
+            widget.emoji = dados["emoji"]
             mapa_container.mount(widget)
 
     def _obter_coordenada_livre(self) -> Tuple[int, int]:
         """Procura uma coordenada que não contenha paredes lógicas nem objetos sólidos."""
-        paredes_bloqueantes = ["🔳", "🧱", "🔲" , "⬜", "🔲", "🟦"]
-        for _ in range(self.altura_mapa * self.largura_mapa):  # Tentativas limitadas para evitar loop infinito
+        paredes_bloqueantes = ["🔳", "🧱", "🔲"]
+        for _ in range(100):
             l = random.randint(1, self.altura_mapa - 2)
             c = random.randint(1, self.largura_mapa - 2)
             
@@ -269,7 +258,7 @@ class GamePlayScreen(Screen):
             
             if terreno_valido and sem_objetos:
                 return l, c
-        return 3, 3 # Coordenada de salvaguarda
+        return 2, 2 # Coordenada de salvaguarda
 
     # ==========================================================================
     # 3. MOTOR INTERNO DE EVENTOS E VERIFICAÇÃO DE COLISÕES
@@ -285,7 +274,7 @@ class GamePlayScreen(Screen):
             return False
 
         # 2. Camada de Terrenos (Paredes fecham a passagem)
-        tiles_bloqueantes = ["🔳", "🧱", "🔲" , "⬜", "🔲", "🟦"]
+        tiles_bloqueantes = ["🔳", "🧱", "🔲"]
         if self.matriz_terrenos[nova_linha][nova_coluna] in tiles_bloqueantes:
             return False
 
@@ -366,7 +355,7 @@ class GamePlayScreen(Screen):
                 
         except Exception:
             # Se a entidade não existir na tela, cria e monta no mapa
-            novo_widget = WidgetEntidade(id=ent_id, emoji=dados["emoji"], linha=dados["linha"], coluna=dados["coluna"])
+            novo_widget = WidgetEntidade(id=ent_id)
             novo_widget.coluna = dados["coluna"]
             novo_widget.linha = dados["linha"]
             novo_widget.emoji = dados["emoji"]

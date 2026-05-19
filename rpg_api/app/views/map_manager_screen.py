@@ -2,6 +2,7 @@
 
 import os
 import copy
+import json
 from textual.app import ComposeResult
 from textual.screen import Screen, ModalScreen
 from textual.widgets import Footer, Header, Tree, Static, Label, Button, Input, Select
@@ -43,6 +44,8 @@ class CatalogoTiles:
                 "🛶", "🧊", "📦", "📖", "🪑", "🏴",
                 "🌭", "🍔", "🍕", "🍺", "🍫", "♟️"]
     
+    EVENTOS = ["📦", "🧙‍♂️", "👾", "🚪", "⚠️"]
+    
     # Mapeamento de cores de fundo para os terrenos
     CORES_BG = {
         "⬛": "#221F1F",
@@ -54,11 +57,13 @@ class CatalogoTiles:
 
     @classmethod
     def obter_tipo(cls, tile: str) -> str:
-        """Verifica de qual aba o pincel pertence."""
+        """Verifica se o pincel é um terreno, um objeto estático ou um evento lógico."""
         tile_limpo = tile.strip()
         if tile_limpo in cls.TERRENOS:
             return "terreno"
-        return "objeto" # Por padrão, trata tudo o resto (e a borracha) como objeto
+        if tile_limpo in cls.EVENTOS:
+            return "evento" # <- NOVA CATEGORIA DETECTADA!
+        return "objeto"
 
     @classmethod
     def obter_cor_fundo(cls, tile: str) -> str:
@@ -139,9 +144,12 @@ class MapManagerScreen(Screen):
     def __init__(self):
         super().__init__()
         self.mapa_atual_matriz = None
-        # 🧠 NOVA MEMÓRIA PARA AS ENTIDADES/OBJETOS
+        # 🧠 NOVA MEMÓRIA PARA OBJETOS
         # Vai guardar dados no formato: {(linha, coluna): "🪑"}
-        self.mapa_atual_objetos = {} 
+        self.mapa_atual_objetos = {}
+        # 🧠 NOVA MEMÓRIA PARA ENTIDADES/EVENTOS LÓGICOS
+        # Formato: {(linha, coluna): {"id": int, "nome": str, "emoji": str, ...}
+        self.mapa_atual_eventos = {}
         
         self.mapa_atual_dados = None
         self.tile_selecionado = "⬛"
@@ -173,6 +181,56 @@ class MapManagerScreen(Screen):
             coluna = int(partes[1])
             objetos_na_memoria[(linha, coluna)] = emoji
         return objetos_na_memoria
+    
+    # ==========================================
+    # MANIPULAÇÃO E SERIALIZAÇÃO DE EVENTOS
+    # ==========================================
+    def adicionar_evento_memoria(self, linha: int, coluna: int, nome: str, emoji: str, tipo_evento: str, parametros: dict, evento_id: int = None):
+        """Regista ou atualiza um evento numa coordenada específica."""
+        dados_evento = {
+            "nome": nome,
+            "emoji": emoji,
+            "tipo_evento": tipo_evento,
+            "parametros": parametros
+        }
+        # Só adicionamos o ID se ele vier do banco de dados (para fins de UPDATE futuro)
+        if evento_id is not None:
+            dados_evento["id"] = evento_id
+            
+        self.mapa_atual_eventos[(linha, coluna)] = dados_evento
+        self.tem_alteracoes = True
+
+    def _empacotar_eventos_para_banco(self) -> list[dict]:
+        """Transforma o dicionário de memória numa lista pronta para o SQLAlchemy."""
+        lista_eventos = []
+        for (linha, coluna), dados in self.mapa_atual_eventos.items():
+            # Cria uma cópia para não alterar a memória original
+            registo = dados.copy() 
+            registo["pos_y"] = linha
+            registo["pos_x"] = coluna
+            lista_eventos.append(registo)
+        return lista_eventos
+
+    def _desempacotar_eventos_do_banco(self, lista_eventos_db: list[dict]):
+        """Povoa a memória a partir da lista de eventos vindos do banco de dados."""
+        self.mapa_atual_eventos.clear() # Limpa a memória atual
+        
+        if not lista_eventos_db:
+            return
+            
+        for evento in lista_eventos_db:
+            linha = evento["pos_y"]
+            coluna = evento["pos_x"]
+            
+            self.adicionar_evento_memoria(
+                linha=linha,
+                coluna=coluna,
+                nome=evento["nome"],
+                emoji=evento["emoji"],
+                tipo_evento=evento["tipo_evento"],
+                parametros=evento["parametros"],
+                evento_id=evento.get("id")
+            )
 
     def compose(self) -> ComposeResult:
         # 1. Nossa Barra Superior (Removido o Header nativo para não haver conflitos)
@@ -214,8 +272,10 @@ class MapManagerScreen(Screen):
                                     yield Button(padronizar_largura_tile(tile), classes="btn-paleta", id=f"tile-obj-{i}")
                                     
                         # ABA 3: FUTURA ABA DE EVENTOS
-                        with TabPane(f" Eventos {' '}", id="tab-eventos", disabled=True):
-                            yield Label("Em breve: NPCs, Inimigos e Triggers...", id="aviso-eventos")
+                        with TabPane("⚙️ Eventos", id="tab-eventos"):
+                            with Container(classes="grade-paleta"):
+                                for i, tile in enumerate(CatalogoTiles.EVENTOS):
+                                    yield Button(tile, classes="btn-paleta", id=f"tile-evt-{i}")
                     
                 with Container(id="arvore-container"):
                     yield Label("📂 Mapas", classes="titulo-secao")
@@ -342,6 +402,33 @@ class MapManagerScreen(Screen):
         self.historico_desfazer.append(snapshot)
         self.historico_refazer.clear()
 
+    # @on(MapaInterativo.Pintar)
+    # def processar_pintura(self, event: MapaInterativo.Pintar):
+    #     if self.mapa_atual_matriz is None: return 
+            
+    #     linha, coluna = event.linha, event.coluna
+        
+    #     if 0 <= linha < len(self.mapa_atual_matriz) and 0 <= coluna < len(self.mapa_atual_matriz[0]):
+            
+    #         if event.inicio_de_traco:
+    #             self.salvar_estado_historico()
+
+    #         tipo_pincel = CatalogoTiles.obter_tipo(self.tile_selecionado)
+            
+    #         if self.tile_selecionado == "❌":
+    #             # MODO BORRACHA: Apaga o objeto daquela coordenada (se existir)
+    #             if (linha, coluna) in self.mapa_atual_objetos:
+    #                 del self.mapa_atual_objetos[(linha, coluna)]
+    #         elif tipo_pincel == "terreno":
+    #             # MODO TERRENO: Atualiza apenas a matriz base
+    #             if self.mapa_atual_matriz[linha][coluna] != self.tile_selecionado:
+    #                 self.mapa_atual_matriz[linha][coluna] = self.tile_selecionado
+    #         elif tipo_pincel == "objeto":
+    #             # MODO OBJETO: Adiciona/Atualiza no dicionário de entidades
+    #             self.mapa_atual_objetos[(linha, coluna)] = self.tile_selecionado
+
+    #         self.tem_alteracoes = True
+    #         self.exibir_mapa_na_tela()
     @on(MapaInterativo.Pintar)
     def processar_pintura(self, event: MapaInterativo.Pintar):
         if self.mapa_atual_matriz is None: return 
@@ -349,22 +436,37 @@ class MapManagerScreen(Screen):
         linha, coluna = event.linha, event.coluna
         
         if 0 <= linha < len(self.mapa_atual_matriz) and 0 <= coluna < len(self.mapa_atual_matriz[0]):
+            tipo_pincel = CatalogoTiles.obter_tipo(self.tile_selecionado)
             
+            # 🪄 TRATAMENTO EXCLUSIVO PARA EVENTOS
+            if tipo_pincel == "evento":
+                # Abrimos o modal apenas no INÍCIO do clique. 
+                # Isso impede o Textual de abrir 50 janelas enquanto o usuário arrasta o mouse!
+                if event.inicio_de_traco:
+                    # Desliga a trava de clique contínuo imediatamente
+                    self.query_one("#mapa-view", MapaInterativo).mouse_pressionado = False
+                    
+                    # Verifica se já existia um evento nessa posição para abrir em Modo Edição
+                    evento_atual = self.mapa_atual_eventos.get((linha, coluna))
+                    
+                    # Abre o Modal passando as coordenadas e escuta o callback de retorno
+                    self.app.push_screen(
+                        PropriedadesEventoFormScreen(linha, coluna, self.tile_selecionado, evento_atual),
+                        lambda dados: self.ao_terminar_configurar_evento(linha, coluna, dados)
+                    )
+                return # Interrompe o fluxo padrão de desenho contínuo
+
+            # MODO BORRACHA / TERRENO / OBJETO (Mantém-se idêntico ao seu código anterior)
             if event.inicio_de_traco:
                 self.salvar_estado_historico()
 
-            tipo_pincel = CatalogoTiles.obter_tipo(self.tile_selecionado)
-            
             if self.tile_selecionado == "❌":
-                # MODO BORRACHA: Apaga o objeto daquela coordenada (se existir)
-                if (linha, coluna) in self.mapa_atual_objetos:
-                    del self.mapa_atual_objetos[(linha, coluna)]
+                if (linha, coluna) in self.mapa_atual_objetos: del self.mapa_atual_objetos[(linha, coluna)]
+                if (linha, coluna) in self.mapa_atual_eventos: del self.mapa_atual_eventos[(linha, coluna)] # Borracha apaga eventos também!
             elif tipo_pincel == "terreno":
-                # MODO TERRENO: Atualiza apenas a matriz base
                 if self.mapa_atual_matriz[linha][coluna] != self.tile_selecionado:
                     self.mapa_atual_matriz[linha][coluna] = self.tile_selecionado
-            elif tipo_pincel == "objeto":
-                # MODO OBJETO: Adiciona/Atualiza no dicionário de entidades
+            else:
                 self.mapa_atual_objetos[(linha, coluna)] = self.tile_selecionado
 
             self.tem_alteracoes = True
@@ -467,6 +569,29 @@ class MapManagerScreen(Screen):
         
         self.tem_alteracoes = True
         self.exibir_mapa_na_tela()
+        
+    def ao_terminar_configurar_evento(self, linha: int, coluna: int, dados_evento: dict | None):
+        """Callback acionado quando o usuário confirma os dados do evento no Modal."""
+        if dados_evento is None:
+            return # Usuário clicou em Cancelar, nada é alterado
+
+        # Usa a nossa função estruturada (que validamos no teste TDD anterior!)
+        self.adicionar_evento_memoria(
+            linha=linha,
+            coluna=coluna,
+            nome=dados_evento["nome"],
+            emoji=dados_evento["emoji"],
+            tipo_evento=dados_evento["tipo_evento"],
+            parametros=dados_evento["parametros"],
+            evento_id=dados_evento.get("id")
+        )
+        
+        # Garante que o histórico do Desfazer registrou essa mudança
+        self.salvar_estado_historico()
+        
+        # Atualiza o display e renderiza o novo emoji de evento por cima do mapa
+        self.exibir_mapa_na_tela()
+        self.notify(f"Evento '{dados_evento['nome']}' instanciado com sucesso!")
 
     def refazer_acao(self):
         """Avança Terrenos e Objetos para o estado do futuro."""
@@ -874,6 +999,120 @@ class PropriedadesFormScreen(ModalScreen[dict]):
                 "mapa_pai_id": novo_pai
             }
             self.dismiss(alteracoes)
+
+
+class PropriedadesEventoFormScreen(ModalScreen[dict]):
+    """Formulário flutuante para configurar a lógica, nome e JSON de um Evento/Entidade."""
+
+    CSS = """
+    PropriedadesEventoFormScreen {
+        align: center middle;
+        background: $background 50%;
+    }
+    #evt-caixa {
+        width: 50;
+        height: auto;
+        padding: 1 2;
+        background: $surface;
+        border: solid rgb(255, 165, 0); /* Laranja para destacar que é um evento */
+    }
+    .campo-rotulo {
+        margin-top: 1;
+        text-style: bold;
+    }
+    #evt-botoes {
+        layout: horizontal;
+        align: center middle;
+        margin-top: 2;
+        height: auto;
+        width: 100%;
+    }
+    #evt-botoes Button {
+        margin: 0 1;
+    }
+    """
+
+    def __init__(self, linha: int, coluna: int, emoji: str, dados_existentes: dict = None):
+        super().__init__()
+        self.linha = linha
+        self.coluna = coluna
+        self.emoji = emoji
+        self.dados_existentes = dados_existentes or {}
+
+    def compose(self):
+        with Vertical(id="evt-caixa"):
+            titulo = f"⚙️ Configurar Evento ({self.emoji}) em [{self.linha},{self.coluna}]"
+            yield Label(titulo, classes="titulo-secao")
+            
+            yield Label("Nome da Entidade/Evento:", classes="campo-rotulo")
+            yield Input(
+                value=self.dados_existentes.get("nome", f"evento_{self.linha}_{self.coluna}"), 
+                placeholder="ex: monstro_patrulha_1", id="evt-nome"
+            )
+            
+            yield Label("Tipo de Mecânica (Comportamento Engine):", classes="campo-rotulo")
+            tipos_engine = [
+                ("Baú de Itens", "bau"),
+                ("NPC Diálogo", "npc_dialogo"),
+                ("NPC Loja", "npc_loja"),
+                ("Inimigo/Monstro", "monstro"),
+                ("Porta/Teletransporte", "porta"),
+                ("Armadilha", "armadilha")
+            ]
+            yield Select(
+                tipos_engine, 
+                prompt="Selecione o Comportamento", 
+                value=self.dados_existentes.get("tipo_evento", "monstro"), 
+                id="evt-tipo"
+            )
+            
+            yield Label("Parâmetros do Evento (Formato Dicionário Python/JSON):", classes="campo-rotulo")
+            # Converte o dict de volta para string legível para exibição no Input
+            params_atuais = self.dados_existentes.get("parametros", {"movimento": "aleatorio", "diminuir_hp": 1})
+            yield Input(value=str(params_atuais).replace("'", '"'), placeholder='ex: {"hp": 50, "forca": 10}', id="evt-params")
+
+            with Horizontal(id="evt-botoes"):
+                yield Button("Cancelar", id="btn-evt-cancelar", variant="error")
+                yield Button("Confirmar e Instanciar", id="btn-evt-salvar", variant="success")
+
+    def on_button_pressed(self, event: Button.Pressed):
+        if event.button.id == "btn-evt-cancelar":
+            self.dismiss(None)
+            
+        elif event.button.id == "btn-evt-salvar":
+            nome = self.query_one("#evt-nome").value
+            tipo = self.query_one("#evt-tipo").value
+            params_raw = self.query_one("#evt-params").value
+
+            if not nome or tipo == Select.BLANK:
+                self.notify("Nome e Tipo são obrigatórios!", severity="error")
+                return
+
+            # Validação Segura do Campo de Parâmetros JSON
+            try:
+                # O usuário pode digitar no formato JSON padrão do Python. 
+                # json.loads exige aspas duplas, por isso tratamos inputs comuns com segurança.
+                if not params_raw.strip():
+                    parametros = {}
+                else:
+                    parametros = json.loads(params_raw)
+            except Exception:
+                self.notify("Erro nos Parâmetros! Use formato JSON válido: {\"chave\": \"valor\"}", severity="error")
+                return
+
+            # Montamos o payload estruturado idêntico ao modelo do Banco de Dados
+            dados_retorno = {
+                "nome": nome,
+                "emoji": self.emoji,
+                "tipo_evento": str(tipo),
+                "parametros": parametros
+            }
+            
+            # Preserva o ID caso seja uma edição de um evento que já veio do banco
+            if "id" in self.dados_existentes:
+                dados_retorno["id"] = self.dados_existentes["id"]
+
+            self.dismiss(dados_retorno)
 
 
 # ==============================================================================
