@@ -305,6 +305,42 @@ ArquivoCSVScreen {
     margin-right: 1;
 }
 
+PropriedadesEventoFormScreen {
+    align: center middle;
+    background: $background 50%;
+}
+
+#evt-caixa {
+    width: 50;
+    height: auto;
+    padding: 1 2;
+    background: $surface;
+    border: solid rgb(255, 165, 0);
+    /* Laranja para destacar que é um evento */
+}
+
+.campo-rotulo {
+    margin-top: 1;
+    text-style: bold;
+}
+
+#evt-botoes {
+    layout: horizontal;
+    align: center middle;
+    margin-top: 2;
+    height: auto;
+    width: 100%;
+}
+
+#evt-botoes Button {
+    margin: 0 1;
+    width: auto;
+    height: 3;
+    min-width: 5;
+    margin-right: 1;
+}
+
+
 GamePlayScreen {
     background: #0c0c0c;
     align: center middle;

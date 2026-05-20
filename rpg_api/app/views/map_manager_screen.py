@@ -14,6 +14,7 @@ from textual.events import MouseDown, MouseUp, MouseMove
 from app.core.mapas import GestorDeMapas
 from app.db.database import SessionLocal
 from app.models.mapas_db import MapaDB
+from app.models.eventos_db import EventoDB
 from rich.text import Text
 
 import rich.cells
@@ -44,7 +45,7 @@ class CatalogoTiles:
                 "🛶", "🧊", "📦", "📖", "🪑", "🏴",
                 "🌭", "🍔", "🍕", "🍺", "🍫", "♟️"]
     
-    EVENTOS = ["📦", "🧙‍♂️", "👾", "🚪", "⚠️"]
+    EVENTOS = ["📦", "🧙‍♂️", "👾", "🚪", "🧷"]
     
     # Mapeamento de cores de fundo para os terrenos
     CORES_BG = {
@@ -272,7 +273,7 @@ class MapManagerScreen(Screen):
                                     yield Button(padronizar_largura_tile(tile), classes="btn-paleta", id=f"tile-obj-{i}")
                                     
                         # ABA 3: FUTURA ABA DE EVENTOS
-                        with TabPane("⚙️ Eventos", id="tab-eventos"):
+                        with TabPane("⚡ Eventos", id="tab-eventos"):
                             with Container(classes="grade-paleta"):
                                 for i, tile in enumerate(CatalogoTiles.EVENTOS):
                                     yield Button(tile, classes="btn-paleta", id=f"tile-evt-{i}")
@@ -357,20 +358,40 @@ class MapManagerScreen(Screen):
 
 
     def carregar_mapa_do_banco(self, mapa_id: int):
+        from app.db.database import SessionLocal
+        
         with SessionLocal() as db:
+            # 1. Carrega o Mapa Base
             mapa_db = db.query(MapaDB).filter(MapaDB.id == mapa_id).first()
             if not mapa_db:
                 return
 
             self.mapa_atual_matriz = mapa_db.mapa_em_si
             
-            # ✅ DEPOIS: Agora puxamos diretamente da nova coluna 'objetos'
             objetos_salvos = mapa_db.objetos if mapa_db.objetos else {}
             self.mapa_atual_objetos = self._desempacotar_objetos_do_banco(objetos_salvos)
 
-            # E guardamos as configs originais para não as perdermos
-            configs_salvas = mapa_db.configs if mapa_db.configs else {}
+            # ✅ NOVO: 2. Carrega os Eventos Relacionados
+            eventos_db = db.query(EventoDB).filter(EventoDB.mapa_id == mapa_id).all()
+            
+            # Converte os objetos do SQLAlchemy de volta para uma lista de dicionários
+            lista_eventos_para_memoria = []
+            for evt in eventos_db:
+                lista_eventos_para_memoria.append({
+                    "id": evt.id,
+                    "nome": evt.nome,
+                    "emoji": evt.emoji,
+                    "pos_y": evt.pos_y,
+                    "pos_x": evt.pos_x,
+                    "tipo_evento": evt.tipo_evento,
+                    "parametros": evt.parametros if evt.parametros else {}
+                })
+            
+            # Envia para a nossa função que já testámos com o Pytest!
+            self._desempacotar_eventos_do_banco(lista_eventos_para_memoria)
 
+            # 3. Atualiza os metadados da memória
+            configs_salvas = mapa_db.configs if mapa_db.configs else {}
             self.mapa_atual_dados = {
                 "id": mapa_db.id,
                 "nome": mapa_db.nome,
@@ -378,14 +399,15 @@ class MapManagerScreen(Screen):
                 "mapa_pai_id": mapa_db.mapa_pai_id,
                 "largura": mapa_db.largura,
                 "altura": mapa_db.altura,
-                "configs": configs_salvas # Resgata as configurações de geração!
+                "configs": configs_salvas
             }
             
             self.tem_alteracoes = False
             self.id_mapa_na_agulha = None
             
+            # Desenha tudo na tela (Chão + Objetos + Eventos)
             self.exibir_mapa_na_tela()
-            self.notify(f"Mapa '{mapa_db.nome}' carregado!")
+            self.notify(f"Mapa '{mapa_db.nome}' e eventos carregados!")
 
     
     def salvar_estado_historico(self):
@@ -625,18 +647,22 @@ class MapManagerScreen(Screen):
                 
                 # 1. Pega o terreno base da matriz
                 tile_chao = self.mapa_atual_matriz[linha_idx][col_idx]
-                
                 # 2. Verifica se existe um objeto nesta coordenada
                 tile_objeto = self.mapa_atual_objetos.get((linha_idx, col_idx))
+                # ✅ NOVO: Verifica primeiro se há um evento lógico nesta coordenada
+                dados_evento = self.mapa_atual_eventos.get((linha_idx, col_idx))
                 
                 # 3. Lógica de Renderização
-                if tile_objeto is not None:
-                    # Desenha o Objeto, mas copia o background do terreno abaixo dele!
+                if dados_evento is not None:
+                    # Desenha o Emoji do Evento (ex: 👾) com o background do chão correto
                     cor_bg = CatalogoTiles.obter_cor_fundo(tile_chao)
-                    estilo = f"on {cor_bg}" if cor_bg else ""
-                    texto_mapa.append(padronizar_largura_tile(tile_objeto), style=estilo)
+                    texto_mapa.append(dados_evento["emoji"], style=f"on {cor_bg}" if cor_bg else "")
+                elif tile_objeto is not None:
+                    # Desenha o objeto estático (cenário)
+                    cor_bg = CatalogoTiles.obter_cor_fundo(tile_chao)
+                    texto_mapa.append(tile_objeto, style=f"on {cor_bg}" if cor_bg else "")
                 else:
-                    # Não há objetos, desenha apenas o chão limpo
+                    # Desenha chão limpo
                     texto_mapa.append(tile_chao)
             
             # Quebra de linha no fim de cada linha da grelha
@@ -644,90 +670,82 @@ class MapManagerScreen(Screen):
         
         self.query_one("#mapa-titulo", Label).update(f"Mapa: {self.mapa_atual_dados['nome']}")
         self.query_one("#mapa-view", MapaInterativo).update(texto_mapa)
+        
 
     def salvar_mapa_no_banco(self):
-        """
-        Guarda o mapa no banco de dados. 
-        Verifica nomes duplicados e decide automaticamente entre criar um novo (Insert)
-        ou atualizar um existente (Update).
-        """
-        # 1. Verificações de segurança base (O mapa existe na memória?)
-        if self.mapa_atual_matriz is None or self.mapa_atual_dados is None:
-            self.notify("Não há nenhum mapa gerado para salvar!", severity="warning")
-            return
-
-        nome_mapa = self.mapa_atual_dados.get("nome")
+        """Salva o mapa atual, os objetos estáticos e os eventos dinâmicos no banco de dados."""
+        from app.db.database import SessionLocal # Ajuste o import conforme o seu projeto
         
-        # Pega o ID atual. O método '.get()' retorna 'None' se a chave "id" não existir.
-        mapa_id_atual = self.mapa_atual_dados.get("id") 
-
-        # 2. Abertura da comunicação com o Banco de Dados
-        with SessionLocal() as db:
-            
-            # --- VALIDAÇÃO DE NOME ÚNICO ---
-            # Busca no banco qualquer mapa que tenha exatamente este nome
-            try:
-                mapa_existente = db.query(MapaDB).filter(MapaDB.nome == nome_mapa).first()
-            except:
-                mapa_existente = None
-
-            # Se achou um mapa com este nome, E o ID dele é diferente do nosso mapa atual
-            if mapa_existente:
-                mapa_id_existente = mapa_existente.id
-                if mapa_id_existente != mapa_id_atual:
-                    self.notify(f"Já existe um mapa chamado '{nome_mapa}'. Escolha outro nome em Opções!", severity="error")
-                    return # Interrompe a função aqui, não salva nada
-
-            # --- DECISÃO: UPDATE OU INSERT ---
-            if mapa_id_atual is not None:
-                # MODO UPDATE: O mapa já existe, vamos apenas atualizar os dados
-                mapa_para_atualizar = db.query(MapaDB).filter(MapaDB.id == mapa_id_atual).first()
-                
-                if mapa_para_atualizar:
-                    mapa_para_atualizar.nome = nome_mapa
-                    mapa_para_atualizar.tipo = self.mapa_atual_dados.get("tipo")
-                    mapa_para_atualizar.mapa_pai_id = self.mapa_atual_dados.get("mapa_pai_id")
-                    mapa_para_atualizar.largura = self.mapa_atual_dados.get("largura")
-                    mapa_para_atualizar.altura = self.mapa_atual_dados.get("altura")
-                    mapa_para_atualizar.configs = self.mapa_atual_dados.get("configs", {})
-                    mapa_para_atualizar.mapa_em_si = self.mapa_atual_matriz 
-                    mapa_para_atualizar.objetos = self._empacotar_objetos_para_banco()
+        mapa_id_atual = self.mapa_atual_dados.get("id") if self.mapa_atual_dados else None
+        nome_mapa = self.mapa_atual_dados.get("nome") if self.mapa_atual_dados else None
+        try:
+            with SessionLocal() as db:
+                # ==========================================
+                # 1. SALVAR O MAPA BASE E OBJETOS (CENÁRIO)
+                # ==========================================
+                if mapa_id_atual is not None:
+                    # MODO UPDATE
+                    mapa_db = db.query(MapaDB).filter(MapaDB.id == mapa_id_atual).first()
+                    mapa_db.nome = nome_mapa
+                    mapa_db.tipo = self.mapa_atual_dados.get("tipo")
+                    mapa_db.mapa_pai_id = self.mapa_atual_dados.get("mapa_pai_id")
+                    mapa_db.largura = self.mapa_atual_dados.get("largura")
+                    mapa_db.altura = self.mapa_atual_dados.get("altura")
+                    mapa_db.mapa_em_si = self.mapa_atual_matriz 
+                    mapa_db.configs = self.mapa_atual_dados.get("configs", {})
+                    mapa_db.objetos = self._empacotar_objetos_para_banco()
+                    
                     acao_realizada = "atualizado"
                 else:
-                    self.notify("Erro: Mapa original não foi encontrado no banco de dados.", severity="error")
-                    return
-            else:
-                # MODO INSERT: O mapa é totalmente novo
-                novo_mapa = MapaDB(
-                    nome=nome_mapa,
-                    tipo=self.mapa_atual_dados.get("tipo"),
-                    mapa_pai_id=self.mapa_atual_dados.get("mapa_pai_id"),
-                    largura=self.mapa_atual_dados.get("largura"),
-                    altura=self.mapa_atual_dados.get("altura"),
-                    mapa_em_si=self.mapa_atual_matriz,
-                    configs=self.mapa_atual_dados.get("configs", {}),
-                    objetos=self._empacotar_objetos_para_banco()
-                )
-                db.add(novo_mapa)
-                acao_realizada = "criado"
+                    # MODO INSERT
+                    mapa_db = MapaDB(
+                        nome=nome_mapa,
+                        tipo=self.mapa_atual_dados.get("tipo"),
+                        mapa_pai_id=self.mapa_atual_dados.get("mapa_pai_id"),
+                        largura=self.mapa_atual_dados.get("largura"),
+                        altura=self.mapa_atual_dados.get("altura"),
+                        mapa_em_si=self.mapa_atual_matriz,
+                        configs=self.mapa_atual_dados.get("configs", {}), 
+                        objetos=self._empacotar_objetos_para_banco() 
+                    )
+                    db.add(mapa_db)
+                    db.flush() # Força a geração do ID do mapa novo antes do commit
+                    acao_realizada = "criado"
 
-            # 3. Gravar de facto no banco de dados (Efetivar a transação)
-            db.commit()
+                # ==========================================
+                # 2. SINCRONIZAR A CAMADA DE EVENTOS
+                # ==========================================
+                # Limpa os eventos antigos deste mapa para evitar duplicados ou fantasmas
+                db.query(EventoDB).filter(EventoDB.mapa_id == mapa_db.id).delete()
+                
+                # Desempacota a memória e insere os novos registos
+                lista_eventos = self._empacotar_eventos_para_banco()
+                for dados_evt in lista_eventos:
+                    novo_evento_db = EventoDB(
+                        mapa_id=mapa_db.id,
+                        nome=dados_evt["nome"],
+                        emoji=dados_evt["emoji"],
+                        pos_y=dados_evt["pos_y"],
+                        pos_x=dados_evt["pos_x"],
+                        tipo_evento=dados_evt["tipo_evento"],
+                        parametros=dados_evt.get("parametros", {})
+                    )
+                    db.add(novo_evento_db)
 
-            # --- PÓS-SALVAMENTO ---
-            # Se acabámos de criar um mapa novo, o banco gerou um ID para ele.
-            if acao_realizada == "criado":
-                db.refresh(novo_mapa) # Pede ao banco para nos dar as informações geradas (o ID)
-                self.mapa_atual_dados["id"] = novo_mapa.id # Guardamos na memória!
+                # ==========================================
+                # 3. CONSOLIDAR TUDO
+                # ==========================================
+                db.commit()
+                
+                # Atualiza a memória com o novo ID (caso tenha sido um INSERT)
+                self.mapa_atual_dados["id"] = mapa_db.id 
+                self.tem_alteracoes = False
+                
+                self.notify(f"Mapa '{nome_mapa}' e seus eventos foram guardados com sucesso!", severity="success")
 
-            # Limpa o alerta de alterações não salvas (o nosso "sensor de sujeira")
-            self.tem_alteracoes = False 
-            
-            # Atualiza a árvore lateral para exibir o novo mapa ou a mudança de nome
-            self.carregar_arvore_de_mapas()
-            
-            # Mostra a mensagem de sucesso verde
-            self.notify(f"Mapa '{nome_mapa}' {acao_realizada} com sucesso!", severity="success")
+        except Exception as e:
+            self.notify(f"Erro ao salvar no banco: {e}", severity="error")
+    
     
     def ao_escolher_acao_menu(self, acao: str | None):
         """Callback após o utilizador clicar em algo no Menu Principal."""
@@ -1004,33 +1022,6 @@ class PropriedadesFormScreen(ModalScreen[dict]):
 class PropriedadesEventoFormScreen(ModalScreen[dict]):
     """Formulário flutuante para configurar a lógica, nome e JSON de um Evento/Entidade."""
 
-    CSS = """
-    PropriedadesEventoFormScreen {
-        align: center middle;
-        background: $background 50%;
-    }
-    #evt-caixa {
-        width: 50;
-        height: auto;
-        padding: 1 2;
-        background: $surface;
-        border: solid rgb(255, 165, 0); /* Laranja para destacar que é um evento */
-    }
-    .campo-rotulo {
-        margin-top: 1;
-        text-style: bold;
-    }
-    #evt-botoes {
-        layout: horizontal;
-        align: center middle;
-        margin-top: 2;
-        height: auto;
-        width: 100%;
-    }
-    #evt-botoes Button {
-        margin: 0 1;
-    }
-    """
 
     def __init__(self, linha: int, coluna: int, emoji: str, dados_existentes: dict = None):
         super().__init__()
@@ -1049,6 +1040,8 @@ class PropriedadesEventoFormScreen(ModalScreen[dict]):
                 value=self.dados_existentes.get("nome", f"evento_{self.linha}_{self.coluna}"), 
                 placeholder="ex: monstro_patrulha_1", id="evt-nome"
             )
+            # yield Input(
+            #     value=self.dados_existentes.get("emoji", "😀" ), id='evt-emoji' ),
             
             yield Label("Tipo de Mecânica (Comportamento Engine):", classes="campo-rotulo")
             tipos_engine = [
