@@ -29,7 +29,7 @@ Opções-> Paleta, Eventos, Musica, Dados
 
 [x] Novo: abre o formulário de criação de mapas.
 [x] Salvar: salva o mapa no banco de dados.
-Importar/Exportar: csv importa ou exporta csv.
+[x] Importar/Exportar: csv importa ou exporta csv.
 [x] Sair: sai, assim como o 'X'.
 Recortar: recorta uma área quadrada do mapa para colar.
 Colar: cola a parte de mapa da transferência.
@@ -37,7 +37,7 @@ Colar: cola a parte de mapa da transferência.
 [x] Paleta: Fornece opções de tiles para edição.
 Eventos: Permite colocar um tile especial que ao acionado dispara eventos programados.
 Musica: vai permitir gerenciar músicas.
-Dados: o formulário de Pesquisa/Edição de dados do sistema.
+[x] Dados: o formulário de Pesquisa/Edição de dados do sistema.
 ---
 
 A Paleta permite a seleção de tiles para colocar no mapa.
