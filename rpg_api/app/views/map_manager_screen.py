@@ -1,5 +1,4 @@
 # app/screens/map_manager_screen.py
-
 import os
 import copy
 import json
@@ -15,6 +14,7 @@ from app.core.mapas import GestorDeMapas
 from app.db.database import SessionLocal
 from app.models.mapas_db import MapaDB
 from app.models.eventos_db import EventoDB
+from app.core.emojis import CatalogoTiles
 from rich.text import Text
 
 import rich.cells
@@ -31,46 +31,6 @@ def patched_cell_len(text: str) -> int:
 rich.cells.cell_len = patched_cell_len
 
 CSS_PATH = "styles.css"
-
-class CatalogoTiles:
-    """Registo central que define as categorias e propriedades visuais dos emojis."""
-    
-    # Listas para construir as abas
-    TERRENOS = ["  ", "🔳", "⬜",  "🟫", "🟩", "🔲", "🟦"]
-    
-    OBJETOS = [ "🌲", "🌳", "🌴", "🌵", "🍄", "🕸️",
-                "🌻", "🌹", "🌷", "🔮", "🗿", "🏰", 
-                "🚪", "🏘️ ", "🏚️ ", "🏯", "🕍",
-                "💀", "⛺",  "⛲", "⌛", "🕋",
-                "🛶", "🧊", "📦", "📖", "🪑", "🏴",
-                "🌭", "🍔", "🍕", "🍺", "🍫", "♟️"]
-    
-    EVENTOS = ["📦", "🧙‍♂️", "👾", "🚪", "🧷"]
-    
-    # Mapeamento de cores de fundo para os terrenos
-    CORES_BG = {
-        "⬛": "#221F1F",
-        "🟫": "#B45428",
-        "🟩": "#228B22",
-        "🔳": "#808080",
-        "🟦": "#0000FF"
-    }
-
-    @classmethod
-    def obter_tipo(cls, tile: str) -> str:
-        """Verifica se o pincel é um terreno, um objeto estático ou um evento lógico."""
-        tile_limpo = tile.strip()
-        if tile_limpo in cls.TERRENOS:
-            return "terreno"
-        if tile_limpo in cls.EVENTOS:
-            return "evento" # <- NOVA CATEGORIA DETECTADA!
-        return "objeto"
-
-    @classmethod
-    def obter_cor_fundo(cls, tile: str) -> str:
-        """Pega o código hexadecimal da cor de fundo de um chão."""
-        tile_limpo = tile.strip()
-        return cls.CORES_BG.get(tile_limpo, "")
 
 
 def padronizar_largura_tile(tile_string: str) -> str:

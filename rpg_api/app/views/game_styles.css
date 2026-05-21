@@ -1,0 +1,43 @@
+/* =========================================
+   LAYOUT DA TELA DE JOGO (GAME PLAY)
+   ========================================= */
+#game-layout {
+    layout: grid;
+    grid-size: 2 3;
+    /* 2 colunas, 3 linhas */
+    grid-columns: 4fr 1fr;
+    /* O mapa ocupa 3/4 da tela, os painéis 1/4 */
+    grid-rows: 1fr 2fr 1fr;
+    /* Status menor, Itens maior, Interação no rodapé */
+    width: 100%;
+    height: 100%;
+}
+
+#tela-mapa {
+    row-span: 2;
+    /* Ocupa as duas primeiras linhas na esquerda */
+    border: solid green;
+    background: $surface;
+    content-align: center middle;
+}
+
+#tela-status {
+    border: solid blue;
+    background: $surface;
+    padding: 0 1;
+}
+
+#tela-itens {
+    border: solid yellow;
+    background: $surface;
+    padding: 0 1;
+}
+
+#area-interacao {
+    column-span: 2;
+    /* Estica de ponta a ponta no rodapé */
+    border: solid white;
+    background: $panel;
+    padding: 0 1;
+    height: 100%;
+}

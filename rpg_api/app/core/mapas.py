@@ -1,5 +1,5 @@
 from typing import List, Dict, Any
-from app.modules.dungeon_gen import DungeonGenerator
+from app.packages.dungeon_gen import DungeonGenerator
 
 class GestorDeMapas:
     """

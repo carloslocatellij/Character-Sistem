@@ -7,6 +7,11 @@ class PositionComponent:
     """Onde a entidade está no mapa lógico."""
     x: int
     y: int
+    direcao_olhar: str = "baixo"
+
+@dataclass
+class CollisionComponent:
+    is_solid: bool = True # Se for False, a entidade é "atravessável" (ex: um trigger de armadilha no chão)
 
 @dataclass
 class RenderComponent:
@@ -15,9 +20,10 @@ class RenderComponent:
 
 @dataclass
 class InteractableComponent:
-    """O que acontece quando o jogador aperta Enter de frente para ela."""
-    tipo_evento: str # Ex: 'bau', 'porta', 'npc'
-    parametros: Dict[str, Any] = field(default_factory=dict)
+    """Define que a entidade pode receber uma ação (tecla Enter)."""
+    event_type: str          # Ex: 'bau', 'npc_dialogo', 'porta'
+    parameters: dict         # Ex: {'item': 'pocao', 'quantidade': 1}
+    is_active: bool = True   # Permite desligar a interação (ex: um baú já aberto)
 
 @dataclass
 class PlayerControlComponent:

@@ -118,14 +118,14 @@ DataTable {
 
 .grade-paleta {
     layout: grid;
-    grid-size: 5;
+    grid-size: 6 10;
     /* 5 colunas de botões */
-    grid-gutter: 1;
+    /*grid-gutter: 1;*/
     /* Espaço entre os botões */
 }
 
 .btn-paleta {
-    min-width: 3;
+    min-width: 1;
     height: 1;
     border: none;
     padding: 0;

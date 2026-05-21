@@ -1,5 +1,5 @@
 import pytest
-from app.views.map_manager_screen import  CatalogoTiles, padronizar_largura_tile
+from app.core.emojis import  CatalogoTiles, padronizar_largura_tile
 
 # ==========================================
 # 1. TESTES DO CATÁLOGO E PADRONIZAÇÃO VISUAL
@@ -18,7 +18,7 @@ def test_catalogo_tiles_tipos():
     """Garante que o sistema diferencia corretamente chãos de objetos."""
     # Terrenos conhecidos
     assert CatalogoTiles.obter_tipo("🟫") == "terreno"
-    assert CatalogoTiles.obter_tipo("🔳") == "terreno"
+    assert CatalogoTiles.obter_tipo("🔲") == "terreno"
     
     # Objetos conhecidos e desconhecidos (Borracha, Letras)
     assert CatalogoTiles.obter_tipo("🪑") == "objeto"
