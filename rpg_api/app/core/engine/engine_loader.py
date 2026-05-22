@@ -25,7 +25,7 @@ def carregar_engine_do_banco(mapa_id: int, db_session) -> tuple[ECSManager, list
     
     # Extrai a posição de início das configurações do mapa salvas no editor, ou usa (1,1) como padrão
     configs = mapa_db.configs if mapa_db.configs else {}
-    pos_inicial = configs.get("pos_inicial", [1, 1])
+    pos_inicial = configs.get("pos_inicial", [22, 18])
     
     engine.add_component(player_id, PositionComponent(x=pos_inicial[0], y=pos_inicial[1], direcao_olhar="baixo"))
     engine.add_component(player_id, CollisionComponent(is_solid=True))

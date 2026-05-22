@@ -28,6 +28,8 @@ from app.core.engine.render import RenderSystem
 from app.core.engine.engine_loader import carregar_engine_do_banco  # ✅ NOSSO CARREGADOR REAL!
 
 class GamePlayScreen(Screen):
+    CSS_PATH = "game_styles.css"
+    
     def __init__(self, mapa_id: int):
         super().__init__()
         self.mapa_id = mapa_id
@@ -44,13 +46,20 @@ class GamePlayScreen(Screen):
         self.render_sys = None
 
     def compose(self):
-        with Container(id="game-layout"):
-            yield Static("A carregar componentes lógicos do Banco de Dados...", id="tela-mapa")
+         with Container(id="game-layout"):
+            yield Static("Carregando Cenário Lógico...", id="tela-mapa")
+            
             with Container(id="tela-status"):
-                yield Label("🧙‍♂️ Status", classes="titulo-secao")
-                yield Label("PV: 45 / 45\nPM: 12 / 12", id="lbl-status")
+                yield Label("🐱‍👤 Status", classes="titulo-secao")
+                yield Label("Jogador: [bold green]Mago[/]", id="lbl-nome")
+                yield Label("Pv: 10 / Pm: 5", id="lbl-pv-pm")
+                yield Label("Atk: 13 | Def: 9", id="lbl-status-combate")
+                
             with Container(id="tela-itens"):
                 yield Label("🎒 Itens", classes="titulo-secao")
+                yield Static("- 3x Poção de Vida\n- 1x Chave de Bronze", id="lbl-inventario")
+                
+            # Área de interação (Terminal de mensagens)
             yield RichLog(id="area-interacao", markup=True)
 
     def on_mount(self):
