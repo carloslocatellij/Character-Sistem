@@ -31,10 +31,8 @@ windos `.\.venv\Scripts\activate` linux `source .venv/bin/activate`
 `pip install -r requirements.txt`
 
 5 - Na pasta do projeto rode:
-`python ./rpg_api/mainx_cli.py`
+`python ./rpg_api/main_cli.py`
 
-5.1 - Ou para testar iteratividade com o mapa:
-`python ./rpg_api/game_play_screen.py`
 
 ##### Obs.
 Estou testando ele no Gnome Terminal v.3.52 e Windows Terminal 
