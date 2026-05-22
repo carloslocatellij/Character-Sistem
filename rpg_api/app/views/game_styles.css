@@ -47,6 +47,8 @@
     padding: 0 1;
 }
 
+
+
 #area-interacao-container {
     column-span: 2;
     layout: vertical;
@@ -57,11 +59,13 @@
 }
 
 #area-interacao {
-    height: 4fr;
+    column-span: 2;
     overflow: auto;
-    /* Dá preferência de espaço ao log de mensagens */
-    width: 100%;
-    background: transparent;
+    /* Estica de ponta a ponta no rodapé */
+    border: solid white;
+    background: $panel;
+    padding: 0 1;
+    height: 100%;
 }
 
 #terminal-prompt {

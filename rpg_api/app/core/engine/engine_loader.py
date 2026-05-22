@@ -1,5 +1,6 @@
 # app/core/engine/engine_loader.py
 # app/core/engine/engine_loader.py
+# app/core/engine/engine_loader.py
 from app.core.engine.manager import ECSManager
 from app.core.engine.components import (
     PositionComponent, CollisionComponent, InteractableComponent, 
@@ -7,7 +8,9 @@ from app.core.engine.components import (
 )
 from app.models.mapas_db import MapaDB
 from app.models.eventos_db import EventoDB
-from app.models.personagens_db import PersonagemDB # ✅ IMPORTADO DO SEU REPOSITÓRIO
+
+# ✅ IMPORTAMOS O SEU CONTROLADOR QUE COORDENA OS CÁLCULOS
+from app.controllers.game_controller import GameController 
 
 def carregar_engine_do_banco(mapa_id: int, personagem_id: int, db_session) -> tuple[ECSManager, list[list[str]], dict]:
     mapa_db = db_session.query(MapaDB).filter(MapaDB.id == mapa_id).first()
@@ -16,14 +19,21 @@ def carregar_engine_do_banco(mapa_id: int, personagem_id: int, db_session) -> tu
 
     eventos_db = db_session.query(EventoDB).filter(EventoDB.mapa_id == mapa_id).all()
     
-    # ✅ NOVO: Puxa o Personagem real do Banco de Dados!
-    pers_db = db_session.query(PersonagemDB).filter(PersonagemDB.id == personagem_id).first()
-    if not pers_db:
-        raise ValueError(f"Personagem {personagem_id} inexistente.")
+    # 1. Instanciamos o seu Controlador passando a sessão do banco de dados
+    controller = GameController(db_session)
+    
+    # 2. Pedimos ao controlador para montar o Personagem Lógico (da pasta core)
+    # NOTA: Ajuste o nome do método ('obter_personagem' ou 'carregar_personagem') 
+    # para o método real que você utiliza no seu GameController!
+    personagem_logico = controller.obter_personagem_por_id(personagem_id) 
+    personagem_logico.converter_para_dominio()
+    
+    if not personagem_logico:
+        raise ValueError(f"Personagem {personagem_id} não pôde ser instanciado pelo GameController.")
 
     ecs = ECSManager()
 
-    # 1. INSTANCIAR O JOGADOR DEFINITIVO (ID 1)
+    # 3. INSTANCIAR O JOGADOR DEFINITIVO (ID 1)
     player_id = ecs.create_entity()
     configs = mapa_db.configs if mapa_db.configs else {}
     pos_inicial = configs.get("pos_inicial", [1, 1])
@@ -32,20 +42,22 @@ def carregar_engine_do_banco(mapa_id: int, personagem_id: int, db_session) -> tu
     ecs.add_component(player_id, CollisionComponent(is_solid=True))
     ecs.add_component(player_id, RenderComponent(emoji="🧙‍♂️"))
     
-    # 🌟 ATRIBUTOS DO BANCO: Acoplamos os valores reais do ORM
+    # 🌟 ATRIBUTOS REAIS CALCULADOS: Agora puxamos do objeto Personagem (core) e não do DB!
     ecs.add_component(player_id, StatsComponent(
-        nome=pers_db.nome,
-        hp=pers_db.pv, # Usando pv e pm conforme o seu modelo do banco
-        max_hp=pers_db.pv,
-        mp=pers_db.pm,
-        max_mp=pers_db.pm,
-        ataque_base=pers_db.ataque,
-        defesa_base=pers_db.defesa
+        nome=personagem_logico.nome,
+        hp=personagem_logico.pv_max,       # Propriedade calculada pelo seu arquivo personagens.py!
+        max_hp=personagem_logico.pv_max,
+        mp=personagem_logico.pm_max,
+        max_mp=personagem_logico.pm_max,
+        ataque_base=personagem_logico.ataque, # Verifique se é .ataque ou .calcular_ataque()
+        defesa_base=personagem_logico.defesa
     ))
     
-    # Inicializa o inventário e os equipamentos vazios/padrão prontos para receber itens dos baús
+    # Inicializa o inventário base
     ecs.add_component(player_id, InventoryComponent(itens={"poção": 2})) 
     ecs.add_component(player_id, EquipmentComponent())
+
+    # ... (O resto do código mantém-se exatamente igual a partir daqui - instanciar monstros, eventos, etc.) ...
 
     # 2. INSTANCIAR OS EVENTOS COMO ENTIDADES (Monstros/Baús)
     for evt in eventos_db:
