@@ -1,6 +1,6 @@
 import pytest
 from rich.text import Text
-from app.core.engine.components import PositionComponent
+from app.core.engine.components import PositionComponent, RenderComponent
 from app.core.engine.render import RenderSystem
 
 # Cenário de Teste: Mapa 2x2 de Grama (🟩)
@@ -12,12 +12,14 @@ MAPA_BASE_TESTE = [
 OBJETOS_TESTE = {(0, 1): "🌲"}
 
 @pytest.fixture
-def mock_ecs_com_jogador():
+def mock_engine_com_jogador():
     class MockECS:
         def __init__(self):
             # O jogador está na linha 1, coluna 0 (y=1, x=0)
             self.entidades = {
-                1: {"Position": PositionComponent(x=0, y=1)}
+                1: {"PositionComponent": PositionComponent(x=0, y=1),
+                    "RenderComponent": RenderComponent(emoji='🧙')
+                    }
             }
         def get_component(self, ent_id, comp_name):
             return self.entidades.get(ent_id, {}).get(comp_name)
@@ -25,10 +27,10 @@ def mock_ecs_com_jogador():
             return [1] # Retorna o ID do jogador
     return MockECS()
 
-def test_renderizacao_camadas_e_prioridade(mock_ecs_com_jogador):
+def test_renderizacao_camadas_e_prioridade(mock_engine_com_jogador):
     """Garante que o renderizador sobrepõe Chão -> Objeto -> Jogador na ordem certa."""
-    # O emoji do jogador será "🧙‍♂️"
-    renderer = RenderSystem(ecs_manager=mock_ecs_com_jogador, emoji_jogador="🧙‍♂️")
+    # O emoji do jogador será "🧙"
+    renderer = RenderSystem(engine_manager=mock_engine_com_jogador)
     
     # Executa a renderização lógica
     texto_renderizado = renderer.renderizar_frame(
@@ -45,4 +47,4 @@ def test_renderizacao_camadas_e_prioridade(mock_ecs_com_jogador):
     
     assert "🟩" in linhas[0]
     assert "🌲" in list(linhas[0])[1] # Verifica o segundo caractere visual
-    assert "🧙‍♂️" in linhas[1]
+    assert "🧙" in linhas[1]

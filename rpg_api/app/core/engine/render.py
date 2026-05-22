@@ -1,14 +1,14 @@
-# app/core/ecs/render.py
+# app/core/engine/render.py
 from rich.text import Text
 from app.core.emojis import CatalogoTiles # Reutiliza o catálogo de cores que criamos para o editor!
 
-# app/core/ecs/render.py
+# app/core/engine/render.py
 from rich.text import Text
 from app.core.emojis import CatalogoTiles
 
 class RenderSystem:
-    def __init__(self, ecs_manager):
-        self.ecs = ecs_manager
+    def __init__(self, engine_manager):
+        self.engine = engine_manager
 
     def renderizar_frame(self, mapa_matriz: list[list[str]], dict_objetos: dict) -> Text:
         if not mapa_matriz: return Text("Mapa Vazio")
@@ -18,11 +18,11 @@ class RenderSystem:
 
         # 🧠 Varredura ECS: Agrupa posições de tudo o que tem geometria e aparência
         posicoes_entidades = {}
-        entidades_visiveis = self.ecs.get_entities_with("PositionComponent", "RenderComponent")
+        entidades_visiveis = self.engine.get_entities_with("PositionComponent", "RenderComponent")
         
         for ent_id in entidades_visiveis:
-            pos = self.ecs.get_component(ent_id, "PositionComponent")
-            render = self.ecs.get_component(ent_id, "RenderComponent")
+            pos = self.engine.get_component(ent_id, "PositionComponent")
+            render = self.engine.get_component(ent_id, "RenderComponent")
             posicoes_entidades[(pos.y, pos.x)] = render.emoji
 
         # Montagem do Buffer Visual (Z-Index)
@@ -48,8 +48,8 @@ class RenderSystem:
 # class RenderSystem:
 #     """Sistema responsável por compor as camadas visuais (Terreno, Cenário, Entidades)."""
     
-#     def __init__(self, ecs_manager, emoji_jogador: str = "🧙‍♂️"):
-#         self.ecs = ecs_manager
+#     def __init__(self, engine_manager, emoji_jogador: str = "🧙‍♂️"):
+#         self.engine = engine_manager
 #         self.emoji_jogador = emoji_jogador
 
 #     def renderizar_frame(self, mapa_matriz: list[list[str]], dict_objetos: dict) -> Text:
@@ -66,14 +66,14 @@ class RenderSystem:
 #         posicoes_entidades = {}
         
 #         # Procura todas as entidades com Posição
-#         entidades_com_pos = self.ecs.get_entities_with("Position")
+#         entidades_com_pos = self.engine.get_entities_with("Position")
 #         for ent_id in entidades_com_pos:
-#             pos_comp = self.ecs.get_component(ent_id, "Position")
+#             pos_comp = self.engine.get_component(ent_id, "Position")
 #             # Se for o ID 1 (Jogador), usamos o emoji do jogador, senão tentamos pegar o emoji do componente Interactable (NPC/Monstro)
 #             if ent_id == 1:
 #                 posicoes_entidades[(pos_comp.y, pos_comp.x)] = self.emoji_jogador
 #             else:
-#                 interact_comp = self.ecs.get_component(ent_id, "Interactable")
+#                 interact_comp = self.engine.get_component(ent_id, "Interactable")
 #                 # Se for uma entidade interativa com representação visual (ex: Baú ou Monstro)
 #                 if interact_comp and hasattr(interact_comp, 'emoji'):
 #                     posicoes_entidades[(pos_comp.y, pos_comp.x)] = interact_comp.emoji

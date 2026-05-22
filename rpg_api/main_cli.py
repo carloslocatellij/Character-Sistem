@@ -713,7 +713,7 @@ class MainScreen(Screen):
         elif btn_id == "menu-mapas": self.app.push_screen(MapManagerScreen())
         elif btn_id == "menu-arena": self.app.push_screen(ArenaScreen())
         elif btn_id == "menu-search": self.app.push_screen(ManagementMenuScreen())
-        elif btn_id == "menu-jogar": self.app.push_screen(GamePlayScreen(mapa_id=2))
+        elif btn_id == "menu-jogar": self.app.push_screen(GamePlayScreen(mapa_id=1))
         elif btn_id == "menu-quit": self.app.exit()
         
        

@@ -29,3 +29,35 @@ class InteractableComponent:
 class PlayerControlComponent:
     """Uma flag que indica que esta entidade é controlada pelo teclado."""
     pass
+
+@dataclass
+class AIComponent:
+    """Define o comportamento autônomo (NPCs, Monstros, Pets)."""
+    movement_type: str       # Ex: "aleatório", "patrulha", "seguir"
+    action_on_touch: dict    # O que faz se esbarrar em alguém
+    
+    
+# app/core/engine/components.py
+from dataclasses import dataclass, field
+
+@dataclass
+class StatsComponent:
+    """Guarda a matemática pura dos atributos vitais de combate."""
+    nome: str
+    hp: int
+    max_hp: int
+    mp: int
+    max_mp: int
+    ataque_base: int
+    defesa_base: int
+
+@dataclass
+class InventoryComponent:
+    """Guarda os itens que a entidade carrega. Ex: {'poção': 3, 'espada_ferro': 1}"""
+    itens: dict[str, int] = field(default_factory=dict)
+
+@dataclass
+class EquipmentComponent:
+    """Mapeia o que a entidade tem atualmente equipado no corpo."""
+    arma: dict | None = None      # Ex: {'nome': 'Espada Longa', 'bonus_atk': 5}
+    armadura: dict | None = None  # Ex: {'nome': 'Armadura de Placas', 'bonus_def': 7}

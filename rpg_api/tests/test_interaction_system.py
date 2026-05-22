@@ -20,15 +20,15 @@ def mock_ecs_manager():
         def __init__(self):
             self.entidades = {
                 # O Jogador (ID 1) está no (1,1) a olhar para a direita
-                1: {"Position": PositionComponent(x=1, y=1, direcao_olhar="direita")},
+                1: {"PositionComponent": PositionComponent(x=1, y=1, direcao_olhar="direita")},
                 
                 # O Baú (ID 2) está no (2,1) e é interagível
                 2: {
-                    "Position": PositionComponent(x=2, y=1),
-                    "Interactable": InteractableComponent(
+                    "PositionComponent": PositionComponent(x=2, y=1),
+                    "InteractableComponent": InteractableComponent(
                         event_type="bau", 
                         parameters={"item": "Espada de Fogo"}
-                    ), "Collision": CollisionComponent(is_solid=True)
+                    ), "CollisionComponent": CollisionComponent(is_solid=True)
                 }
             }
         
@@ -51,7 +51,7 @@ def test_mover_para_chao_livre(mock_ecs_manager):
     # Tenta mover o Jogador (ID 1) para baixo (dy=1, dx=0)
     sucesso = system.move_entity(entity_id=1, dx=0, dy=1)
     
-    posicao = mock_ecs_manager.get_component(1, "Position")
+    posicao = mock_ecs_manager.get_component(1, "PositionComponent")
     assert sucesso is True
     assert posicao.y == 2
     assert posicao.x == 1
@@ -63,7 +63,7 @@ def test_colisao_com_parede_do_mapa(mock_ecs_manager):
     # Tenta mover o Jogador (ID 1) para a esquerda contra a parede (dx=-1, dy=0)
     sucesso = system.move_entity(entity_id=1, dx=-1, dy=0)
     
-    posicao = mock_ecs_manager.get_component(1, "Position")
+    posicao = mock_ecs_manager.get_component(1, "PositionComponent")
     assert sucesso is False
     assert posicao.x == 1 # Não andou
     assert posicao.direcao_olhar == "esquerda" # Mas virou o rosto!
@@ -74,7 +74,7 @@ def test_colisao_com_entidade_solida(mock_ecs_manager):
     # Tenta mover o Jogador (ID 1) para a direita contra o NPC (dx=1, dy=0)
     sucesso = system.move_entity(entity_id=1, dx=1, dy=0)
     
-    posicao = mock_ecs_manager.get_component(1, "Position")
+    posicao = mock_ecs_manager.get_component(1, "PositionComponent")
     assert sucesso is False
     assert posicao.x == 1 # Bloqueado pelo NPC
     assert posicao.direcao_olhar == "direita"
@@ -114,7 +114,7 @@ def test_interacao_no_vazio_falha(mock_ecs_manager):
     bus.subscribe("bau", ouvinte_de_teste)
     
     # Mudamos o olhar do jogador para cima (onde não há nada)
-    pos = mock_ecs_manager.get_component(1, "Position")
+    pos = mock_ecs_manager.get_component(1, "PositionComponent")
     pos.direcao_olhar = "cima"
     
     system.interact(entity_id=1)

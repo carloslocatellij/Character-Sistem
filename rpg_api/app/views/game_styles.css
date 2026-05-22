@@ -13,13 +13,27 @@
     height: 100%;
 }
 
-#tela-mapa {
+/* A "Janela" que fica presa na grelha e ativa o scroll */
+#mapa-viewport {
     row-span: 2;
-    /* Ocupa as duas primeiras linhas na esquerda */
     border: solid green;
     background: $surface;
-    content-align: center middle;
+    overflow: auto;
+    /* Cria as barras de rolagem vertical e horizontal */
+    width: 100%;
+    height: 100%;
 }
+
+/* O "Quadro" com o texto que cresce infinitamente lá dentro */
+#tela-mapa {
+    width: auto;
+    /* Permite crescer na horizontal sem quebrar linha */
+    height: auto;
+    /* Permite crescer na vertical */
+    min-width: 100%;
+    min-height: 100%;
+}
+
 
 #tela-status {
     border: solid blue;
@@ -33,11 +47,28 @@
     padding: 0 1;
 }
 
-#area-interacao {
+#area-interacao-container {
     column-span: 2;
-    /* Estica de ponta a ponta no rodapé */
+    layout: vertical;
     border: solid white;
     background: $panel;
-    padding: 0 1;
     height: 100%;
+    width: 100%;
+}
+
+#area-interacao {
+    height: 4fr;
+    overflow: auto;
+    /* Dá preferência de espaço ao log de mensagens */
+    width: 100%;
+    background: transparent;
+}
+
+#terminal-prompt {
+    height: 1fr;
+    width: 100%;
+    background: $surface;
+    border: none;
+    color: green;
+    /* Prompt verde estilo hacker/terminal retro */
 }
