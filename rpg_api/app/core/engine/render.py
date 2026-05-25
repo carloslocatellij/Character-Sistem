@@ -16,7 +16,7 @@ class RenderSystem:
         texto_final = Text(no_wrap=True)
         altura, largura = len(mapa_matriz), len(mapa_matriz[0])
 
-        # 🧠 Varredura ECS: Agrupa posições de tudo o que tem geometria e aparência
+        # 🧠 Varredura engine: Agrupa posições de tudo o que tem geometria e aparência
         posicoes_entidades = {}
         entidades_visiveis = self.engine.get_entities_with("PositionComponent", "RenderComponent")
         

@@ -13,7 +13,7 @@ class EventoDB(Base):
     nome = Column(String, nullable=False)
     emoji = Column(String(2), nullable=False) # O caractere que será desenhado na interface
     
-    # Coordenadas iniciais onde a Entity será instanciada pelo ECS
+    # Coordenadas iniciais onde a Entity será instanciada pelo engine
     pos_x = Column(Integer, nullable=False)
     pos_y = Column(Integer, nullable=False)
     

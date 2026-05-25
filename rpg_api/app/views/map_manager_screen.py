@@ -1010,7 +1010,7 @@ class PropriedadesEventoFormScreen(ModalScreen[dict]):
                 ("NPC Loja", "npc_loja"),
                 ("Inimigo/Monstro", "monstro"),
                 ("Porta/Teletransporte", "porta"),
-                ("Armadilha", "armadilha")
+                ("Armadilha", "armadilha") 
             ]
             yield Select(
                 tipos_engine, 
@@ -1021,7 +1021,7 @@ class PropriedadesEventoFormScreen(ModalScreen[dict]):
             
             yield Label("Parâmetros do Evento (Formato Dicionário Python/JSON):", classes="campo-rotulo")
             # Converte o dict de volta para string legível para exibição no Input
-            params_atuais = self.dados_existentes.get("parametros", {"movimento": "aleatorio", "diminuir_hp": 1})
+            params_atuais = self.dados_existentes.get("parametros", {"mover": {"direção": "aleatório", "ciclos": "infinito"}, "ação": {"quando":"tocar_heroi", "alvo": "heroi", "mudar_hp": {"op": "sub", "valor": 2}}})
             yield Input(value=str(params_atuais).replace("'", '"'), placeholder='ex: {"hp": 50, "forca": 10}', id="evt-params")
 
             with Horizontal(id="evt-botoes"):

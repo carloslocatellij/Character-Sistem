@@ -15,7 +15,7 @@ TILES_BLOQUEANTES = ["🔲"]
 
 @pytest.fixture
 def mock_ecs_manager():
-    """Simula o ECS Manager com um Jogador e um Baú Mágico."""
+    """Simula o engine Manager com um Jogador e um Baú Mágico."""
     class MockECS:
         def __init__(self):
             self.entidades = {

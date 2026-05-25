@@ -1,4 +1,4 @@
-# app/core/ecs/event_bus.py
+# app/core/engine/event_bus.py
 
 class EventBus:
     """

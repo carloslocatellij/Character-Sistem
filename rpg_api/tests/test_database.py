@@ -67,7 +67,7 @@ def test_salvar_e_recuperar_evento_no_mapa():
             pos_x=5,
             pos_y=5,
             tipo_evento="bau",
-            # No ECS, estes parâmetros vão alimentar o InteractableComponent
+            # No engine, estes parâmetros vão alimentar o InteractableComponent
             parametros={"item_id": 1, "quantidade": 1, "mensagem": "Você encontrou uma Poção!"} 
         )
         db.add(novo_evento)

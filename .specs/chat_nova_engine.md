@@ -2,7 +2,7 @@ Aqui está o relatório de memória do chat estruturado em formato Markdown. Est
 
 ---
 
-# 📜 Relatório de Desenvolvimento: RPG Game Maker (Textual + ECS)
+# 📜 Relatório de Desenvolvimento: RPG Game Maker (Textual + engine)
 
 ## 🎯 Objetivo Global
 
@@ -60,7 +60,7 @@ Percebemos que misturar a lógica de colisão e a física com os Widgets da inte
 
 ### Decisões Arquiteturais Definidas:
 
-* **Arquitetura ECS (Entity-Component-System):** Abandonámos a herança clássica. Agora, tudo é uma `Entidade` (ID numérico) que possui `Componentes` (sacolas de dados puros como `PositionComponent`, `InteractableComponent`) e é gerida por `Sistemas` lógicos.
+* **Arquitetura engine (Entity-Component-System):** Abandonámos a herança clássica. Agora, tudo é uma `Entidade` (ID numérico) que possui `Componentes` (sacolas de dados puros como `PositionComponent`, `InteractableComponent`) e é gerida por `Sistemas` lógicos.
 * **Motor Headless (Desacoplado):** A Engine roda em memória independentemente do Textual. O Textual atua apenas como um "visualizador" passivo do estado da Engine.
 * **TDD (Test-Driven Development):** Estamos a reconstruir a base funcional com testes unitários rigorosos para garantir que o motor não quebra à medida que adicionamos funcionalidades.
 
@@ -70,8 +70,8 @@ Percebemos que misturar a lógica de colisão e a física com os Widgets da inte
 * Resolvido erro do SQLAlchemy criando um ficheiro `__init__.py` para garantir o registo correto das classes no ORM.
 
 
-2. **ECS e Memória Lógica (✅ Concluído):**
-* Criadas as classes `ECSManager`, `Components` e `GameEngine`.
+2. **engine e Memória Lógica (✅ Concluído):**
+* Criadas as classes `EngineManeger`, `Components` e `GameEngine`.
 * A Engine já consegue ler um mapa da base de dados, interpretar os seus eventos e instanciá-los como Entidades com Componentes na memória lógica. Testes aprovados.
 
 

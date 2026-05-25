@@ -19,7 +19,7 @@ class GameController:
     def converter_para_dominio(db_char: PersonagemDB) -> Personagem:
         """Converte um modelo do SQLAlchemy para a Entidade pura do RPG."""
         # 1. Recria a Raça do Domínio
-        raca_domain = Raca(nome=db_char.raca.nome, bonus_atributos=db_char.raca.bonus_atributos)
+        raca_domain = Raca(nome=db_char.raca.nome, bonus_atributos=db_char.raca.bonus_atributos, emoji=db_char.raca.emoji)
         
         # 2. Recria a Classe do Domínio
         classe_domain = ClasseRPG(

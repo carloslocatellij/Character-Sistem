@@ -1,11 +1,11 @@
 /* =========================================
    LAYOUT DA TELA DE JOGO (GAME PLAY)
    ========================================= */
-#game-layout {
+ #game-layout{
     layout: grid;
-    grid-size: 2 3;
-    /* 2 colunas, 3 linhas */
-    grid-columns: 4fr 1fr;
+    grid-size: 4 3;
+    /* 3 colunas, 3 linhas */
+    grid-columns: 3fr 1fr;
     /* O mapa ocupa 3/4 da tela, os painéis 1/4 */
     grid-rows: 1fr 2fr 1fr;
     /* Status menor, Itens maior, Interação no rodapé */
@@ -15,6 +15,7 @@
 
 /* A "Janela" que fica presa na grelha e ativa o scroll */
 #mapa-viewport {
+    column-span: 3;
     row-span: 2;
     border: solid green;
     background: $surface;
@@ -24,8 +25,9 @@
     height: 100%;
 }
 
-/* O "Quadro" com o texto que cresce infinitamente lá dentro */
 #tela-mapa {
+    column-span: 3;
+    row-span: 2;
     width: auto;
     /* Permite crescer na horizontal sem quebrar linha */
     height: auto;
@@ -33,24 +35,26 @@
     min-width: 100%;
     min-height: 100%;
 }
+/* O "Quadro" com o texto que cresce infinitamente lá dentro */
+
 
 
 #tela-status {
+    column-span: 1;
     border: solid blue;
     background: $surface;
     padding: 0 1;
 }
 
 #tela-itens {
+    column-span: 1;
     border: solid yellow;
     background: $surface;
     padding: 0 1;
 }
 
-
-
 #area-interacao-container {
-    column-span: 2;
+    column-span: 4;
     layout: vertical;
     border: solid white;
     background: $panel;
@@ -59,16 +63,17 @@
 }
 
 #area-interacao {
-    column-span: 2;
+    column-span: 4;
     overflow: auto;
     /* Estica de ponta a ponta no rodapé */
     border: solid white;
     background: $panel;
     padding: 0 1;
-    height: 100%;
+    height: 90%;
 }
 
 #terminal-prompt {
+    column-span: 4;
     height: 1fr;
     width: 100%;
     background: $surface;

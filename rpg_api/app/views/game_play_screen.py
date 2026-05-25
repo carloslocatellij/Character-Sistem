@@ -13,6 +13,7 @@ from app.core.engine.render import RenderSystem
 from app.core.engine.engine_loader import carregar_engine_do_banco
 
 class GamePlayScreen(Screen):
+    CSS_PATH = "game_styles.tcss"
     
     def __init__(self, mapa_id: int, personagem_id: int = 1): # Recebe mapa e herói reais
         super().__init__()
@@ -32,7 +33,7 @@ class GamePlayScreen(Screen):
     def compose(self):
         with Container(id="game-layout"):
             # Tela do Mapa com suporte a Scroll total
-            with ScrollableContainer(id="mapa-viewport"):
+            with ScrollableContainer(id="mapa-viewport", classes='scrollbar-hidden'):
                 yield Static("Carregando cenário e banco...", id="tela-mapa", expand=True)
             
             # Tela de Status Dinâmica (Lê da Engine)
@@ -43,7 +44,7 @@ class GamePlayScreen(Screen):
                 yield Label("PM: -- / --", id="lbl-pm")
                 yield Label("ATK: -- | DEF: --", id="lbl-combate")
                 
-            # Tela de Itens Dinâmica (Lê do Inventário ECS)
+            # Tela de Itens Dinâmica (Lê do Inventário engine)
             with Container(id="tela-itens"):
                 yield Label("🎒 Itens", classes="titulo-secao")
                 yield Static("Inventário Vazio", id="lbl-inventario")
@@ -113,7 +114,7 @@ class GamePlayScreen(Screen):
             # Desconta o dano mitigado pela defesa real do personagem
             dano_real = max(1, dano - (stats.defesa_base // 3))
             stats.hp = max(0, stats.hp - dano_real)
-            log.write(f"[bold red]⚔️ O monstro atacou-o! Sofreu {dano_real} de dano real (Defesa mitigou o resto).[/]")
+            log.write(f"[bold red]⚔️ O monstro atacou você! Sofreu {dano_real} de dano real (Defesa mitigou o resto).[/]")
             
             if stats.hp <= 0:
                 log.write("[bold background red]💀 VOCÊ MORREU! Fim de Jogo.[/]")
@@ -319,7 +320,7 @@ class GamePlayScreen(Screen):
 #                     self.mapa_id, db
 #                 )
             
-#             # Instanciação dos sistemas apontando para o ECS real e para a paleta global
+#             # Instanciação dos sistemas apontando para o engine real e para a paleta global
 #             self.movimento_sys = MovementSystem(
 #                 self.engine_manager, self.mapa_matriz, 
 #                 tiles_bloqueio=CatalogoTiles.TERRENOS_BLOQUEANTES, dict_objetos=self.mapa_objetos

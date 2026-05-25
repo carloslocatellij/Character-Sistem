@@ -1,8 +1,8 @@
-# app/core/ecs/manager.py
+# app/core/engine/manager.py
 
-class ECSManager:
+class EngineManeger:
     """
-    O Gestor ECS Definitivo. Controla a criação de entidades e o ciclo
+    O Gestor engine Definitivo. Controla a criação de entidades e o ciclo
     de vida dos componentes anexados a elas.
     """
     def __init__(self):
