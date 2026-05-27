@@ -46,7 +46,7 @@ def mock_engine_manager():
 
 
 def test_mover_para_chao_livre(mock_engine_manager):
-    system = MovementSystem(engine_manager=mock_engine_manager, mapa_matriz=MAPA_TESTE_MATRIZ, tiles_bloqueio=TILES_BLOQUEANTES)
+    system = MovementSystem(engine_manager=mock_engine_manager, mapa_matriz=MAPA_TESTE_MATRIZ)
     
     # Tenta mover o Jogador (ID 1) para baixo (dy=1, dx=0)
     sucesso = system.move_entity(entity_id=1, dx=0, dy=1)
@@ -58,7 +58,7 @@ def test_mover_para_chao_livre(mock_engine_manager):
     assert posicao.direcao_olhar == "baixo"
 
 def test_colisao_com_parede_do_mapa(mock_engine_manager):
-    system = MovementSystem(engine_manager=mock_engine_manager, mapa_matriz=MAPA_TESTE_MATRIZ, tiles_bloqueio=TILES_BLOQUEANTES)
+    system = MovementSystem(engine_manager=mock_engine_manager, mapa_matriz=MAPA_TESTE_MATRIZ)
     
     # Tenta mover o Jogador (ID 1) para a esquerda contra a parede (dx=-1, dy=0)
     sucesso = system.move_entity(entity_id=1, dx=-1, dy=0)
@@ -69,7 +69,7 @@ def test_colisao_com_parede_do_mapa(mock_engine_manager):
     assert posicao.direcao_olhar == "esquerda" # Mas virou o rosto!
 
 def test_colisao_com_entidade_solida(mock_engine_manager):
-    system = MovementSystem(engine_manager=mock_engine_manager, mapa_matriz=MAPA_TESTE_MATRIZ, tiles_bloqueio=TILES_BLOQUEANTES)
+    system = MovementSystem(engine_manager=mock_engine_manager, mapa_matriz=MAPA_TESTE_MATRIZ)
     
     # Tenta mover o Jogador (ID 1) para a direita contra o NPC (dx=1, dy=0)
     sucesso = system.move_entity(entity_id=1, dx=1, dy=0)

@@ -5,6 +5,7 @@ from app.core.engine.components import (
 from app.models.mapas_db import MapaDB
 from app.models.eventos_db import EventoDB
 from app.controllers.game_controller import GameController 
+from app.core.engine.components import AIComponent
 
 def carregar_engine_do_banco(mapa_id: int, personagem_id: int, db_session) -> tuple[EngineManeger, list[list[str]], dict]:
     mapa_db = db_session.query(MapaDB).filter(MapaDB.id == mapa_id).first()
@@ -64,7 +65,7 @@ def carregar_engine_do_banco(mapa_id: int, personagem_id: int, db_session) -> tu
         ))
 
         if "mover" in parametros_evento:
-            from app.core.engine.components import AIComponent
+            
             engine.add_component(entidade_id, AIComponent(
                 movement_type=parametros_evento["mover"].get("direção", "aleatório"),
                 action_on_touch=parametros_evento.get("ação", {})
@@ -78,6 +79,8 @@ def carregar_engine_do_banco(mapa_id: int, personagem_id: int, db_session) -> tu
             try:
                 y_str, x_str = coord_str.split(",")
                 objetos_cenario[(int(y_str), int(x_str))] = emoji
-            except ValueError: continue
+            except ValueError: 
+                print("Erro nos valores ao atribuir posição a objetos do mapa.")
+                continue
 
     return engine, mapa_db.mapa_em_si, objetos_cenario

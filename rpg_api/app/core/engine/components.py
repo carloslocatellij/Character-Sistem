@@ -35,10 +35,6 @@ class AIComponent:
     """Define o comportamento autônomo (NPCs, Monstros, Pets)."""
     movement_type: str       # Ex: "aleatório", "patrulha", "seguir"
     action_on_touch: dict    # O que faz se esbarrar em alguém
-    
-    
-# app/core/engine/components.py
-from dataclasses import dataclass, field
 
 @dataclass
 class StatsComponent:

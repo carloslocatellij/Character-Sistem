@@ -65,7 +65,7 @@ class GamePlayScreen(Screen):
                     self.mapa_id, self.personagem_id, db
                 )
             
-            self.movimento_sys = MovementSystem(self.engine_manager, self.mapa_matriz, CatalogoTiles.TERRENOS_BLOQUEANTES, self.mapa_objetos)
+            self.movimento_sys = MovementSystem(self.engine_manager, self.mapa_matriz, self.mapa_objetos)
             self.interacao_sys = InteractionSystem(self.engine_manager, self.event_bus)
             self.render_sys = RenderSystem(self.engine_manager)
             self.ai_sys = AISystem(self.engine_manager, self.movimento_sys, self.event_bus)
@@ -183,10 +183,13 @@ class GamePlayScreen(Screen):
             else:
                 log.write(f"[red]Você não possui o equipamento '{argumento}' no inventário.[/]")
         
-        else:
-            log.write(f"[red]Comando desconhecido: '{comando}'. Tente /usar ou /equipar.[/]")
 
         # Força a interface a recalcular e redesenhar os novos valores obtidos
+        elif comando in ["/sair", "/q", "/exit", "/quit"]:
+            self.app.pop_screen()
+        else:
+            log.write(f"[red]Comando desconhecido: '{comando}'. Tente /usar ou /equipar.[/]")
+        
         self.atualizar_paineis_status()
 
     # ==========================================
@@ -256,160 +259,3 @@ class GamePlayScreen(Screen):
                 if qtd > 0:
                     texto_inv += f"• {nome_item.capitalize()} (x{qtd})\n"
         self.query_one("#lbl-inventario", Static).update(texto_inv if texto_inv else "Inventário Vazio")
-
-# from textual.screen import Screen
-# from textual.widgets import Static, RichLog, Label
-# from textual.containers import Container, ScrollableContainer
-# from textual.events import Key
-
-# from app.db.database import SessionLocal # Conexão autêntica com o banco
-# from app.core.emojis import CatalogoTiles
-# from app.core.engine.event_bus import EventBus
-# from app.core.engine.systems import MovementSystem, InteractionSystem, AISystem
-# from app.core.engine.render import RenderSystem
-# from app.core.engine.engine_loader import carregar_engine_do_banco  # ✅ NOSSO CARREGADOR REAL!
-
-# class GamePlayScreen(Screen):
-#     from app.core.engine.systems import AISystem
-# # ...
-#     CSS_PATH = "game_styles.css"
-    
-#     def __init__(self, mapa_id: int):
-#         super().__init__()
-#         self.mapa_id = mapa_id
-#         self.event_bus = EventBus()
-        
-#         # Referências da Engine Real
-#         self.engine_manager = None
-#         self.mapa_matriz = None
-#         self.mapa_objetos = {}
-        
-#         # Sistemas Ativos
-#         self.movimento_sys = None
-#         self.interacao_sys = None
-#         self.render_sys = None
-#         self.ai_sys = None  
-
-#     def compose(self):
-#          with Container(id="game-layout"):
-#             with ScrollableContainer(id="mapa-viewport"):
-#                 # O parâmetro expand=True diz ao Static para abraçar todo o texto gerado
-#                 yield Static("Carregando Cenário Lógico...", id="tela-mapa", expand=True)
-            
-#             with Container(id="tela-status"):
-#                 yield Label("🐱‍👤 Status", classes="titulo-secao")
-#                 yield Label("Jogador: [bold green]Mago[/]", id="lbl-nome")
-#                 yield Label("Pv: 10 / Pm: 5", id="lbl-pv-pm")
-#                 yield Label("Atk: 13 | Def: 9", id="lbl-status-combate")
-                
-#             with Container(id="tela-itens"):
-#                 yield Label("🎒 Itens", classes="titulo-secao")
-#                 yield Static("- 3x Poção de Vida\n- 1x Chave de Bronze", id="lbl-inventario")
-                
-#             # Área de interação (Terminal de mensagens)
-#             yield RichLog(id="area-interacao", markup=True)
-
-#     def on_mount(self):
-#         log = self.query_one("#area-interacao", RichLog)
-#         log.write("[bold green]>>> Lendo registros de campanha do Banco de Dados...[/]")
-        
-#         try:
-#             # 🔌 CONEXÃO DE PRODUÇÃO: Puxa o mapa e eventos criados no editor!
-#             with SessionLocal() as db:
-#                 self.engine_manager, self.mapa_matriz, self.mapa_objetos = carregar_engine_do_banco(
-#                     self.mapa_id, db
-#                 )
-            
-#             # Instanciação dos sistemas apontando para o engine real e para a paleta global
-#             self.movimento_sys = MovementSystem(
-#                 self.engine_manager, self.mapa_matriz, 
-#                 tiles_bloqueio=CatalogoTiles.TERRENOS_BLOQUEANTES, dict_objetos=self.mapa_objetos
-#             )
-#             self.interacao_sys = InteractionSystem(self.engine_manager, self.event_bus)
-#             self.render_sys = RenderSystem(self.engine_manager)
-
-#             self.ai_sys = AISystem(self.engine_manager, self.movimento_sys, self.event_bus)
-            
-#             # Escuta os disparos lógicos da Engine
-#             self.event_bus.subscribe("bau", self.ao_encontrar_tesouro)
-#             self.event_bus.subscribe("npc_dialogo", self.ao_conversar_com_npc)
-
-#             log.write("[bold gold]>>> Sucesso! Engine carregada. Divirta-se![/]")
-            
-#             self.set_interval(0.2, self.game_tick)
-#             self.event_bus.subscribe("ataque_monstro", self.ao_sofrer_ataque)
-            
-#             self.atualizar_visual_do_jogo()
-
-#         except Exception as e:
-#             log.write(f"[bold red]❌ Erro ao inicializar engine do banco: {e}[/]")
-
-#     def ao_encontrar_tesouro(self, dados):
-#         log = self.query_one("#area-interacao", RichLog)
-#         item = dados["parameters"].get("item", "Ouro")
-#         log.write(f"[bold cyan]>>> [Interação] Você abriu o baú e pegou: {item}![/]")
-
-#     def ao_conversar_com_npc(self, dados):
-#         log = self.query_one("#area-interacao", RichLog)
-#         fala = dados["parameters"].get("texto", "...")
-#         log.write(f"[bold green]>>> NPC diz: \"{fala}\"[/]")
-
-#     def on_key(self, event: Key) -> None:
-#         chave = event.key
-#         moveu = False
-
-#         if chave == "up": moveu = self.movimento_sys.move_entity(1, 0, -1)
-#         elif chave == "down": moveu = self.movimento_sys.move_entity(1, 0, 1)
-#         elif chave == "left": moveu = self.movimento_sys.move_entity(1, -1, 0)
-#         elif chave == "right": moveu = self.movimento_sys.move_entity(1, 1, 0)
-#         elif chave == "enter":
-#             self.interacao_sys.interact(1)
-#             return
-
-#         if moveu:
-#             self.atualizar_visual_do_jogo()
-
-#     def atualizar_visual_do_jogo(self):
-#         """Renderiza o mapa e move a câmara (scroll) para seguir o jogador."""
-#         buffer_renderizado = self.render_sys.renderizar_frame(self.mapa_matriz, self.mapa_objetos)
-        
-#         # Atualiza a string do mapa
-#         mapa_widget = self.query_one("#tela-mapa", Static)
-#         mapa_widget.update(buffer_renderizado)
-        
-#         # ✅ CORREÇÃO: Puxamos a Janela (Viewport) para calcular a câmara
-#         viewport = self.query_one("#mapa-viewport", ScrollableContainer)
-        
-#         pos_jogador = self.engine_manager.get_component(1, "PositionComponent")
-        
-#         if pos_jogador:
-#             # Usamos o tamanho do Viewport para centrar
-#             largura_tela = viewport.size.width
-#             altura_tela = viewport.size.height
-            
-#             # Como emojis ocupam 2 espaços visuais, X é multiplicado por 2
-#             pos_x_visual = pos_jogador.x * 2
-#             pos_y_visual = pos_jogador.y
-            
-#             # Subtraímos metade do viewport para manter o jogador no centro
-#             alvo_x = pos_x_visual - (largura_tela // 2)
-#             alvo_y = pos_y_visual - (altura_tela // 2)
-            
-#             alvo_x = max(0, alvo_x)
-#             alvo_y = max(0, alvo_y)
-            
-#             # Fazemos o scroll na Janela (Viewport)
-#             viewport.scroll_to(x=alvo_x, y=alvo_y, animate=False)
-    
-#     def game_tick(self):
-#         """O batimento cardíaco da Engine. Faz o mundo mover-se independentemente do jogador."""
-#         if self.ai_sys:
-#             self.ai_sys.update()
-#             # Atualiza o visual para vermos os monstros andarem!
-#             self.atualizar_visual_do_jogo()
-
-#     def ao_sofrer_ataque(self, dados_ataque):
-#         log = self.query_one("#area-interacao", RichLog)
-#         alvo = dados_ataque.get("alvo", "desconhecido")
-#         dano = dados_ataque.get("mudar_hp", {}).get("valor", 0)
-#         log.write(f"[bold red]⚔️ Um monstro bateu no {alvo}! Sofreu {dano} de dano![/]")

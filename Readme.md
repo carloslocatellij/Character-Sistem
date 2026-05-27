@@ -1,14 +1,14 @@
 
 # CharSistem é um sistema de Criação de RPGs jogaveis de terminal feito em Python.
-## Você pode gerar personagens, itens, habiliades, simular batalhas, criar mapas e senários completos.
-### com emojis graças ao Textual: https://textual.textualize.io/
+## Crie seus próprios mundos com cenários completos, personagens, magias, monstros.
+## Jogue seu jogo e compartilhe com amigos.
+### Graficos totalmente feitos com emojis graças ao Textual: https://textual.textualize.io/
 
-### Este é um sistema de inveção própria e tem as características abaixo:
-O usuário pode, até o momento, criar personagens informando seu Nome, Nivel, Classe, Raça e os atributos (forca, agilidade, resistencia, percepcao, exuberancia), também uma lista de habilidades, caminhos de magia (água, ar, fogo, terra, trevas e luz). Criar e equipar itens, simular batalhas.
+- O usuário pode, até o momento, criar personagens informando seu Nome, Nivel, Classe, Raça e os atributos, também uma lista de habilidades, caminhos de magia (água, ar, fogo, terra, trevas e luz). Criar e equipar itens, simular batalhas.
 
-Agora temos um editor de mapas que pode gerar masmorras, cavernas e cidades aleatórias e preencher com emojis de várias coisas.
+- Agora temos um editor de mapas que pode gerar masmorras, cavernas e cidades aleatórias e preencher com emojis de várias coisas.
 
-Em breve o mapa será "jogável" 
+- A Jogabilidade já está em fase de testes ( Você pode andar pelo mapa de "id 1" e interagir com eventos )
 
 - Consulte o MANUAL.md em caso de dúvidas.
 

@@ -20,7 +20,7 @@ mi[Missões]
 jog[Jogadores]
 his[Histórias]
 
-classDiagram
+
     jog <--> per <--> gru
     jog <--> gru
     per <--> rac

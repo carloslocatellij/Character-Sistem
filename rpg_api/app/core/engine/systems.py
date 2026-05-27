@@ -6,7 +6,7 @@ class MovementSystem:
     """Sistema responsável por processar as regras de física e atualizar posições."""
     
     # ✅ NOVO: Adicionado dict_objetos (com valor padrão vazio para não quebrar os testes antigos)
-    def __init__(self, engine_manager, mapa_matriz: list[list[str]], tiles_bloqueio: list[str], dict_objetos: dict = None):
+    def __init__(self, engine_manager, mapa_matriz: list[list[str]], dict_objetos: dict = None):
         self.engine = engine_manager
         self.mapa = mapa_matriz
         self.tiles_bloqueio = bloqueantes
