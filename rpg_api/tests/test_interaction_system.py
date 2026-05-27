@@ -14,7 +14,7 @@ MAPA_TESTE_MATRIZ = [
 TILES_BLOQUEANTES = ["🔲"]
 
 @pytest.fixture
-def mock_ecs_manager():
+def mock_engine_manager():
     """Simula o engine Manager com um Jogador e um Baú Mágico."""
     class MockECS:
         def __init__(self):
@@ -45,44 +45,44 @@ def mock_ecs_manager():
     return MockECS()
 
 
-def test_mover_para_chao_livre(mock_ecs_manager):
-    system = MovementSystem(ecs_manager=mock_ecs_manager, mapa_matriz=MAPA_TESTE_MATRIZ, tiles_bloqueio=TILES_BLOQUEANTES)
+def test_mover_para_chao_livre(mock_engine_manager):
+    system = MovementSystem(engine_manager=mock_engine_manager, mapa_matriz=MAPA_TESTE_MATRIZ, tiles_bloqueio=TILES_BLOQUEANTES)
     
     # Tenta mover o Jogador (ID 1) para baixo (dy=1, dx=0)
     sucesso = system.move_entity(entity_id=1, dx=0, dy=1)
     
-    posicao = mock_ecs_manager.get_component(1, "PositionComponent")
+    posicao = mock_engine_manager.get_component(1, "PositionComponent")
     assert sucesso is True
     assert posicao.y == 2
     assert posicao.x == 1
     assert posicao.direcao_olhar == "baixo"
 
-def test_colisao_com_parede_do_mapa(mock_ecs_manager):
-    system = MovementSystem(ecs_manager=mock_ecs_manager, mapa_matriz=MAPA_TESTE_MATRIZ, tiles_bloqueio=TILES_BLOQUEANTES)
+def test_colisao_com_parede_do_mapa(mock_engine_manager):
+    system = MovementSystem(engine_manager=mock_engine_manager, mapa_matriz=MAPA_TESTE_MATRIZ, tiles_bloqueio=TILES_BLOQUEANTES)
     
     # Tenta mover o Jogador (ID 1) para a esquerda contra a parede (dx=-1, dy=0)
     sucesso = system.move_entity(entity_id=1, dx=-1, dy=0)
     
-    posicao = mock_ecs_manager.get_component(1, "PositionComponent")
+    posicao = mock_engine_manager.get_component(1, "PositionComponent")
     assert sucesso is False
     assert posicao.x == 1 # Não andou
     assert posicao.direcao_olhar == "esquerda" # Mas virou o rosto!
 
-def test_colisao_com_entidade_solida(mock_ecs_manager):
-    system = MovementSystem(ecs_manager=mock_ecs_manager, mapa_matriz=MAPA_TESTE_MATRIZ, tiles_bloqueio=TILES_BLOQUEANTES)
+def test_colisao_com_entidade_solida(mock_engine_manager):
+    system = MovementSystem(engine_manager=mock_engine_manager, mapa_matriz=MAPA_TESTE_MATRIZ, tiles_bloqueio=TILES_BLOQUEANTES)
     
     # Tenta mover o Jogador (ID 1) para a direita contra o NPC (dx=1, dy=0)
     sucesso = system.move_entity(entity_id=1, dx=1, dy=0)
     
-    posicao = mock_ecs_manager.get_component(1, "PositionComponent")
+    posicao = mock_engine_manager.get_component(1, "PositionComponent")
     assert sucesso is False
     assert posicao.x == 1 # Bloqueado pelo NPC
     assert posicao.direcao_olhar == "direita"
 
-def test_interacao_com_sucesso(mock_ecs_manager):
+def test_interacao_com_sucesso(mock_engine_manager):
     """Garante que apertar Enter virado para o baú EMITE o evento no EventBus."""
     bus = EventBus() # ✅ 1. Cria o mensageiro
-    system = InteractionSystem(ecs_manager=mock_ecs_manager, event_bus=bus) # ✅ 2. Injeta o mensageiro
+    system = InteractionSystem(engine_manager=mock_engine_manager, event_bus=bus) # ✅ 2. Injeta o mensageiro
     
     # 3. Variável para capturar a mensagem que a Engine vai emitir
     evento_capturado = {}
@@ -102,10 +102,10 @@ def test_interacao_com_sucesso(mock_ecs_manager):
     assert evento_capturado["parameters"]["item"] == "Espada de Fogo"
 
 
-def test_interacao_no_vazio_falha(mock_ecs_manager):
+def test_interacao_no_vazio_falha(mock_engine_manager):
     """Garante que interagir a olhar para o nada não emite evento nenhum."""
     bus = EventBus()
-    system = InteractionSystem(ecs_manager=mock_ecs_manager, event_bus=bus)
+    system = InteractionSystem(engine_manager=mock_engine_manager, event_bus=bus)
     
     evento_capturado = {}
     def ouvinte_de_teste(dados):
@@ -114,7 +114,7 @@ def test_interacao_no_vazio_falha(mock_ecs_manager):
     bus.subscribe("bau", ouvinte_de_teste)
     
     # Mudamos o olhar do jogador para cima (onde não há nada)
-    pos = mock_ecs_manager.get_component(1, "PositionComponent")
+    pos = mock_engine_manager.get_component(1, "PositionComponent")
     pos.direcao_olhar = "cima"
     
     system.interact(entity_id=1)

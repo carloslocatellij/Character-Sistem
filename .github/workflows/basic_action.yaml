@@ -7,23 +7,23 @@ jobs:
 
     steps:
       - name: Comand Flow
-      - uses: actions/checkout@v3
+        uses: actions/checkout@v3
 
       - name: install python
-      - uses: actions/setup-python@v4
+        uses: actions/setup-python@v4
         with:
           python-version: '3.12.3'
 
       - name: install pip
-      - run: sudo apt install python3-pip
+        run: sudo apt install python3-pip
 
       - name: atualiza pip
-      - run: pip install --upgrade pip
+        run: pip install --upgrade pip
            
       - name: insatala dependencias     
-      - run: pip install -r requests.txt
+        run: pip install -r requirements.txt
 
       - name: rodar testes
-      - run: pytest
+        run: pytest
 
 

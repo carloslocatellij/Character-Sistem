@@ -1,3 +1,5 @@
+import os
+from rich.text import Text
 
 class CatalogoTiles:
     """Registo central que define as categorias e propriedades visuais dos emojis."""
@@ -109,3 +111,27 @@ dict_emoji_racas = {
         "octopus": "🐙", 
       }
 
+def padronizar_largura_tile(tile_string: str) -> str:
+    """
+    Verifica a largura visual do caractere e adapta o preenchimento
+    com base nas peculiaridades do emulador de terminal atual.
+    """
+    tile_limpo = tile_string.strip()
+    eh_gnome_ou_linux = "VTE_VERSION" in os.environ or "GNOME_TERMINAL_SCREEN" in os.environ or os.name == "posix"
+
+    # 2. Calcula a largura teórica pela biblioteca Rich
+    largura_teorica = Text(tile_limpo).cell_len
+
+    # 3. Estratégia de Ajuste Multiplataforma
+    if largura_teorica == 1:
+        return f"{tile_limpo} "
+    elif largura_teorica == 2:
+        emojis_rebeldes = ["🕸️", "🏘️", "🏚️", "🏯",] 
+        
+        # if eh_gnome_ou_linux and tile_limpo in emojis_rebeldes:
+        #     return f"{tile_limpo} " 
+        # return tile_limpo
+        if tile_limpo in emojis_rebeldes:
+            return f"{tile_limpo} " 
+
+    return tile_limpo
