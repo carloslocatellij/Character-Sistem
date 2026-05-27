@@ -7,7 +7,7 @@ jobs:
 
     steps:
       - name: Comand Flow
-      - uses: actions/checkout@3.3.0
+      - uses: actions/checkout@v3
 
       - name: install python
       - uses: actions/setup-python@v4
