@@ -1,0 +1,29 @@
+name: basic_action
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Comand Flow
+      - uses: actions/checkout@3.3.0
+
+      - name: install python
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.12.3'
+
+      - name: install pip
+      - run: sudo apt install python3-pip
+
+      - name: atualiza pip
+      - run: pip install --upgrade pip
+           
+      - name: insatala dependencias     
+      - run: pip install -r requests.txt
+
+      - name: rodar testes
+      - run: pytest
+
+
