@@ -35,6 +35,7 @@ class PersonagemDB(Base):
     id = Column(Integer, primary_key=True, index=True)
     nome = Column(String, index=True, nullable=False)
     nivel = Column(Integer, default=1)
+    cenario_id = Column(Integer, ForeignKey("cenarios.id"))
 
     # ==========================================
     # CHAVES ESTRANGEIRAS (FOREIGN KEYS)

@@ -61,9 +61,15 @@ class GamePlayScreen(Screen):
         try:
             with SessionLocal() as db:
                 # Carregamento autêntico sem simulações!
-                self.engine_manager, self.mapa_matriz, self.mapa_objetos = carregar_engine_do_banco(
-                    self.mapa_id, self.personagem_id, db
-                )
+                # self.engine_manager, self.mapa_matriz, self.mapa_objetos = carregar_engine_do_banco(
+                #     self.mapa_id, self.personagem_id, db
+                # )
+                self.engine_manager, self.mapa_matriz, self.mapa_objetos, self.mapa_id = carregar_engine_do_banco(
+                        db_session=db,
+                        usuario_id=self.personagem_id, # ID do jogador ativo
+                        cenario_id=1,                  # ID do jogo/campanha escolhida
+                        slot_numero=1                  # Slot selecionado
+                    )
             
             self.movimento_sys = MovementSystem(self.engine_manager, self.mapa_matriz, self.mapa_objetos)
             self.interacao_sys = InteractionSystem(self.engine_manager, self.event_bus)

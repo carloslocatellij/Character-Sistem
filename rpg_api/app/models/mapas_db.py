@@ -19,5 +19,7 @@ class MapaDB(Base):
     # A matriz do mapa guardada como JSON (Lista de Listas)
     mapa_em_si = Column(JSON, nullable=False)
     objetos = Column(JSON, nullable=True , default=dict)
+    cenario_id = Column(Integer, ForeignKey("cenarios.id"))
     
+    cenario = relationship("CenarioDB", back_populates="mapas")
     eventos = relationship("EventoDB", back_populates="mapa", cascade="all, delete-orphan")
