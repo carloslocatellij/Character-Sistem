@@ -57,6 +57,7 @@ def personagem_default(test_db, raca_default, classe_default):
         nome="Legolas",
         raca_id=raca_default.id,
         classe_id=classe_default.id,
+        usuario_id=1, cenario_id=1,
         forca_base=2,
         agilidade_base=5,
         resistencia_base=3,

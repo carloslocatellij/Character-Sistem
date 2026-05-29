@@ -29,8 +29,16 @@ class ClasseRPG:
 # ==========================================
 
 class Personagem:
-    def __init__(self, nome: str, nivel: int, raca: Raca, classe_rpg: ClasseRPG,
-                 forca_base: int, agilidade_base: int, res_base: int, perc_base: int, exub_base: int):
+    def __init__(self, nome: str, 
+                 nivel: int,
+                 raca: Raca,
+                 classe_rpg: ClasseRPG,
+                 forca_base: int,
+                 agilidade_base: int,
+                 res_base: int,
+                 perc_base: int,
+                 exub_base: int):
+        
         self.nome = nome
         self.nivel = nivel
         self.raca = raca
@@ -226,6 +234,7 @@ class Personagem:
         # Guarda na lista para controle de tempo
         from copy import deepcopy
         self.efeitos_ativos.append(deepcopy(efeito)) # Copia para não alterar o objeto base
+        
 
     def finalizar_turno(self) -> List[Dict]:
         """Roda no fim do turno: processa venenos, curas e reduz duração."""

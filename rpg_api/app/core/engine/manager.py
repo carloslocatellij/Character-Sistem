@@ -1,6 +1,6 @@
 # app/core/engine/manager.py
 
-class EngineManeger:
+class EngineManager:
     """
     O Gestor engine Definitivo. Controla a criação de entidades e o ciclo
     de vida dos componentes anexados a elas.

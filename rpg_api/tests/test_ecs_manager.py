@@ -1,9 +1,9 @@
 import pytest
-from app.core.engine.manager import EngineManeger
+from app.core.engine.manager import EngineManager
 from app.core.engine.components import PositionComponent, RenderComponent
 
 def test_fluxo_completo_engine_manager():
-    manager = EngineManeger()
+    manager = EngineManager()
     
     # Criação de entidade
     ent_id = manager.create_entity()

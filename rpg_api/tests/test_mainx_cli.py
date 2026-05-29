@@ -83,6 +83,7 @@ class TestCriacaoComCasosExtremosMainx:
             nome="Fraco",
             raca_id=raca_default.id,
             classe_id=classe_default.id,
+            usuario_id=1, cenario_id=1,
             atributos={"forca": 0, "agilidade": 0, "resistencia": 0, "percepcao": 0, "exuberancia": 0}
         )
         
@@ -98,6 +99,7 @@ class TestCriacaoComCasosExtremosMainx:
             nome="Herói Perfeito",
             raca_id=raca_default.id,
             classe_id=classe_default.id,
+            usuario_id=1, cenario_id=1,
             atributos={"forca": 5, "agilidade": 5, "resistencia": 5, "percepcao": 5, "exuberancia": 5}
         )
         
@@ -199,7 +201,7 @@ class TestCenariosPraticos:
         # 3. Criar personagem
         GameController.criar_personagem(
             test_db, "Arthur",
-            raca.id, classe.id,
+            raca.id, classe.id, usuario_id=None, cenario_id=None
             {"forca": 4, "agilidade": 3, "resistencia": 4, "percepcao": 3, "exuberancia": 2}
         )
         personagem = test_db.query(PersonagemDB).filter_by(nome="Arthur").first()
@@ -225,11 +227,11 @@ class TestCenariosPraticos:
         
         # Cria dois personagens
         p1 = PersonagemDB(
-            nome="P1", raca_id=raca_default.id, classe_id=classe_default.id,
+            nome="P1", raca_id=raca_default.id, classe_id=classe_default.id, usuario_id=1, cenario_id=1,
             forca_base=2, agilidade_base=2, resistencia_base=2, percepcao_base=2, exuberancia_base=2
         )
         p2 = PersonagemDB(
-            nome="P2", raca_id=raca_default.id, classe_id=classe_default.id,
+            nome="P2", raca_id=raca_default.id, classe_id=classe_default.id, usuario_id=1, cenario_id=1,
             forca_base=3, agilidade_base=3, resistencia_base=3, percepcao_base=3, exuberancia_base=3
         )
         test_db.add_all([p1, p2])

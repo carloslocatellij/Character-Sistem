@@ -16,6 +16,7 @@ class GameController:
     # ==========================================
     # TRADUTOR (MAPPER): BANCO DE DADOS -> DOMÍNIO
     # ==========================================
+    
     def converter_para_dominio(db_char: PersonagemDB) -> Personagem:
         """Converte um modelo do SQLAlchemy para a Entidade pura do RPG."""
         # 1. Recria a Raça do Domínio
@@ -108,9 +109,9 @@ class GameController:
             return f"Não foi possível registrar a classe devido ao ERRO: {e}"
         
 
-    def criar_personagem(db, nome, raca_id, classe_id, atributos):
+    def criar_personagem(db, nome, raca_id, classe_id, atributos, usuario_id=None, cenario_id=None):
         novo_personagem = PersonagemDB(
-            nome=nome, raca_id=raca_id, classe_id=classe_id,
+            nome=nome, raca_id=raca_id, classe_id=classe_id, usuario_id=usuario_id, cenario_id=cenario_id,
             forca_base=atributos.get('forca'),
             agilidade_base=atributos.get('agilidade'),
             resistencia_base=atributos.get('resistencia'),

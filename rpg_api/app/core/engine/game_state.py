@@ -1,5 +1,5 @@
 # app/core/engine/game_state.py
-from app.models.saves_db import SaveDB
+from app.models.plataforma_db import SaveDB
 
 class GameStateManager:
     """
@@ -73,8 +73,8 @@ class GameStateManager:
                         "max_hp": stats.max_hp,
                         "mp": stats.mp,
                         "max_mp": stats.max_mp,
-                        "atk": stats.ataque_base,
-                        "def": stats.defesa_base
+                        "ataque_base": stats.ataque_base, # 🔑 Chave padronizada
+                        "defesa_base": stats.defesa_base
                     }
 
                 if inv: dados_entidade["inventario"] = inv.itens
