@@ -2,6 +2,21 @@ from sqlalchemy import Column, Integer, String, Boolean, JSON, ForeignKey
 from sqlalchemy.orm import relationship
 from app.db.database import Base
 
+class CenarioDB(Base):
+    """Representa um jogo/campanha completo e independente criado por um usuário."""
+    __tablename__ = "cenarios"
+
+    id = Column(Integer, primary_key=True, index=True)
+    nome = Column(String, nullable=False)
+    descricao = Column(String)
+    criador_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False)
+
+    # Relacionamentos
+    criador = relationship("UsuarioDB", back_populates="cenarios_criados")
+    mapas = relationship("MapaDB", back_populates="cenario") # Garanta que MapaDB tenha a FK cenario_id
+    saves = relationship("SaveDB", back_populates="cenario")
+    
+
 class MapaDB(Base):
     __tablename__ = 'mapas'
 
