@@ -2,12 +2,14 @@
 # rpg_api/app/core/engine/engine_loader.py
 import esper
 from sqlalchemy.orm import Session
+from app.core.engine.event_bus import EventBus
 from app.models.mapas_db import MapaDB
 from app.core.engine.components import PositionComponent, RenderComponent, InteractableComponent
 
 
 class GameEngineLoader:
     def __init__(self):
+        self.event_bus = EventBus()
         self.mapa_id = None
         self.matriz_terrenos = []
         self.camada_objetos = {}
@@ -43,8 +45,8 @@ class GameEngineLoader:
             esper.add_component(
                 entidade, RenderComponent(emoji=evento_db.emoji))
             esper.add_component(entidade, InteractableComponent(
-                event_type=evento_db.tipo_evento,
-                parameters=evento_db.parametros or {}
+                tipo_evento=evento_db.tipo_evento,
+                parametros=evento_db.parametros or {}
             ))
 
         return True
@@ -181,7 +183,7 @@ class GameEngineLoader:
 #             armadura=saved_eqp.get("armadura")
 #         ))
 
-#     engine.add_component(player_id, CollisionComponent(is_solid=True))
+#     engine.add_component(player_id, CollisionComponent(solido=True))
 #     engine.add_component(player_id, RenderComponent(emoji=save_player.get("render_emoji", "🧙‍♂️") if has_save else "🧙‍♂️"))
 
 #     # ==========================================
@@ -229,17 +231,17 @@ class GameEngineLoader:
 #                 ))
 
 #         # Componentes de infraestrutura mecânica (mantêm a inteligência do JSON)
-#         is_solid = parametros_base.get("atravessavel", True)
-#         engine.add_component(entidade_id, CollisionComponent(is_solid=is_solid))
+#         solido = parametros_base.get("atravessavel", True)
+#         engine.add_component(entidade_id, CollisionComponent(solido=solido))
 #         engine.add_component(entidade_id, InteractableComponent(
-#             event_type=evt.tipo_evento,
-#             parameters=parametros_base,
+#             tipo_evento=evt.tipo_evento,
+#             parametros=parametros_base,
 #             is_active=is_active_atual
 #         ))
 
 #         if "mover" in parametros_base:
 #             engine.add_component(entidade_id, AIComponent(
-#                 movement_type=parametros_base["mover"].get("direção", "aleatório"),
+#                 tipo_movimento=parametros_base["mover"].get("direção", "aleatório"),
 #                 action_on_touch=parametros_base.get("ação", {})
 #             ))
 

@@ -78,5 +78,5 @@ def test_deve_carregar_mapa_do_bd_e_popular_o_mundo_esper():
         
         assert pos[0].x == 0 and pos[0].y == 1
         assert ren.emoji == "📦"
-        assert interact.event_type == "bau"
-        assert interact.parameters["recompensa"] == "Espada de Bronze"
+        assert interact.tipo_evento == "bau"
+        assert interact.parametros["recompensa"] == "Espada de Bronze"

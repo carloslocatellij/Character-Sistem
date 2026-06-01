@@ -1,6 +1,7 @@
 # rpg_api/app/engine/components.py
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 @dataclass
 class PositionComponent:
@@ -11,19 +12,28 @@ class PositionComponent:
 
 @dataclass
 class CollisionComponent:
-    is_solid: bool = True # Se for False, a entidade é "atravessável" (ex: um trigger de armadilha no chão)
+    solido: bool = True # Se for False, a entidade é "atravessável" (ex: um trigger de armadilha no chão)
 
 @dataclass
 class RenderComponent:
     """Como a entidade se parece na interface."""
     emoji: str
 
+# @dataclass
+# class InteractableComponent:
+#     """Define que a entidade pode receber uma ação (tecla Enter)."""
+#     tipo_evento: str          # Ex: 'bau', 'npc_dialogo', 'porta'
+#     parametros: dict         # Ex: {'item': 'pocao', 'quantidade': 1}
+#     is_active: bool = True   # Permite desligar a interação (ex: um baú já aberto)
+
+
 @dataclass
 class InteractableComponent:
-    """Define que a entidade pode receber uma ação (tecla Enter)."""
-    event_type: str          # Ex: 'bau', 'npc_dialogo', 'porta'
-    parameters: dict         # Ex: {'item': 'pocao', 'quantidade': 1}
-    is_active: bool = True   # Permite desligar a interação (ex: um baú já aberto)
+    tipo_evento: str  # 'bau', 'porta', 'npc_dialogo', etc.
+    parametros: Dict[str, Any] = field(default_factory=dict)
+    seguravel: bool = False
+    # Callback opcional que a Engine executará passando a entidade que interagiu e os parâmetros
+    on_interact: Optional[Callable[[int, Dict[str, Any]], None]] = None
 
 @dataclass
 class PlayerControlComponent:
@@ -33,7 +43,7 @@ class PlayerControlComponent:
 @dataclass
 class AIComponent:
     """Define o comportamento autônomo (NPCs, Monstros, Pets)."""
-    movement_type: str       # Ex: "aleatório", "patrulha", "seguir"
+    tipo_movimento: str       # Ex: "aleatório", "patrulha", "seguir"
     action_on_touch: dict    # O que faz se esbarrar em alguém
 
 @dataclass

@@ -99,7 +99,7 @@ class GamePlayScreen(Screen):
     # ==========================================
     def ao_recolher_bau(self, dados):
         log = self.query_one("#area-interacao", RichLog)
-        params = dados["parameters"]
+        params = dados["parametros"]
         item_nome = params.get("item", "Moeda Antiga")
         qtd = params.get("quantidade", 1)
         

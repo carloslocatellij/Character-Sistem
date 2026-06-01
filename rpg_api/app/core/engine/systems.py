@@ -1,5 +1,5 @@
-from app.core.engine.components import PositionComponent
 import esper
+from app.core.engine.components import PositionComponent, InteractableComponent
 from app.core.emojis import CatalogoTiles
 bloqueantes = CatalogoTiles.TERRENOS_BLOQUEANTES
 import random
@@ -122,45 +122,76 @@ class MovementSystem:
 #             ent_pos = self.engine.get_component(ent_id, "PositionComponent")
 #             ent_col = self.engine.get_component(ent_id, "CollisionComponent")
             
-#             if ent_col.is_solid and ent_pos.x == x and ent_pos.y == y:
+#             if ent_col.solido and ent_pos.x == x and ent_pos.y == y:
 #                 return False
 
 #         return True
 
 
 class InteractionSystem:
-    def __init__(self, engine_manager, event_bus): # <- NOVO: Recebe o mensageiro
-        self.engine = engine_manager
+    def __init__(self, event_bus=None):
         self.event_bus = event_bus
 
-    def interact(self, entity_id: int):
-        pos_comp = self.engine.get_component(entity_id, "PositionComponent")
-        if not pos_comp: return
+    def interagir(self, entidade_id: int, direcao_olhar: str) -> bool:
+        pos_origem = esper.component_for_entity(entidade_id, PositionComponent)
+        alvo_x, alvo_y = pos_origem.x, pos_origem.y
 
-        target_x, target_y = pos_comp.x, pos_comp.y
-        if pos_comp.direcao_olhar == "cima": target_y -= 1
-        elif pos_comp.direcao_olhar == "baixo": target_y += 1
-        elif pos_comp.direcao_olhar == "esquerda": target_x -= 1
-        elif pos_comp.direcao_olhar == "direita": target_x += 1
+        if direcao_olhar == "cima":
+            alvo_y -= 1
+        elif direcao_olhar == "baixo":
+            alvo_y += 1
+        elif direcao_olhar == "esquerda":
+            alvo_x -= 1
+        elif direcao_olhar == "direita":
+            alvo_x += 1
 
-        interactable_entities = self.engine.get_entities_with("PositionComponent", "InteractableComponent")
+        for entidade_alvo, (pos_alvo, interact) in esper.get_components(PositionComponent, InteractableComponent):
+            if pos_alvo.x == alvo_x and pos_alvo.y == alvo_y:
+                if interact.on_interact:
+                    interact.on_interact(entidade_id, interact.parametros)
+
+                    # SE TIVER EVENT BUS: Notifica a UI de forma desacoplada!
+                    if self.event_bus:
+                        self.event_bus.publish("INTERACTION_SUCCESS", {
+                            "tipo": interact.tipo_evento,
+                            "parametros": interact.parametros
+                        })
+                    return True
+        return False
+
+# class InteractionSystem:
+#     def __init__(self, engine_manager, event_bus): # <- NOVO: Recebe o mensageiro
+#         self.engine = engine_manager
+#         self.event_bus = event_bus
+
+#     def interact(self, entity_id: int):
+#         pos_comp = self.engine.get_component(entity_id, "PositionComponent")
+#         if not pos_comp: return
+
+#         target_x, target_y = pos_comp.x, pos_comp.y
+#         if pos_comp.direcao_olhar == "cima": target_y -= 1
+#         elif pos_comp.direcao_olhar == "baixo": target_y += 1
+#         elif pos_comp.direcao_olhar == "esquerda": target_x -= 1
+#         elif pos_comp.direcao_olhar == "direita": target_x += 1
+
+#         interactable_entities = self.engine.get_entities_with("PositionComponent", "InteractableComponent")
         
-        for alvo_id in interactable_entities:
-            alvo_pos = self.engine.get_component(alvo_id, "PositionComponent")
-            alvo_interact = self.engine.get_component(alvo_id, "InteractableComponent")
+#         for alvo_id in interactable_entities:
+#             alvo_pos = self.engine.get_component(alvo_id, "PositionComponent")
+#             alvo_interact = self.engine.get_component(alvo_id, "InteractableComponent")
             
-            if alvo_pos.x == target_x and alvo_pos.y == target_y and alvo_interact.is_active:
+#             if alvo_pos.x == target_x and alvo_pos.y == target_y and alvo_interact.is_active:
                 
-                # 🪄 A MÁGICA ACONTECE AQUI:
-                # Em vez de um simples 'return', a Engine emite o evento para o universo!
-                payload = {
-                    "entity_id": alvo_id,
-                    "parameters": alvo_interact.parameters
-                }
+#                 # 🪄 A MÁGICA ACONTECE AQUI:
+#                 # Em vez de um simples 'return', a Engine emite o evento para o universo!
+#                 payload = {
+#                     "entity_id": alvo_id,
+#                     "parametros": alvo_interact.parametros
+#                 }
                 
-                # Exemplo: emite("bau", {"entity_id": 2, "parameters": {"item": "Espada"}})
-                self.event_bus.emit(alvo_interact.event_type, payload)
-                return
+#                 # Exemplo: emite("bau", {"entity_id": 2, "parametros": {"item": "Espada"}})
+#                 self.event_bus.emit(alvo_interact.tipo_evento, payload)
+#                 return
             
 
 class AISystem:
@@ -181,7 +212,7 @@ class AISystem:
             ai_comp = self.engine.get_component(ent_id, "AIComponent")
             
             # Lógica de Movimento Aleatório
-            if ai_comp.movement_type == "aleatório":
+            if ai_comp.tipo_movimento == "aleatório":
                 # Escolhe uma direção aleatória (cima, baixo, esquerda, direita ou ficar parado)
                 opcoes_movimento = [(0, -1), (0, 1), (-1, 0), (1, 0), (0, 0)]
                 dx, dy = random.choice(opcoes_movimento)
