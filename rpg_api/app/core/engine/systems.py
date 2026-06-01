@@ -1,71 +1,131 @@
+from app.core.engine.components import PositionComponent
+import esper
 from app.core.emojis import CatalogoTiles
 bloqueantes = CatalogoTiles.TERRENOS_BLOQUEANTES
 import random
 
+
+# rpg_api/app/core/engine/systems.py
+
+
 class MovementSystem:
-    """Sistema responsável por processar as regras de física e atualizar posições."""
-    
-    # ✅ NOVO: Adicionado dict_objetos (com valor padrão vazio para não quebrar os testes antigos)
-    def __init__(self, engine_manager, mapa_matriz: list[list[str]], dict_objetos: dict = None):
-        self.engine = engine_manager
-        self.mapa = mapa_matriz
-        self.tiles_bloqueio = bloqueantes
-        self.objetos = dict_objetos if dict_objetos is not None else {} # Guarda os objetos estáticos
+    """Sistema lógico encarregado de validar a física e colisões de movimentos."""
 
-    def move_entity(self, entity_id: int, dx: int, dy: int) -> bool:
-        # ... (O código deste método mantém-se exatamente igual)
-        pos_comp = self.engine.get_component(entity_id, "PositionComponent")
-        if not pos_comp:
+    def __init__(self, map_loader):
+        # Guardamos a referência do loader para inspecionar os terrenos e objetos estáveis
+        self.map_loader = map_loader
+        # Lista de emojis que representam barreiras intransponíveis no jogo
+        self.tiles_bloqueantes = bloqueantes
+
+    def mover_entidade(self, entidade_id: int, direcao: str) -> bool:
+        """
+        Calcula a nova posição de uma entidade e aplica se for válida.
+        Retorna True se moveu, ou False se colidiu.
+        """
+        # 1. Recupera o componente de posição da entidade no Esper
+        pos = esper.component_for_entity(entidade_id, PositionComponent)
+
+        proximo_x, proximo_y = pos.x, pos.y
+
+        if direcao == "cima":
+            proximo_y -= 1
+        elif direcao == "baixo":
+            proximo_y += 1
+        elif direcao == "esquerda":
+            proximo_x -= 1
+        elif direcao == "direita":
+            proximo_x += 1
+
+        # 2. Validação contra os limites lógicos do mapa
+        if not (0 <= proximo_y < self.map_loader.altura and 0 <= proximo_x < self.map_loader.largura):
             return False
 
-        self._update_direction(pos_comp, dx, dy)
-        novo_x = pos_comp.x + dx
-        novo_y = pos_comp.y + dy
-
-        if self._can_move_to(novo_x, novo_y):
-            pos_comp.x = novo_x
-            pos_comp.y = novo_y
-            return True
-            
-        return False
-
-    def _update_direction(self, pos_comp, dx: int, dy: int):
-        # ... (Mantém-se igual)
-        if dy == -1: pos_comp.direcao_olhar = "cima"
-        elif dy == 1: pos_comp.direcao_olhar = "baixo"
-        elif dx == -1: pos_comp.direcao_olhar = "esquerda"
-        elif dx == 1: pos_comp.direcao_olhar = "direita"
-
-    def _can_move_to(self, x: int, y: int) -> bool:
-        # A) Limites do Mapa
-        altura = len(self.mapa)
-        if altura == 0: return False
-        largura = len(self.mapa[0])
-        
-        if not (0 <= y < altura and 0 <= x < largura):
+        # 3. Validação contra a Camada de Terrenos (Paredes lidas do BD)
+        tile_alvo = self.map_loader.matriz_terrenos[proximo_y][proximo_x]
+        if tile_alvo in self.tiles_bloqueantes:
             return False
 
-        # B) Colisão com a Matriz (Chão estático)
-        tile_chao = self.mapa[y][x].strip()
-        if tile_chao in self.tiles_bloqueio:
+        # 4. Validação contra a Camada de Objetos Estáticos
+        if (proximo_x, proximo_y) in self.map_loader.camada_objetos:
             return False
 
-        # ✅ C) Colisão com Objetos de Cenário (Árvores, Cadeiras, etc)
-        # O dicionário usa a tupla (linha, coluna) que corresponde a (y, x)
-        if (y, x) in self.objetos:
-            return False
+        # 5. Validação contra Outras Entidades do Esper (Evita sobreposição com NPCs/Monstros)
+        for outra_ent, outra_pos in esper.get_component(PositionComponent):
+            if outra_ent != entidade_id:
+                if outra_pos.x == proximo_x and outra_pos.y == proximo_y:
+                    return False
 
-        # D) Colisão com outras Entidades (NPCs, Baús)
-        solid_entities = self.engine.get_entities_with("PositionComponent", "CollisionComponent")
-        
-        for ent_id in solid_entities:
-            ent_pos = self.engine.get_component(ent_id, "PositionComponent")
-            ent_col = self.engine.get_component(ent_id, "CollisionComponent")
-            
-            if ent_col.is_solid and ent_pos.x == x and ent_pos.y == y:
-                return False
-
+        # Se passou em todas as regras, o movimento é consolidado na memória
+        pos.x = proximo_x
+        pos.y = proximo_y
         return True
+
+
+
+# class MovementSystem:
+#     """Sistema responsável por processar as regras de física e atualizar posições."""
+    
+#     # ✅ NOVO: Adicionado dict_objetos (com valor padrão vazio para não quebrar os testes antigos)
+#     def __init__(self, engine_manager, mapa_matriz: list[list[str]], dict_objetos: dict = None):
+#         self.engine = engine_manager
+#         self.mapa = mapa_matriz
+#         self.tiles_bloqueio = bloqueantes
+#         self.objetos = dict_objetos if dict_objetos is not None else {} # Guarda os objetos estáticos
+
+#     def move_entity(self, entity_id: int, dx: int, dy: int) -> bool:
+#         # ... (O código deste método mantém-se exatamente igual)
+#         pos_comp = self.engine.get_component(entity_id, "PositionComponent")
+#         if not pos_comp:
+#             return False
+
+#         self._update_direction(pos_comp, dx, dy)
+#         novo_x = pos_comp.x + dx
+#         novo_y = pos_comp.y + dy
+
+#         if self._can_move_to(novo_x, novo_y):
+#             pos_comp.x = novo_x
+#             pos_comp.y = novo_y
+#             return True
+            
+#         return False
+
+#     def _update_direction(self, pos_comp, dx: int, dy: int):
+#         # ... (Mantém-se igual)
+#         if dy == -1: pos_comp.direcao_olhar = "cima"
+#         elif dy == 1: pos_comp.direcao_olhar = "baixo"
+#         elif dx == -1: pos_comp.direcao_olhar = "esquerda"
+#         elif dx == 1: pos_comp.direcao_olhar = "direita"
+
+#     def _can_move_to(self, x: int, y: int) -> bool:
+#         # A) Limites do Mapa
+#         altura = len(self.mapa)
+#         if altura == 0: return False
+#         largura = len(self.mapa[0])
+        
+#         if not (0 <= y < altura and 0 <= x < largura):
+#             return False
+
+#         # B) Colisão com a Matriz (Chão estático)
+#         tile_chao = self.mapa[y][x].strip()
+#         if tile_chao in self.tiles_bloqueio:
+#             return False
+
+#         # ✅ C) Colisão com Objetos de Cenário (Árvores, Cadeiras, etc)
+#         # O dicionário usa a tupla (linha, coluna) que corresponde a (y, x)
+#         if (y, x) in self.objetos:
+#             return False
+
+#         # D) Colisão com outras Entidades (NPCs, Baús)
+#         solid_entities = self.engine.get_entities_with("PositionComponent", "CollisionComponent")
+        
+#         for ent_id in solid_entities:
+#             ent_pos = self.engine.get_component(ent_id, "PositionComponent")
+#             ent_col = self.engine.get_component(ent_id, "CollisionComponent")
+            
+#             if ent_col.is_solid and ent_pos.x == x and ent_pos.y == y:
+#                 return False
+
+#         return True
 
 
 class InteractionSystem:

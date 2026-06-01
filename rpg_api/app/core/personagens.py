@@ -101,14 +101,12 @@ class Personagem:
         # Bônus de Atributos
         for attr, valor in self.raca.bonus_atributos.items():
             if attr in self.atributos_totais: self.atributos_totais[attr] += valor
-        # for attr, valor in self.classe.bonus_atributos.items():
-        #     if attr in self.atributos_totais: self.atributos_totais[attr] += valor
             
         # NOVO: Bônus de Caminhos de Magia da Classe
         if self.classe.bonus_caminhos:
             for caminho, pontos in self.classe.bonus_caminhos.items():
-                if caminho in self.caminhos_magia:
-                    self.caminhos_magia[caminho] += pontos
+                #if caminho in self.caminhos_magia:
+                self.caminhos_magia[caminho] += pontos
                 
         self._calcular_status_derivados()
 

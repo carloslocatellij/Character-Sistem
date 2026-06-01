@@ -42,7 +42,7 @@ def classe_default(test_db):
     """Fixture: Classe padrão para testes."""
     classe = ClasseRPGDB(
         nome="Arqueiro",
-        bonus_caminhos={"Ar": 2, "Luz": 1},
+        bonus_caminhos={"ar": 2, "fogo": 1},
         habilidades=["Tiro Preciso", "Visão Aguçada"]
     )
     test_db.add(classe)

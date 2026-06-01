@@ -93,10 +93,10 @@ def fixture_dados_base(db_session):
     db_session.commit()
 
     return {
-        "usuario_id": usuario.nome,
+        "usuario_id": usuario.id,
         "cenario_id": cenario.id,
         "mapa_id": mapa.id,
-        "evento_id": evento_monstro.nome 
+        "evento_id": evento_monstro.id + 1000
     }
 
 
@@ -137,7 +137,7 @@ def test_inicializacao_novo_jogo_sem_save(db_session, dados_base, monkeypatch):
     assert mapa_id == dados_base["mapa_id"]
     assert len(mapa_matriz) == 5
     
-    # O Jogador (ID 1) deve herdar as coordenadas padrão do cenário (2, 2)
+    # O Jogador (ID 1) deve herdar as coordenadas padrão do cenário (dados_base["evento_id"], 2)
     pos_jogador = engine.get_component(dados_base["usuario_id"], "PositionComponent")
     assert pos_jogador.x == 2
     assert pos_jogador.y == 2
@@ -169,25 +169,25 @@ def test_salvamento_e_carregamento_com_delta(db_session, dados_base, monkeypatch
     gsm = GameStateManager()
 
     from app.core.engine.components import PositionComponent, StatsComponent, InventoryComponent, EquipmentComponent
-    engine.add_component(1, PositionComponent(x=2, y=2))
-    engine.add_component(1, StatsComponent(nome="Ragnar", hp=45, max_hp=45, mp=12, max_mp=12, ataque_base=15, defesa_base=10))
-    engine.add_component(1, InventoryComponent(itens={}))
-    engine.add_component(1, EquipmentComponent())
+    engine.add_component(dados_base["usuario_id"], PositionComponent(x=2, y=2))
+    engine.add_component(dados_base["usuario_id"], StatsComponent(nome="Ragnar", hp=45, max_hp=45, mp=12, max_mp=12, ataque_base=15, defesa_base=10))
+    engine.add_component(dados_base["usuario_id"], InventoryComponent(itens={}))
+    engine.add_component(dados_base["usuario_id"], EquipmentComponent())
     
     # 2. APLICA MODIFICAÇÕES DINÂMICAS DE TEMPO DE EXECUÇÃO
-    pos_jogador = engine.get_component(1, "PositionComponent")
+    pos_jogador = engine.get_component(dados_base["usuario_id"], "PositionComponent")
     pos_jogador.x = 0; pos_jogador.y = 0 
     
-    engine.add_component(2, PositionComponent(x=2, y=2))
+    engine.add_component(dados_base["evento_id"], PositionComponent(x=2, y=2))
     
     pos_monstro = engine.get_component(dados_base["evento_id"], "PositionComponent")
     pos_monstro.x = 1; pos_monstro.y = 1 
     
     # Atualiza componentes vitais do motor geométrico
-    stats_jogador = engine.get_component(1, "StatsComponent")
+    stats_jogador = engine.get_component(dados_base["usuario_id"], "StatsComponent")
     stats_jogador.hp = 30 
     
-    inv_jogador = engine.get_component(1, "InventoryComponent")
+    inv_jogador = engine.get_component(dados_base["usuario_id"], "InventoryComponent")
     inv_jogador.itens["espada_lendaria"] = 1 
 
     gsm.set_switch("missao_concluida", True)
@@ -225,16 +225,16 @@ def test_salvamento_e_carregamento_com_delta(db_session, dados_base, monkeypatch
     )
 
     # 5. AS VALIDAÇÕES FINAIS (Garantia de persistência mutável)
-    pos_jogador_carregado = novo_engine.get_component(1, "PositionComponent")
+    pos_jogador_carregado = novo_engine.get_component(dados_base["usuario_id"], "PositionComponent")
     assert pos_jogador_carregado.x == 0
-    assert pos_jogador_carregado.y == 0  # Prevaleceu a coordenada salva (0,0) sobre o template (2,2)
+    assert pos_jogador_carregado.y == 0  # Prevaleceu a coordenada salva (0,0) sobre o template (dados_base["evento_id"],2)
 
     pos_monstro_carregado = novo_engine.get_component(dados_base["evento_id"], "PositionComponent")
     assert pos_monstro_carregado.x == 1
-    assert pos_monstro_carregado.y == 1  # Prevaleceu a coordenada salva (1,1) sobre o template (4,4)
+    assert pos_monstro_carregado.y == 1  # Prevaleceu a coordenada salva (dados_base["usuario_id"],1) sobre o template (4,4)
 
-    stats_jogador_carregado = novo_engine.get_component(1, "StatsComponent")
+    stats_jogador_carregado = novo_engine.get_component(dados_base["usuario_id"], "StatsComponent")
     assert stats_jogador_carregado.hp == 30  
 
-    inv_jogador_carregado = novo_engine.get_component(1, "InventoryComponent")
+    inv_jogador_carregado = novo_engine.get_component(dados_base["usuario_id"], "InventoryComponent")
     assert inv_jogador_carregado.itens.get("espada_lendaria") == 1

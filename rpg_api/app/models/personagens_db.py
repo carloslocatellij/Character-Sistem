@@ -74,4 +74,4 @@ class PersonagemDB(Base):
     mao_esquerda = relationship("ItemDB", foreign_keys=[mao_esquerda_id])
     armadura_equipada = relationship("ItemDB", foreign_keys=[armadura_id])
 
-    # Nota: Não salvamos "pv_atual", "modificador_ataque" ou "caminhos_magia" totais no banco de dados.
+    # Nota: Não salvamos "pv_atual", "modificador_ataque" ou "caminhos_magia" junto do personagem mas sim na tabela save.
