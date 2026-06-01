@@ -1,34 +1,37 @@
-# app/views/game_play_screen.py
+import esper
 from textual.screen import Screen
 from textual.widgets import Static, RichLog, Label, Input
 from textual.containers import Container, ScrollableContainer
 from textual.events import Key
 from textual import on
+from time import sleep
 
 from app.db.database import SessionLocal
 from app.core.emojis import CatalogoTiles
 from app.core.engine.event_bus import EventBus
 from app.core.engine.systems import MovementSystem, InteractionSystem, AISystem
 from app.core.engine.render import RenderSystem
-from app.core.engine.engine_loader import carregar_engine_do_banco
+from app.core.engine.engine_loader import GameEngineLoader
+from app.core.engine.components import PositionComponent, RenderComponent, PlayerControlComponent
 
 class GamePlayScreen(Screen):
     CSS_PATH = "game_styles.tcss"
     
-    def __init__(self, mapa_id: int, personagem_id: int = 1): # Recebe mapa e herói reais
+    def __init__(self, mapa_id: int, personagem_id: int = 1):
         super().__init__()
         self.mapa_id = mapa_id
         self.personagem_id = personagem_id
-        self.event_bus = EventBus()
-        
-        self.engine_manager = None
+
+        # Inicializa o Barramento e Carregador da Engine
+        self.loader = GameEngineLoader()
         self.mapa_matriz = None
         self.mapa_objetos = {}
-        
+
+        # Sistemas lógicos adaptados para Esper
         self.movimento_sys = None
         self.interacao_sys = None
-        self.ai_sys = None
-        self.render_sys = None
+        self.render_sys = RenderSystem()
+        self.direcao_olhar = "baixo"
 
     def compose(self):
         with Container(id="game-layout"):
@@ -54,78 +57,130 @@ class GamePlayScreen(Screen):
                 yield RichLog(id="area-interacao", markup=True)
                 yield Input(placeholder="Digite um comando... (ex: /usar poção, /equipar espada_fogo)", id="terminal-prompt")
 
+    
     def on_mount(self):
-        log = self.query_one("#area-interacao", RichLog)
-        log.write("[bold yellow]>>> Inicializando sistemas de campanha...[/]")
+        self.log_mensagem(
+            "[bold yellow]>>> Inicializando sistemas de campanha...[/]")
         
         try:
             with SessionLocal() as db:
                 # Carregamento autêntico sem simulações!
-                # self.engine_manager, self.mapa_matriz, self.mapa_objetos = carregar_engine_do_banco(
-                #     self.mapa_id, self.personagem_id, db
-                # )
-                self.engine_manager, self.mapa_matriz, self.mapa_objetos, self.mapa_id = carregar_engine_do_banco(
-                        db_session=db,
-                        usuario_id=self.personagem_id, # ID do jogador ativo
-                        cenario_id=1,                  # ID do jogo/campanha escolhida
-                        slot_numero=1                  # Slot selecionado
-                    )
+                
+                self.engine_manager = self.loader.carregar_engine_do_banco(
+                        #usuario_id=self.personagem_id, # ID do jogador ativo
+                        #cenario_id=1,                  # ID do jogo/campanha escolhida
+                        #slot_numero=1                  # Slot selecionado
+                        db,
+                        mapa_id=1
+                                            )
+                
+            self.mapa_matriz = self.loader.matriz_terrenos
+            self.mapa_objetos = self.loader.camada_objetos
+            self.mapa_id = 1 #para não qubrar
             
-            self.movimento_sys = MovementSystem(self.engine_manager, self.mapa_matriz, self.mapa_objetos)
-            self.interacao_sys = InteractionSystem(self.engine_manager, self.event_bus)
-            self.render_sys = RenderSystem(self.engine_manager)
-            self.ai_sys = AISystem(self.engine_manager, self.movimento_sys, self.event_bus)
+            if not esper.entity_exists(1):
+                esper.create_entity(
+                    PositionComponent(x=9, y=9),
+                    RenderComponent(emoji="🐱"),
+                    PlayerControlComponent()
+                )
+
+            self.movimento_sys = MovementSystem(self.loader)
+            
+            # Interações com o Esper
+            self.interacao_sys = InteractionSystem(self.loader.event_bus)
+            
+            #self.render_sys = RenderSystem(self.engine_manager)
+            self.ai_sys = AISystem(self.loader,
+                                   self.movimento_sys, self.interacao_sys)
+
+            self.loader.event_bus.subscribe(
+                "INTERACTION_SUCCESS", self.on_evento_interacao)
+
+            self.log_mensagem(
+                f"[green]Mapa '[bold]{self.loader.nome_mapa}[/]' carregado com sucesso![/]")
+            self.atualizar_tudo()
+
 
             # Assina eventos globais da rádio lúdica
-            self.event_bus.subscribe("bau", self.ao_recolher_bau)
-            self.event_bus.subscribe("ataque_monstro", self.ao_levar_ataque)
+            self.loader.event_bus.subscribe("bau", self.ao_recolher_bau)
+            self.loader.event_bus.subscribe("ataque_monstro", self.ao_levar_ataque)
 
             # Batimento dos monstros autónomos a cada 1 segundo
             self.set_interval(1.0, self.game_tick)
 
-            log.write("[bold green]>>> Engine Pronta! Use setas para andar, ENTER para interagir ou use o Terminal de comandos abaixo.[/]")
+            self.log_mensagem(
+                "[bold green]>>> Engine Pronta! Use setas para andar, ENTER para interagir ou use o Terminal de comandos abaixo.[/]")
             self.atualizar_tudo()
 
         except Exception as e:
-            log.write(f"[bold red]❌ Erro crítico: {e}[/]")
+            self.log_mensagem(f"[bold red]❌ Erro crítico: {e}[/]")
+            
+    def log_mensagem(self, texto: str):
+        """Injeta mensagens formatadas no painel lateral de logs."""
+        try:
+            self.query_one("#log-eventos", RichLog).write(texto)
+        except Exception:
+            pass
 
     def game_tick(self):
         if self.ai_sys:
             self.ai_sys.update()
-            self.atualizar_visual_do_jogo()
+            self.atualizar_tudo()
+
 
     # ==========================================
     # EVENTOS DA ENGINE
     # ==========================================
-    def ao_recolher_bau(self, dados):
-        log = self.query_one("#area-interacao", RichLog)
-        params = dados["parametros"]
-        item_nome = params.get("item", "Moeda Antiga")
-        qtd = params.get("quantidade", 1)
-        
-        # Injeta o item coletado no Inventário Lógico da Engine!
-        inv = self.engine_manager.get_component(1, "InventoryComponent")
-        if inv:
-            inv.itens[item_nome] = inv.itens.get(item_nome, 0) + qtd
-            
-        log.write(f"[bold cyan]🎁 Você abriu um baú e coletou: [yellow]{item_nome} x{qtd}[/yellow]! (Digite /equipar ou /usar no terminal para usufruir)[/]")
-        self.atualizar_paineis_status()
+    
+    def on_evento_interacao(self, payload: dict):
+        """Callback acionado via Event Bus quando o InteractionSystem processa algo."""
+        tipo = payload.get("tipo", "evento")
+        params = payload.get("parametros", {})
 
-    def ao_levar_ataque(self, dados_ataque):
-        log = self.query_one("#area-interacao", RichLog)
-        dano = dados_ataque.get("mudar_hp", {}).get("valor", 1)
-        
-        stats = self.engine_manager.get_component(1, "StatsComponent")
-        if stats:
-            # Desconta o dano mitigado pela defesa real do personagem
-            dano_real = max(1, dano - (stats.defesa_base // 3))
-            stats.hp = max(0, stats.hp - dano_real)
-            log.write(f"[bold red]⚔️ O monstro atacou você! Sofreu {dano_real} de dano real (Defesa mitigou o resto).[/]")
+        if tipo == "bau":
+            self.log_mensagem(
+                f"[yellow]📦 {params.get('mensagem', 'Você abriu um baú!')}[/]")
+        elif tipo == "npc_dialogo":
+            self.log_mensagem(f"[cyan]💬 NPC: {params.get('texto', 'Olá!')}[/]")
+        else:
+            self.log_mensagem(f"[white]✨ Evento ativado: {tipo}[/]")
             
-            if stats.hp <= 0:
-                log.write("[bold background red]💀 VOCÊ MORREU! Fim de Jogo.[/]")
+
+    # ANTES DO ESPER
+    # def ao_recolher_bau(self, dados):
+    #     log = self.query_one("#area-interacao", RichLog)
+    #     params = dados["parametros"]
+    #     item_nome = params.get("item", "Moeda Antiga")
+    #     qtd = params.get("quantidade", 1)
         
-        self.atualizar_paineis_status()
+    #     # Injeta o item coletado no Inventário Lógico da Engine!
+    #     inv = self.engine_manager.get_component(1, "InventoryComponent")
+    #     if inv:
+    #         inv.itens[item_nome] = inv.itens.get(item_nome, 0) + qtd
+            
+    #     self.log_mensagem(
+    #         f"[bold cyan]🎁 Você abriu um baú e coletou: [yellow]{item_nome} x{qtd}[/yellow]! (Digite /equipar ou /usar no terminal para usufruir)[/]")
+    #     self.atualizar_paineis_status()
+
+
+    # def ao_levar_ataque(self, dados_ataque):
+    #     log = self.query_one("#area-interacao", RichLog)
+    #     dano = dados_ataque.get("mudar_hp", {}).get("valor", 1)
+        
+    #     stats = self.engine_manager.get_component(1, "StatsComponent")
+    #     if stats:
+    #         # Desconta o dano mitigado pela defesa real do personagem
+    #         dano_real = max(1, dano - (stats.defesa_base // 3))
+    #         stats.hp = max(0, stats.hp - dano_real)
+    #         self.log_mensagem(
+    #             f"[bold red]⚔️ O monstro atacou você! Sofreu {dano_real} de dano real (Defesa mitigou o resto).[/]")
+            
+    #         if stats.hp <= 0:
+    #             self.log_mensagem(
+    #                 "[bold background red]💀 VOCÊ MORREU! Fim de Jogo.[/]")
+        
+    #     self.atualizar_paineis_status()
 
     # ==========================================
     # INTERPRETADOR DE COMANDOS DO TERMINAL (SUBMIT INPUT)
@@ -141,7 +196,8 @@ class GamePlayScreen(Screen):
 
         if not texto: return
 
-        log.write(f"[dim]>>> {texto}[/]") # Mostra o comando ecoado no log
+        # Mostra o comando ecoado no log
+        self.log_mensagem(f"[dim]>>> {texto}[/]")
 
         # 1. Separar o comando do argumento. Ex: "/usar poção" -> comando="/usar", argumento="poção"
         partes = texto.split(" ", 1)
@@ -202,41 +258,110 @@ class GamePlayScreen(Screen):
     # INPUTS DE MOVIMENTAÇÃO (MANTÉM O FOCO FORA DO PROMPT AO USAR SETAS)
     # ==========================================
     def on_key(self, event: Key) -> None:
-        chave = event.key
+        key = event.key
         moveu = False
+        
+        if key in ("up", "down", "left", "right", "w", "s", "a", "d"):
+            event.prevent_default()  # Interrompe o scroll automático do Textual!
+            event.stop()
 
-        if chave == "up": moveu = self.movimento_sys.move_entity(1, 0, -1)
-        elif chave == "down": moveu = self.movimento_sys.move_entity(1, 0, 1)
-        elif chave == "left": moveu = self.movimento_sys.move_entity(1, -1, 0)
-        elif chave == "right": moveu = self.movimento_sys.move_entity(1, 1, 0)
-        elif chave == "enter":
+        if key in ("up", "w"):
+            self.direcao_olhar = "cima"
+            self.centralizar_camera_no_jogador()
+            moveu = self.movimento_sys.mover_entidade(1, "cima")
+        elif key in ("down", "s"):
+            self.direcao_olhar = "baixo"
+            self.centralizar_camera_no_jogador()
+            moveu = self.movimento_sys.mover_entidade(1, "baixo")
+        elif key in ("left", "a"):
+            self.direcao_olhar = "esquerda"
+            self.centralizar_camera_no_jogador()
+            moveu = self.movimento_sys.mover_entidade(1, "esquerda")
+        elif key in ("right", "d"):
+            self.direcao_olhar = "direita"
+            self.centralizar_camera_no_jogador()
+            moveu = self.movimento_sys.mover_entidade(1, "direita")
+        elif key == "enter":
             # Se o foco estiver no prompt do terminal, deixa o submit do input agir e ignora o raio
             if self.focused == self.query_one("#terminal-prompt"):
                 return
-            self.interacao_sys.interact(1)
+            achou_evento = self.interacao_sys.interagir(1, self.direcao_olhar)
+            if not achou_evento:
+                self.log_mensagem(
+                    "[gray]Não há nada para acionar aqui na sua frente.[/]")
+            self.atualizar_tudo()
             return
-
-        if moveu:
-            self.atualizar_visual_do_jogo()
+        #sleep(0.01)
+        self.atualizar_tudo()
 
     # ==========================================
     # REDESENHO DE TELAS E RECALCULO DE ATRIBUTOS + EQUIPAMENTOS
     # ==========================================
+    
+    # ANTERIOR AO ESPER
     def atualizar_tudo(self):
-        self.atualizar_visual_do_jogo()
-        self.atualizar_paineis_status()
-
-    def atualizar_visual_do_jogo(self):
-        buffer_renderizado = self.render_sys.renderizar_frame(self.mapa_matriz, self.mapa_objetos)
-        self.query_one("#tela-mapa", Static).update(buffer_renderizado)
+        self.atualizar_tela()
+        #self.atualizar_paineis_status()
         
-        # Faz o scroll da câmara acompanhar o jogador no viewport
-        viewport = self.query_one("#mapa-viewport", ScrollableContainer)
-        pos_jogador = self.engine_manager.get_component(1, "PositionComponent")
-        if pos_jogador and viewport.size.width > 0:
-            alvo_x = (pos_jogador.x * 2) - (viewport.size.width // 2)
-            alvo_y = pos_jogador.y - (viewport.size.height // 2)
-            viewport.scroll_to(x=max(0, alvo_x), y=max(0, alvo_y), animate=False)
+    def atualizar_tela(self):
+        """Compila o frame atual do Esper e atualiza o Canvas Único na tela."""
+        
+        self.centralizar_camera_no_jogador()
+        
+        frame_text = self.render_sys.renderizar_frame(
+            self.mapa_matriz, self.mapa_objetos)
+        self.query_one("#tela-mapa", Static).update(frame_text)
+
+        # Centraliza a câmera no jogador de forma dinâmica
+
+    def centralizar_camera_no_jogador(self):
+        """Busca a posição do jogador no Esper e move o viewport do ScrollableContainer."""
+        try:
+            # O ID do jogador principal é 1
+            pos_player = esper.component_for_entity(1, PositionComponent)
+            if pos_player:
+                # Pegamos o container de scroll
+                viewport = self.query_one(
+                    "#mapa-viewport", ScrollableContainer)
+
+                # Coordenadas virtuais baseadas no tamanho das fontes do terminal
+                # Multiplicamos o X por 2 porque cada coluna visual de emoji gasta 2 caracteres de largura
+                largura_tela_virtual = viewport.content_size.width
+                altura_tela_virtual = viewport.content_size.height
+
+                # Centraliza a mira subtraindo metade do viewport visível
+                alvo_x = (pos_player.x * 2) - (largura_tela_virtual // 2)
+                alvo_y = pos_player.y - (altura_tela_virtual // 2)
+
+                # Força a rolagem exata sem animações para evitar trepidação (flicker)
+                viewport.scroll_to(x=max(0, alvo_x), y=max(
+                    0, alvo_y), animate=False)
+        except Exception:
+            pass
+    
+    
+
+    # ANTERIOR AO ESPER
+    # def atualizar_visual_do_jogo(self):
+    #     buffer_renderizado = self.render_sys.renderizar_frame(self.mapa_matriz, self.mapa_objetos)
+    #     self.query_one("#tela-mapa", Static).update(buffer_renderizado)
+        
+    #     # Faz o scroll da câmara acompanhar o jogador no viewport
+    #     viewport = self.query_one("#mapa-viewport", ScrollableContainer)
+    #     pos_jogador = self.engine_manager.get_component(1, "PositionComponent")
+    #     if pos_jogador and viewport.size.width > 0:
+    #         alvo_x = (pos_jogador.x * 2) - (viewport.size.width // 2)
+    #         alvo_y = pos_jogador.y - (viewport.size.height // 2)
+    #         viewport.scroll_to(x=max(0, alvo_x), y=max(0, alvo_y), animate=False)
+            
+    @on(Input.Submitted, "#txt-chat")
+    def ao_enviar_comando_chat(self, event: Input.Submitted):
+        """Processa a caixa de comandos rápidos de texto."""
+        texto = event.value.strip()
+        if texto:
+            self.log_mensagem(f"[bold white]Você:[/] {texto}")
+            self.query_one("#txt-chat", Input).value = ""
+
 
     def atualizar_paineis_status(self):
         stats = self.engine_manager.get_component(1, "StatsComponent")

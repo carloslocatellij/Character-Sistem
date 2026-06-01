@@ -201,8 +201,8 @@ class TestCenariosPraticos:
         # 3. Criar personagem
         GameController.criar_personagem(
             test_db, "Arthur",
-            raca.id, classe.id, usuario_id=None, cenario_id=None
-            {"forca": 4, "agilidade": 3, "resistencia": 4, "percepcao": 3, "exuberancia": 2}
+            raca.id, classe.id, usuario_id=1, cenario_id=1,
+            atributos= {"forca": 4, "agilidade": 3, "resistencia": 4, "percepcao": 3, "exuberancia": 2}
         )
         personagem = test_db.query(PersonagemDB).filter_by(nome="Arthur").first()
         

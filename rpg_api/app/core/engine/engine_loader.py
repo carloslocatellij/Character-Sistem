@@ -4,52 +4,134 @@ import esper
 from sqlalchemy.orm import Session
 from app.core.engine.event_bus import EventBus
 from app.models.mapas_db import MapaDB
-from app.core.engine.components import PositionComponent, RenderComponent, InteractableComponent
+from app.models.personagens_db import PersonagemDB
+from app.controllers.game_controller import GameController
+from app.core.engine.components import (PositionComponent, RenderComponent,
+                                        InteractableComponent, StatsComponent,
+                                        EquipmentComponent, InventoryComponent, PlayerControlComponent)
 
 
 class GameEngineLoader:
     def __init__(self):
         self.event_bus = EventBus()
         self.mapa_id = None
+        self.nome_mapa = ""
         self.matriz_terrenos = []
         self.camada_objetos = {}
         self.altura = 0
         self.largura = 0
 
-    def carregar_mapa(self, db: Session, mapa_id: int) -> bool:
-        """Lê o banco de dados e popula as entidades lógicas usando o Esper ECS."""
+    def carregar_engine_do_banco(self, db: Session, mapa_id: int) -> bool:
+        """
+        Método assinado pela GamePlayScreen.
+        Limpa o contexto antigo do Esper, lê a BD e monta o novo estado em memória.
+        """
+        # 1. RESET CRUCIAL: Limpa todas as entidades antigas do mundo global do Esper
+        esper.switch_world(esper.list_worlds()[0])
+
         mapa_db = db.query(MapaDB).filter(MapaDB.id == mapa_id).first()
         if not mapa_db:
             return False
 
         self.mapa_id = mapa_id
+        self.nome_mapa = mapa_db.nome
         self.matriz_terrenos = mapa_db.mapa_em_si
         self.altura = len(self.matriz_terrenos)
         self.largura = len(self.matriz_terrenos[0]) if self.altura > 0 else 0
 
-        # Converte chaves string "x,y" do JSON para tuplas numéricas (x,y)
-        objetos_json = mapa_db.objetos or {}
-        self.camada_objetos = {
-            (int(k.split(',')[0]), int(k.split(',')[1])): v
-            for k, v in objetos_json.items()
-        }
+        objetos_json = mapa_db.objetos or getattr(mapa_db, 'objetos', {}) or {}
+        self.camada_objetos = {}
+        for k, v in objetos_json.items():
+            try:
+                partes = k.split(',')
+                self.camada_objetos[(int(partes[0]), int(partes[1]))] = v
+            except Exception:
+                continue
 
-        # Popular a camada de eventos dinâmicos no Esper
-        for evento_db in mapa_db.eventos:
-            # 1. No Esper, criamos uma entidade simplesmente chamando create_entity()
+        # 1. CARREGAR OS DADOS DO JOGADOR PRINCIPAL (ID 1) DO BANCO DE DADOS
+        
+        stats_comp = StatsComponent(
+            nome="Charles",
+            classe="Mago",
+            hp=15,
+            max_hp=15,
+            mp=50,
+            max_mp=50,
+            ataque_base=15,
+            defesa_base=10
+        )
+
+        try:
+            p_db = db.query(PersonagemDB).filter(PersonagemDB.id == 1).first()
+            if p_db:
+                # ⚔️ Tenta converter usando o GameController tradutor
+                try:
+                    p_logic = GameController.converter_para_dominio(p_db)
+                    stats_comp = StatsComponent(
+                        nome=p_logic.nome,
+                        classe=p_logic.classe.nome,
+                        hp=p_logic.atributos.get("pv", 100),
+                        max_hp=p_logic.atributos.get("pv_max", 100),
+                        mp=p_logic.atributos.get("pm", 50),
+                        max_mp=p_logic.atributos.get("pm_max", 50),
+                        ataque_base=p_logic.atributos.get("ataque", 15),
+                        defesa_base=p_logic.atributos.get("defesa", 10)
+                    )
+                except Exception as e_conv:
+                    print(
+                        f"erro ao converter para personagem lógico, usando fallback parcial do BD: {e_conv}")
+                    # Caso a conversão falhe por falta de raça/classe populada no mock, usa os dados crus do BD
+                    stats_comp = StatsComponent(
+                        nome=getattr(p_db, 'nome', "Charles"),
+                        classe="Mago",
+                        hp=getattr(p_db, 'hp', 100),
+                        max_hp=getattr(p_db, 'max_hp', 100),
+                        mp=getattr(p_db, 'mp', 50),
+                        max_mp=getattr(p_db, 'max_mp', 50),
+                        ataque_base=getattr(p_db, 'ataque', 15),
+                        defesa_base=getattr(p_db, 'defesa', 10)
+                    )
+        except Exception as e_bd:
+            print(f"erro ao acessar ou alimentar comp status: {e_bd}")
+
+        # Posição inicial segura para o jogador nascer
+        px, py = 2, 2
+
+        # Itens iniciais para garantir o funcionamento dos comandos do Chat (/inventario, /equipar)
+        itens_iniciais = [
+            {"id": 101, "nome": "Poção de Vida",
+                "tipo": "consumivel", "bonus": 50},
+            {"id": 201, "nome": "Espada Longa", "tipo": "arma", "bonus_atk": 8},
+            {"id": 301, "nome": "Escudo de Madeira",
+                "tipo": "armadura", "bonus_def": 4}
+        ]
+
+        # Cria rigidamente a entidade do jogador (ID 1) no Esper com todos os componentes acoplados
+        esper.create_entity(
+            PositionComponent(x=px, y=py),
+            RenderComponent(emoji="🧙🏻‍♂️"),
+            PlayerControlComponent(),
+            stats_comp,
+            InventoryComponent(itens=itens_iniciais),
+            EquipmentComponent()
+        )
+
+
+        # 2. Carrega o resto das entidades do mapa (Monstros/Baús)
+        eventos_bd = getattr(mapa_db, 'eventos', [])
+        for evento_db in eventos_bd:
             entidade = esper.create_entity()
-
-            # 2. Adicionamos os componentes à entidade recém-criada
             esper.add_component(entidade, PositionComponent(
                 x=evento_db.pos_x, y=evento_db.pos_y))
             esper.add_component(
                 entidade, RenderComponent(emoji=evento_db.emoji))
             esper.add_component(entidade, InteractableComponent(
-                tipo_evento=evento_db.tipo_evento,
-                parametros=evento_db.parametros or {}
+                tipo_evento=evento_db.tipo_evento, parametros=evento_db.parametros or {}
             ))
 
         return True
+
+
 
 # from app.core.engine.manager import EngineManager
 # from app.core.engine.components import (
@@ -63,9 +145,9 @@ class GameEngineLoader:
 
 # def carregar_engine_do_banco(
 #     db_session, 
-#     usuario_id: int, 
-#     cenario_id: int, 
-#     slot_numero: int = 1, 
+    # usuario_id: int, 
+    # cenario_id: int, 
+    # slot_numero: int = 1, 
 #     default_mapa_id: int = None
 # ) -> tuple[EngineManager, list[list[str]], dict, int]:
 #     """
@@ -122,8 +204,7 @@ class GameEngineLoader:
     
     
 #     controller = GameController(db_session)
-#     conversor = GameController.converter_para_dominio
-    
+#     conversor = GameController.converter_para_dominio 
      
 #     personagem_logico = controller.obter_personagem_por_id(player_id) # Vinculado ao ID do usuário jogador
 #     personagem_logico = conversor(personagem_logico) if personagem_logico else None

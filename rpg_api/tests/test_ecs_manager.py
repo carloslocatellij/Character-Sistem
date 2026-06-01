@@ -1,5 +1,5 @@
 import pytest
-from app.core.engine.manager import EngineManager
+from rpg_api._legacy.manager import EngineManager
 from app.core.engine.components import PositionComponent, RenderComponent
 
 def test_fluxo_completo_engine_manager():

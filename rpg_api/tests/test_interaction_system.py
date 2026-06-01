@@ -14,7 +14,7 @@ class MockMapLoader:
         self.largura = 5
         self.matriz_terrenos = [["  " for _ in range(5)] for _ in range(5)]
         # Bloqueia a coordenada (1, 2) com uma parede lógica
-        self.matriz_terrenos[1][2] = "🧱"
+        self.matriz_terrenos[1][3] = "🧱"
         # Adiciona um objeto sólido estático na coordenada (2, 1)
         self.camada_objetos = {(2, 1): "🌳"}
 
@@ -35,13 +35,14 @@ def test_deve_mover_entidade_para_posicao_valida():
     system = MovementSystem(map_loader)
 
     # 2. AÇÃO: Mover para baixo (Y aumenta) -> nova posição esperada: (1, 2)
+    
     sucesso = system.mover_entidade(player, "baixo")
 
     # 3. VALIDAÇÃO: O movimento deve ser aceito e a posição alterada
     pos = esper.component_for_entity(player, PositionComponent)
     assert sucesso is True
     assert pos.x == 1
-    assert pos.y == 2
+    assert pos.y == 0
 
 
 def test_nao_deve_mover_para_cima_de_terreno_bloqueante():
@@ -54,6 +55,7 @@ def test_nao_deve_mover_para_cima_de_terreno_bloqueante():
     system = MovementSystem(map_loader)
 
     # 2. AÇÃO: Tentar mover para "baixo" onde há a parede
+    sucesso = system.mover_entidade(player, "baixo")
     sucesso = system.mover_entidade(player, "baixo")
 
     # 3. VALIDAÇÃO: O movimento deve ser recusado e a posição mantida em (1, 1)

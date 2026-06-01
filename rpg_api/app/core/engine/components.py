@@ -1,7 +1,6 @@
-# rpg_api/app/engine/components.py
-from collections.abc import Callable
+
 from dataclasses import dataclass, field
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Callable, List
 
 @dataclass
 class PositionComponent:
@@ -46,24 +45,32 @@ class AIComponent:
     tipo_movimento: str       # Ex: "aleatório", "patrulha", "seguir"
     action_on_touch: dict    # O que faz se esbarrar em alguém
 
+
 @dataclass
 class StatsComponent:
-    """Guarda a matemática pura dos atributos vitais de combate."""
+    """Guarda os atributos de combate e informações vitais do personagem."""
     nome: str
+    classe: str
     hp: int
     max_hp: int
     mp: int
     max_mp: int
     ataque_base: int
     defesa_base: int
+    
 
 @dataclass
 class InventoryComponent:
-    """Guarda os itens que a entidade carrega. Ex: {'poção': 3, 'espada_ferro': 1}"""
-    itens: dict[str, int] = field(default_factory=dict)
+    """Armazena os itens que o personagem está carregando."""
+    # Lista de dicionários representando os itens: [{"id": 1, "nome": "Poção", "tipo": "consumivel", "bonus": 0}]
+    itens: List[Dict[str, Any]] = field(default_factory=list)
+
 
 @dataclass
 class EquipmentComponent:
-    """Mapeia o que a entidade tem atualmente equipado no corpo."""
-    arma: dict | None = None      # Ex: {'nome': 'Espada Longa', 'bonus_atk': 5}
-    armadura: dict | None = None  # Ex: {'nome': 'Armadura de Placas', 'bonus_def': 7}
+    """Armazena o que está atualmente equipado no herói influenciando seus atributos."""
+    arma: Optional[Dict[str, Any]
+                   # Ex: {"nome": "Espada de Ferro", "bonus_atk": 10}
+                   ] = None
+    # Ex: {"nome": "Cota de Malha", "bonus_def": 5}
+    armadura: Optional[Dict[str, Any]] = None

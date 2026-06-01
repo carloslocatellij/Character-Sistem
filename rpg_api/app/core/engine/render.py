@@ -1,40 +1,37 @@
 # app/core/engine/render.py
-from rich.text import Text
-from app.core.emojis import CatalogoTiles # Reutiliza o catálogo de cores que criamos para o editor!
-
-# app/core/engine/render.py
+import esper
 from rich.text import Text
 from app.core.emojis import CatalogoTiles
+from app.core.engine.components import PositionComponent, RenderComponent
+
 
 class RenderSystem:
-    def __init__(self, engine_manager):
-        self.engine = engine_manager
+    """Sistema responsável por compilar as camadas de Terreno, Objetos e Esper ECS em um único frame Text."""
 
     def renderizar_frame(self, mapa_matriz: list[list[str]], dict_objetos: dict) -> Text:
-        if not mapa_matriz: return Text("Mapa Vazio")
-            
+        if not mapa_matriz:
+            return Text("Mapa Vazio")
+
         texto_final = Text(no_wrap=True)
         altura, largura = len(mapa_matriz), len(mapa_matriz[0])
 
-        # 🧠 Varredura engine: Agrupa posições de tudo o que tem geometria e aparência
+        # 🧠 Query eficiente no Esper: Coleta a posição de todas as entidades com aparência
         posicoes_entidades = {}
-        entidades_visiveis = self.engine.get_entities_with("PositionComponent", "RenderComponent")
-        
-        for ent_id in entidades_visiveis:
-            pos = self.engine.get_component(ent_id, "PositionComponent")
-            render = self.engine.get_component(ent_id, "RenderComponent")
+        for ent_id, (pos, render) in esper.get_components(PositionComponent, RenderComponent):
             posicoes_entidades[(pos.y, pos.x)] = render.emoji
 
-        # Montagem do Buffer Visual (Z-Index)
+        # Montagem do Buffer Visual aplicando o Z-Index de renderização
         for y in range(altura):
             for x in range(largura):
                 tile_chao = mapa_matriz[y][x]
                 tile_objeto = dict_objetos.get((y, x))
                 tile_entidade = posicoes_entidades.get((y, x))
-                
+
+                # Descobre o background do terreno abaixo da célula para resolver a transparência
                 cor_bg = CatalogoTiles.obter_cor_fundo(tile_chao)
                 estilo_fundo = f"on {cor_bg}" if cor_bg else ""
 
+                # Prioridade do Z-Index: 1° Entidades ECS, 2° Objetos de Cenário, 3° Terreno Base
                 if tile_entidade is not None:
                     texto_final.append(tile_entidade, style=estilo_fundo)
                 elif tile_objeto is not None:
@@ -42,8 +39,60 @@ class RenderSystem:
                 else:
                     texto_final.append(tile_chao)
             texto_final.append("\n")
-            
+
         return texto_final
+
+
+
+
+# import esper
+# from rich.text import Text
+# from app.core.emojis import CatalogoTiles # Reutiliza o catálogo de cores que criamos para o editor!
+
+# # app/core/engine/render.py
+# from rich.text import Text
+# from app.core.emojis import CatalogoTiles
+
+# class RenderSystem:
+#     def __init__(self, engine_manager):
+#         self.engine = engine_manager
+
+#     def renderizar_frame(self, mapa_matriz: list[list[str]], dict_objetos: dict) -> Text:
+#         if not mapa_matriz: return Text("Mapa Vazio")
+            
+#         texto_final = Text(no_wrap=True)
+#         altura, largura = len(mapa_matriz), len(mapa_matriz[0])
+
+#         # 🧠 Varredura engine: Agrupa posições de tudo o que tem geometria e aparência
+#         posicoes_entidades = {}
+#         entidades_visiveis = self.engine.get_entities_with("PositionComponent", "RenderComponent")
+        
+#         for ent_id in entidades_visiveis:
+#             pos = self.engine.get_component(ent_id, "PositionComponent")
+#             render = self.engine.get_component(ent_id, "RenderComponent")
+#             posicoes_entidades[(pos.y, pos.x)] = render.emoji
+
+#         # Montagem do Buffer Visual (Z-Index)
+#         for y in range(altura):
+#             for x in range(largura):
+#                 tile_chao = mapa_matriz[y][x]
+#                 tile_objeto = dict_objetos.get((y, x))
+#                 tile_entidade = posicoes_entidades.get((y, x))
+                
+#                 cor_bg = CatalogoTiles.obter_cor_fundo(tile_chao)
+#                 estilo_fundo = f"on {cor_bg}" if cor_bg else ""
+
+#                 if tile_entidade is not None:
+#                     texto_final.append(tile_entidade, style=estilo_fundo)
+#                 elif tile_objeto is not None:
+#                     texto_final.append(tile_objeto, style=estilo_fundo)
+#                 else:
+#                     texto_final.append(tile_chao)
+#             texto_final.append("\n")
+            
+#         return texto_final
+    
+    
     
 # class RenderSystem:
 #     """Sistema responsável por compor as camadas visuais (Terreno, Cenário, Entidades)."""

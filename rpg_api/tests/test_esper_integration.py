@@ -2,9 +2,15 @@
 import pytest
 import esper
 from app.db.database import SessionLocal, Base, engine
-from app.models import MapaDB, EventoDB
+from app.models.mapas_db import MapaDB, CenarioDB
+from app.models.eventos_db import EventoDB
+from app.models.plataforma_db import UsuarioDB
+from app.models.personagens_db import PersonagemDB, ClasseRPGDB, RacaDB
 from app.core.engine.components import PositionComponent, RenderComponent, InteractableComponent
+from app.core.engine.components import StatsComponent, InventoryComponent, EquipmentComponent
 from app.core.engine.engine_loader import GameEngineLoader
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
 
 # Esta rotina roda ANTES dos testes. Ela cria as tabelas no banco de teste.
@@ -13,70 +19,184 @@ def setup_module(module):
     pass
 
 # Esta rotina roda DEPOIS dos testes. Ela limpa/apaga as tabelas para o próximo teste ser limpo.
-
-
 def teardown_module(module):
     Base.metadata.drop_all(bind=engine)
     pass
 
 
-def test_deve_carregar_mapa_do_bd_e_popular_o_mundo_esper():
-    """
-    Garante que o GameEngineLoader consegue ler o banco de dados
-    e instanciar corretamente as entidades no contexto global do Esper.
-    """
-    # 1. Limpa o mundo global do Esper para isolar o teste
-    esper.switch_world(esper.list_worlds()[0])
+@pytest.fixture(name="db_session")
+def fixture_db_session():
+    """Cria um banco SQLite isolado em memória para cada teste."""
+    engine = create_engine("sqlite:///:memory:",
+                           connect_args={"check_same_thread": False})
+    Base.metadata.create_all(bind=engine)
+    SessionTesting = sessionmaker(
+        autocommit=False, autoflush=False, bind=engine)
 
+    session = SessionTesting()
+    try:
+        yield session
+    finally:
+        session.close()
+        Base.metadata.drop_all(bind=engine)
+
+@pytest.fixture(name="dados_base")
+def fixture_dados_base(db_session):
+    """Povoa o banco com os templates base de um cenário (Mundo do Criador)."""
+    # 1. Cria o Usuário Criador/Jogador
+    usuario = UsuarioDB(username="mestre_rpg",
+                        email="mestre@rpg.com", senha_hash="123")
+    db_session.add(usuario)
+    db_session.commit()
+
+    # 2. Cria o Cenário/Jogo Independente
+    cenario = CenarioDB(nome="Crônicas de Arton",
+                        descricao="Campanha épica", criador_id=usuario.id)
+    db_session.add(cenario)
+    db_session.commit()
+
+    # 3. Cria registros necessários de Raça e Classe exigidos pelo GameController relacional
+    raca_db = RacaDB(nome="Humano", bonus_atributos={
+                     "forca": 0, "agilidade": 0, "resistencia": 0, "percepcao": 0, "exuberancia": 0}, emoji="🧑")
+    
+    
+    classe_db = ClasseRPGDB(
+        nome="Mago", bonus_caminhos={}, habilidades=[])
+    db_session.add(raca_db)
+    db_session.add(classe_db)
+    db_session.commit()
+
+    # 4. Cria o Personagem Base na tabela real PersonagemDB usando as propriedades reais e chaves estrangeiras
+    personagem = PersonagemDB(
+        nome="Charles",
+        nivel=1,
+        raca_id=raca_db.id,
+        classe_id=classe_db.id,
+        usuario_id=usuario.id,
+        cenario_id=cenario.id,
+        forca_base=1,
+        agilidade_base=2,
+        resistencia_base=1,
+        percepcao_base=1,
+        exuberancia_base=1
+    )
+    db_session.add(personagem)
+    db_session.commit()
+
+    # 5. Cria o Mapa Base (Template)
+    mapa = MapaDB(
+        nome="Vila Inicial",
+        largura=5, altura=5,
+        mapa_em_si=[["🟩" for _ in range(5)] for _ in range(5)],
+        objetos={},
+        configs={"pos_inicial": [2, 2]},
+        cenario_id=cenario.id
+    )
+    db_session.add(mapa)
+    db_session.commit()
+
+    # 6. Cria um Evento de Monstro Base (Template)
+    evento_monstro = EventoDB(
+        mapa_id=mapa.id,
+        nome="Slime",
+        emoji="👾",
+        pos_x=4, pos_y=4,
+        tipo_evento="monstro",
+        parametros={"mover": {"direção": "aleatório"}, "ação": {
+            "quando": "tocar_heroi", "mudar_hp": {"valor": 2}}}
+    )
+    db_session.add(evento_monstro)
+    db_session.commit()
+
+    return {
+        "usuario_id": usuario.id,
+        "cenario_id": cenario.id,
+        "personagem": personagem,
+        "mapa_id": mapa.id,
+        "evento_id": evento_monstro.id 
+    }
+
+
+def test_deve_executar_carregar_engine_do_banco_com_esper():
+    """Garante que o método esperado pela tela limpa o mundo e popula as entidades."""
     with SessionLocal() as db:
-        # 2. SETUP: Criar cenário de teste no Banco de Dados
+        # 1. SETUP: Criar cenário no BD com um monstro/evento
         novo_mapa = MapaDB(
-            nome="Masmorra do Esper",
-            tipo="caverna",
-            altura=2,
-            largura=2,
+            nome="Caverna do Esper",
             mapa_em_si=[["  ", "  "], ["  ", "  "]],
-            objetos={"1,1": "🧱"},
-            cenario_id=1
+            objetos={}
         )
         db.add(novo_mapa)
         db.commit()
         db.refresh(novo_mapa)
 
-        evento_bau = EventoDB(
+        evento = EventoDB(
             mapa_id=novo_mapa.id,
-            nome="Baú Secreto",
-            emoji="📦",
-            pos_x=0,
-            pos_y=1,
-            tipo_evento="bau",
-            parametros={"recompensa": "Espada de Bronze"}
+            nome="Goblin",
+            emoji="👹",
+            pos_x=1,
+            pos_y=0,
+            tipo_evento="monstro",
+            parametros={}
         )
-        db.add(evento_bau)
+        db.add(evento)
         db.commit()
 
-        # 3. AÇÃO: Instanciar o carregador e carregar o mapa
+        # 2. AÇÃO: Executa o método esperado pela UI
         loader = GameEngineLoader()
-        sucesso = loader.carregar_mapa(db, novo_mapa.id)
+        sucesso = loader.carregar_engine_do_banco(db, novo_mapa.id)
 
-        # 4. VALIDAÇÕES:
+        # 3. VALIDAÇÕES COERENTES COM O MOTOR COMPLETO
         assert sucesso is True
-        assert loader.altura == 2
-        assert loader.camada_objetos[(1, 1)] == "🧱"
+        assert loader.nome_mapa == "Caverna do Esper"
 
-        # 5. ASSERÇÕES NO ESPER: O Esper registou a entidade?
-        # Procuramos todas as entidades que contêm o PositionComponent
-        entidades_com_posicao = esper.get_components(PositionComponent)
-        assert len(entidades_com_posicao) == 1
+        # O Esper agora possui 2 entidades com posição (O Jogador injetado + o Goblin do banco)
+        entidades = esper.get_components(PositionComponent)
+        # Atualizado: Jogador (ID 1) + Goblin (Injetado depois)
+        assert len(entidades) == 2
 
-        # Desempacotamos o ID da entidade e a instância do componente
-        entidade_id, pos = entidades_com_posicao[0]
+        # Para testar rigorosamente o Goblin do banco sem ser afetado pelo jogador fixo,
+        # vamos varrer as entidades do Esper procurando quem possui o RenderComponent com o emoji "👹"
+        achou_goblin = False
+        for ent_id, (pos, ren) in esper.get_components(PositionComponent, RenderComponent):
+            if ren.emoji == "👹":
+                achou_goblin = True
+                assert pos.x == 1
+                assert pos.y == 0
+
+        assert achou_goblin is True, "O Goblin vindo do banco de dados não foi encontrado no Esper ECS."
+
+
+def test_deve_atribuir_status_e_inventario_ao_jogador_no_esper( dados_base):
+    
+    esper.switch_world(esper.list_worlds()[0])
+
+
+    with SessionLocal() as db:
+        # Criamos um mapa mock para o loader funcionar
+        #mapa = MapaDB(nome="Cidade Inicial", mapa_em_si=[["  "]], objetos={})
+        mapa = dados_base.get("mapa_id")
+        #db.add(mapa)
+
+        # Simulamos o personagem ID 1 no Banco de Dados
         
-        # Recuperamos os outros componentes acoplados a esse mesmo ID no Esper
-        ren = esper.component_for_entity(entidade_id, RenderComponent)
-        interact = esper.component_for_entity(entidade_id, InteractableComponent)
+        #cls_1 = #ClasseRPGDB("Mago", {}, {})
+        #raca_1 = #RacaDB("elfo", {}, "🧝🏻‍♀️")
+        p_db = dados_base.get("personagem") #db.query(PersonagemDB).filter(PersonagemDB.id == 1).first()
         
-        assert pos[0].x == 0 and pos[0].y == 1
-        assert ren.emoji == "📦"
-        assert interact.tipo_evento == "bau"
-        assert interact.parametros["recompensa"] == "Espada de Bronze"
+
+        # Executamos o Loader
+        loader = GameEngineLoader()
+        loader.carregar_engine_do_banco(db, mapa)
+
+        # O jogador principal deve ter ID 1 no Esper
+        assert esper.entity_exists(1)
+        stats = esper.component_for_entity(1, StatsComponent)
+        inv = esper.component_for_entity(1, InventoryComponent)
+        eqp = esper.component_for_entity(1, EquipmentComponent)
+
+        assert stats.nome == "Charles"
+        assert stats.classe == "Mago"
+        assert stats.max_hp == 15
+        assert isinstance(inv.itens, list)
+        assert eqp.arma is None

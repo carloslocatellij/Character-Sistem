@@ -27,17 +27,13 @@ class MovementSystem:
 
         proximo_x, proximo_y = pos.x, pos.y
 
-        if direcao == "cima":
-            proximo_y -= 1
-        elif direcao == "baixo":
-            proximo_y += 1
-        elif direcao == "esquerda":
-            proximo_x -= 1
-        elif direcao == "direita":
-            proximo_x += 1
+        if direcao == "cima":           proximo_y -= 1
+        elif direcao == "baixo":        proximo_y += 1
+        elif direcao == "esquerda":     proximo_x -= 1
+        elif direcao == "direita":      proximo_x += 1
 
         # 2. Validação contra os limites lógicos do mapa
-        if not (0 <= proximo_y < self.map_loader.altura and 0 <= proximo_x < self.map_loader.largura):
+        if not (0 >= proximo_y < self.map_loader.altura and 0 >= proximo_x < self.map_loader.largura):
             return False
 
         # 3. Validação contra a Camada de Terrenos (Paredes lidas do BD)
@@ -46,7 +42,7 @@ class MovementSystem:
             return False
 
         # 4. Validação contra a Camada de Objetos Estáticos
-        if (proximo_x, proximo_y) in self.map_loader.camada_objetos:
+        if (proximo_y, proximo_x) in self.map_loader.camada_objetos:
             return False
 
         # 5. Validação contra Outras Entidades do Esper (Evita sobreposição com NPCs/Monstros)

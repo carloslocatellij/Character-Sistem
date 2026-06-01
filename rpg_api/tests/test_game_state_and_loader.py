@@ -10,8 +10,8 @@ from app.models.eventos_db import EventoDB
 from app.models.personagens_db import PersonagemDB, RacaDB, ClasseRPGDB
 
 from app.core.engine.game_state import GameStateManager
-from app.core.engine.engine_loader import carregar_engine_do_banco
-from app.core.engine.manager import EngineManager
+from app.core.engine.engine_loader import GameEngineLoader
+from rpg_api._legacy.manager import EngineManager
 from app.core.personagens import Personagem
 
 # ==========================================
@@ -123,7 +123,7 @@ def test_inicializacao_novo_jogo_sem_save(db_session, dados_base, monkeypatch):
     monkeypatch.setattr(Personagem, "__init__", patched_init)
 
     # Executa o carregamento real usando a EngineManager
-    engine, mapa_matriz, objetos, mapa_id = carregar_engine_do_banco(
+    engine, mapa_matriz, objetos, mapa_id = GameEngineLoader.carregar_engine_do_banco(
         db_session=db_session,
         usuario_id=dados_base["usuario_id"],
         cenario_id=dados_base["cenario_id"],
