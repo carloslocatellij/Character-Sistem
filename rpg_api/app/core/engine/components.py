@@ -18,13 +18,6 @@ class RenderComponent:
     """Como a entidade se parece na interface."""
     emoji: str
 
-# @dataclass
-# class InteractableComponent:
-#     """Define que a entidade pode receber uma ação (tecla Enter)."""
-#     tipo_evento: str          # Ex: 'bau', 'npc_dialogo', 'porta'
-#     parametros: dict         # Ex: {'item': 'pocao', 'quantidade': 1}
-#     is_active: bool = True   # Permite desligar a interação (ex: um baú já aberto)
-
 
 @dataclass
 class InteractableComponent:

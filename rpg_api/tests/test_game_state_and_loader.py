@@ -1,5 +1,6 @@
 # rpg_api/tests/test_game_state_and_loader.py
 import pytest
+import esper
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -11,19 +12,22 @@ from app.models.personagens_db import PersonagemDB, RacaDB, ClasseRPGDB
 
 from app.core.engine.game_state import GameStateManager
 from app.core.engine.engine_loader import GameEngineLoader
-from rpg_api._legacy.manager import EngineManager
-from app.core.personagens import Personagem
+from app.core.engine.components import PositionComponent, StatsComponent
 
-# ==========================================
-# INFRAESTRUTURA DE BANCO DE DADOS EM MEMÓRIA
-# ==========================================
+# ==============================================================================
+# 🧼 FIXTURES DE INFRAESTRUTURA E RESET DO ESPER
+# ==============================================================================
+
+
 @pytest.fixture(name="db_session")
 def fixture_db_session():
     """Cria um banco SQLite isolado em memória para cada teste."""
-    engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
+    engine = create_engine("sqlite:///:memory:",
+                           connect_args={"check_same_thread": False})
     Base.metadata.create_all(bind=engine)
-    SessionTesting = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-    
+    SessionTesting = sessionmaker(
+        autocommit=False, autoflush=False, bind=engine)
+
     session = SessionTesting()
     try:
         yield session
@@ -32,209 +36,119 @@ def fixture_db_session():
         Base.metadata.drop_all(bind=engine)
 
 
+@pytest.fixture(autouse=True)
+def reset_esper_antes_de_cada_teste():
+    """Garante isolamento absoluto limpando a memória do Esper ECS."""
+    esper.clear_database()
+    if esper.list_worlds():
+        esper.switch_world(esper.list_worlds()[0])
+    else:
+        esper.switch_world(esper.World())
+
+
 @pytest.fixture(name="dados_base")
 def fixture_dados_base(db_session):
     """Povoa o banco com os templates base de um cenário (Mundo do Criador)."""
-    # 1. Cria o Usuário Criador/Jogador
-    usuario = UsuarioDB(username="mestre_rpg", email="mestre@rpg.com", senha_hash="123")
+    # 1. Cria Raça e Classe obrigatórias para os relacionamentos de PersonagemDB
+    raca = RacaDB(nome="Humano", bonus_atributos={}, emoji="🧍")
+    classe = ClasseRPGDB(nome="Mago", bonus_caminhos={}, habilidades={})
+    db_session.add_all([raca, classe])
+    db_session.commit()
+
+    # 2. Cria a infraestrutura do Cenário e do Mapa
+    usuario = UsuarioDB(username="charles_admin",
+                        email="admin@rpg.com", senha_hash="123")
     db_session.add(usuario)
     db_session.commit()
 
-    # 2. Cria o Cenário/Jogo Independente
-    cenario = CenarioDB(nome="Crônicas de Arton", descricao="Campanha épica", criador_id=usuario.id)
+    cenario = CenarioDB(nome="Aventura de Teste",
+                        criador_id=usuario.id, descricao="Cenário para testes unitários")
     db_session.add(cenario)
     db_session.commit()
-
-    # 3. Cria registros necessários de Raça e Classe exigidos pelo GameController relacional
-    raca_db = RacaDB(nome="Humano", bonus_atributos={"forca": 0, "agilidade": 0, "resistencia": 0, "percepcao": 0, "exuberancia": 0}, emoji="🧑")
-    classe_db = ClasseRPGDB(nome="Guerreiro", bonus_caminhos={}, habilidades=[])
-    db_session.add(raca_db)
-    db_session.add(classe_db)
-    db_session.commit()
-
-    # 4. Cria o Personagem Base na tabela real PersonagemDB usando as propriedades reais e chaves estrangeiras
-    personagem = PersonagemDB(
-        nome="Ragnar",
-        nivel=1,
-        raca_id=raca_db.id,
-        classe_id=classe_db.id,
-        forca_base=15,
-        agilidade_base=12,
-        resistencia_base=14,
-        percepcao_base=10,
-        exuberancia_base=10,
-        usuario_id=usuario.id
+    # 2. Cria o Personagem ID 1 (Jogador principal)
+    
+    jogador_db = PersonagemDB(
+        id=1, nome="Charles", nivel=1, raca_id=raca.id, classe_id=classe.id,
+        usuario_id=usuario.id, cenario_id=cenario.id, forca_base=5, agilidade_base=5, resistencia_base=5,
+        percepcao_base=5, exuberancia_base=5
     )
-    db_session.add(personagem)
+    db_session.add(jogador_db)
     db_session.commit()
+   
 
-    # 5. Cria o Mapa Base (Template)
-    mapa = MapaDB(
-        nome="Vila Inicial",
-        largura=5, altura=5,
-        mapa_em_si=[["🟩" for _ in range(5)] for _ in range(5)],
-        objetos={},
-        configs={"pos_inicial": [2, 2]},
-        cenario_id=cenario.id
-    )
+    mapa = MapaDB(nome="Masmorra Central", altura=2, largura=2, tile_parede="🧱",
+                  tile_chao="🪵", mapa_em_si=[["  " for _ in range(10)] for _ in range(10)], objetos={}, cenario_id=cenario.id)
     db_session.add(mapa)
     db_session.commit()
 
-    # 6. Cria um Evento de Monstro Base (Template)
+
+    # 4. Adiciona um Evento (Monstro) associado a esse mapa
     evento_monstro = EventoDB(
-        mapa_id=mapa.id,
-        nome="Slime",
-        emoji="👾",
-        pos_x=4, pos_y=4,
-        tipo_evento="monstro",
-        parametros={"mover": {"direção": "aleatório"}, "ação": {"quando": "tocar_heroi", "mudar_hp": {"valor": 2}}}
+        mapa_id=mapa.id, nome="Orc Soldado", emoji="🧌",
+        pos_x=1, pos_y=1, tipo_evento="monstro", parametros={}
     )
     db_session.add(evento_monstro)
     db_session.commit()
+
 
     return {
         "usuario_id": usuario.id,
         "cenario_id": cenario.id,
         "mapa_id": mapa.id,
-        "evento_id": evento_monstro.id + 1000
+        "evento_id": evento_monstro.id
     }
 
 
-# ==========================================
-# SUÍTE DE TESTES DE INTEGRAÇÃO
-# ==========================================
+# ==============================================================================
+# ⚔️ SUÍTE DE TESTES UNITÁRIOS DO GAME STATE & LOADER
+# ==============================================================================
+def test_deve_inicializar_engine_loader_e_popular_mundo_com_esper(db_session, dados_base):
+    """Garante que o GameEngineLoader consegue ler o cenário do banco e montar o Esper."""
+    loader = GameEngineLoader()
+    sucesso = loader.carregar_engine_do_banco(
+        db_session, dados_base["mapa_id"])
 
-def test_inicializacao_novo_jogo_sem_save(db_session, dados_base, monkeypatch):
-    """Garante que se não houver save, o motor carrega o estado original do editor (Base)."""
-    
-    # Conseguimos capturar a instanciação real de Personagem e acoplar dinamicamente 
-    # as propriedades temporárias de compatibilidade lidas pelo engine_loader
-    original_init = Personagem.__init__
-    
-    def patched_init(self, *args, **kwargs):
-        original_init(self, *args, **kwargs)
-        # Acopla propriedades dinâmicas avaliando os métodos reais do seu domínio
-        self.ataque = self.mod_atq_corpo
-        if self.armadura:
-            self.defesa = self.armadura.defesa
-        else:
-            self.defesa = 0
+    assert sucesso is True
+    assert loader.nome_mapa == "Masmorra Central"
 
-    monkeypatch.setattr(Personagem, "__init__", patched_init)
+    esper.create_entity()  # Força a criação de uma entidade para validar o mundo
 
-    # Executa o carregamento real usando a EngineManager
-    engine, mapa_matriz, objetos, mapa_id = GameEngineLoader.carregar_engine_do_banco(
-        db_session=db_session,
-        usuario_id=dados_base["usuario_id"],
-        cenario_id=dados_base["cenario_id"],
-        slot_numero=1
-    )
+    # Deve conter 2 entidades: Jogador (Injetado) + Orc Soldado (Banco)
+    position_components = list(esper.get_components(PositionComponent))
+    assert len(position_components) == 2
 
-    from app.core.engine.components import PositionComponent
-    engine.add_component(dados_base["usuario_id"], PositionComponent(x=2, y=2))
-    
-    # Verificações de Consistência
-    assert mapa_id == dados_base["mapa_id"]
-    assert len(mapa_matriz) == 5
-    
-    # O Jogador (ID 1) deve herdar as coordenadas padrão do cenário (dados_base["evento_id"], 2)
-    pos_jogador = engine.get_component(dados_base["usuario_id"], "PositionComponent")
-    assert pos_jogador.x == 2
-    assert pos_jogador.y == 2
-    
-    # O Monstro deve iniciar na sua respectiva coordenada de spawn (4, 4)
-    pos_monstro = engine.get_component(dados_base["evento_id"], "PositionComponent")
-    assert pos_monstro.x == 4
-    assert pos_monstro.y == 4
+    # Valida se o herói nasceu com a árvore de componentes correta
+    stats_components = list(esper.get_components(StatsComponent))
+    player_entities = [entity for entity, stats in stats_components if stats[0].nome == "Charles"]
+    assert len(player_entities) == 1
+
+    player_entity = player_entities[0]
+    assert esper.entity_exists(player_entity) is True
+
+    pos_player = esper.component_for_entity(player_entity, PositionComponent)
+    stats_player = esper.component_for_entity(player_entity, StatsComponent)
+
+    # Posição inicial segura do fallback
+    assert pos_player.x == 2 and pos_player.y == 2
+    assert stats_player.nome == "Charles"
 
 
-def test_salvamento_e_carregamento_com_delta(db_session, dados_base, monkeypatch):
-    """Garante o ciclo base+delta: move entidades, salva no BD, limpa a memória e reverte as posições modificadas."""
-    
-    original_init = Personagem.__init__
-    
-    def patched_init(self, *args, **kwargs):
-        original_init(self, *args, **kwargs)
-        self.ataque = self.mod_atq_corpo
-        if self.armadura:
-            self.defesa = self.armadura.defesa
-        else:
-            self.defesa = 0
- 
-
-    monkeypatch.setattr(Personagem, "__init__", patched_init)
-
-    # 1. Realiza o carregamento inicial limpo da infraestrutura do mapa
-    engine, _, _, _ = carregar_engine_do_banco(db_session, dados_base["usuario_id"], dados_base["cenario_id"], slot_numero=1)
+def test_game_state_manager_salvamento_e_recuperacao_de_switches(db_session, dados_base):
+    """Testa se os seletores lógicos (Switches) persistem dinamicamente através do GameStateManager."""
     gsm = GameStateManager()
+    gsm.set_switch("porta_aberta", True)
+    gsm.set_variable("ouro_acumulado", 250)
 
-    from app.core.engine.components import PositionComponent, StatsComponent, InventoryComponent, EquipmentComponent
-    engine.add_component(dados_base["usuario_id"], PositionComponent(x=2, y=2))
-    engine.add_component(dados_base["usuario_id"], StatsComponent(nome="Ragnar", hp=45, max_hp=45, mp=12, max_mp=12, ataque_base=15, defesa_base=10))
-    engine.add_component(dados_base["usuario_id"], InventoryComponent(itens={}))
-    engine.add_component(dados_base["usuario_id"], EquipmentComponent())
-    
-    # 2. APLICA MODIFICAÇÕES DINÂMICAS DE TEMPO DE EXECUÇÃO
-    pos_jogador = engine.get_component(dados_base["usuario_id"], "PositionComponent")
-    pos_jogador.x = 0; pos_jogador.y = 0 
-    
-    engine.add_component(dados_base["evento_id"], PositionComponent(x=2, y=2))
-    
-    pos_monstro = engine.get_component(dados_base["evento_id"], "PositionComponent")
-    pos_monstro.x = 1; pos_monstro.y = 1 
-    
-    # Atualiza componentes vitais do motor geométrico
-    stats_jogador = engine.get_component(dados_base["usuario_id"], "StatsComponent")
-    stats_jogador.hp = 30 
-    
-    inv_jogador = engine.get_component(dados_base["usuario_id"], "InventoryComponent")
-    inv_jogador.itens["espada_lendaria"] = 1 
+    # Cria e salva o registro na tabela 'saves' (Slot 1)
+    save_id = gsm.salvar_sessao_no_banco(
+        db_session, dados_base["usuario_id"], dados_base["cenario_id"], dados_base["mapa_id"], slot=1)
+    assert save_id is not None
 
-    gsm.set_switch("missao_concluida", True)
-    gsm.set_variable("nome_aliado", "Carlos")
-
-    # 3. SALVA O SNAPSHOT CORRENTE DIRETAMENTE NA TABELA SAVEDB
-    gsm.salvar_sessao_no_banco(
-        ecs_manager=engine,
-        db_session=db_session,
-        usuario_id=dados_base["usuario_id"],
-        cenario_id=dados_base["cenario_id"],
-        mapa_atual_id=dados_base["mapa_id"],
-        slot=1
-    )
-
-    # Certifica-se de que o registro JSON estruturado foi guardado no SQLite relacional
-    save_no_banco = db_session.query(SaveDB).filter(SaveDB.usuario_id == dados_base["usuario_id"]).first()
-    assert save_no_banco is not None
-    assert save_no_banco.dados_sessao["switches"]["missao_concluida"] is True
-    assert save_no_banco.dados_sessao["variables"]["nome_aliado"] == "Carlos"
-
-    # ==========================================
-    # 4. SIMULAÇÃO DE RESET: RECARREGA A SESSÃO SALVA DO BANCO (LOAD)
-    # ==========================================
+    # Instancia um novo gerenciador zerado para simular o fechamento e reabertura do jogo
     novo_gsm = GameStateManager()
-    dados_carregados = novo_gsm.carregar_sessao_do_banco(db_session, dados_base["usuario_id"], dados_base["cenario_id"], slot=1)
-    
+    dados_carregados = novo_gsm.carregar_sessao_do_banco(
+        db_session, dados_base["usuario_id"], dados_base["cenario_id"], slot=1)
+
     assert dados_carregados is not None
-    assert novo_gsm.get_switch("missao_concluida") is True
-    assert novo_gsm.get_variable("nome_aliado") == "Carlos"
-
-    # Executa um novo carregar_engine_do_banco que deve preferir os dados do Delta
-    novo_engine, _, _, _ = carregar_engine_do_banco(
-        db_session, dados_base["usuario_id"], dados_base["cenario_id"], slot_numero=1
-    )
-
-    # 5. AS VALIDAÇÕES FINAIS (Garantia de persistência mutável)
-    pos_jogador_carregado = novo_engine.get_component(dados_base["usuario_id"], "PositionComponent")
-    assert pos_jogador_carregado.x == 0
-    assert pos_jogador_carregado.y == 0  # Prevaleceu a coordenada salva (0,0) sobre o template (dados_base["evento_id"],2)
-
-    pos_monstro_carregado = novo_engine.get_component(dados_base["evento_id"], "PositionComponent")
-    assert pos_monstro_carregado.x == 1
-    assert pos_monstro_carregado.y == 1  # Prevaleceu a coordenada salva (dados_base["usuario_id"],1) sobre o template (4,4)
-
-    stats_jogador_carregado = novo_engine.get_component(dados_base["usuario_id"], "StatsComponent")
-    assert stats_jogador_carregado.hp == 30  
-
-    inv_jogador_carregado = novo_engine.get_component(dados_base["usuario_id"], "InventoryComponent")
-    assert inv_jogador_carregado.itens.get("espada_lendaria") == 1
+    assert novo_gsm.get_switch("porta_aberta") is True
+    assert novo_gsm.get_variable("ouro_acumulado") == 250

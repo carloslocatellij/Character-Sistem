@@ -13,6 +13,7 @@ class UsuarioDB(Base):
 
     # Relacionamentos
     cenarios_criados = relationship("CenarioDB", back_populates="criador")
+    personagens = relationship("PersonagemDB", back_populates="usuario")
     saves = relationship("SaveDB", back_populates="usuario")
 
     
@@ -24,8 +25,8 @@ class SaveDB(Base):
     __tablename__ = "saves"
 
     id = Column(Integer, primary_key=True, index=True)
-    usuario_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False)
-    cenario_id = Column(Integer, ForeignKey("cenarios.id"), nullable=False)
+    usuario_id = Column(Integer, ForeignKey("usuarios.id", ondelete="CASCADE"), nullable=False)
+    cenario_id = Column(Integer, ForeignKey("cenarios.id", ondelete="CASCADE"), nullable=False)
     slot_numero = Column(Integer, default=1, nullable=False)
     dados_sessao = Column(JSON, nullable=False)
     

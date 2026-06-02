@@ -48,8 +48,8 @@ class PersonagemDB(Base):
     nivel = Column(Integer, default=1)
     raca_id = Column(Integer, ForeignKey("racas.id"), nullable=False)
     classe_id = Column(Integer, ForeignKey("classes_rpg.id"), nullable=False)
-    usuario_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False)
-    cenario_id = Column(Integer, ForeignKey("cenarios.id"))
+    usuario_id = Column(Integer, ForeignKey("usuarios.id", ondelete="CASCADE"))
+    cenario_id = Column(Integer, ForeignKey("cenarios.id", ondelete="CASCADE"))
 
     # ATRIBUTOS BASE (Status puros, sem modificadores)
     forca_base = Column(Integer, default=1)
@@ -66,6 +66,8 @@ class PersonagemDB(Base):
     # RELACIONAMENTOS (ORM)
     raca = relationship("RacaDB", back_populates="personagens")
     classe = relationship("ClasseRPGDB", back_populates="personagens")
+    usuario = relationship("UsuarioDB", back_populates="personagens")
+    cenario = relationship("CenarioDB", back_populates="personagens")
 
 
     # RELACIONAMENTOS DOS EQUIPAMENTOS
