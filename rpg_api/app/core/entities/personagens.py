@@ -1,9 +1,9 @@
 import random
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, field
-from app.core.equipamentos import Arma, Armadura, Escudo, Item
-from app.core.habilidades_magias import Magia, Habilidade, Efeito
-from app.core.emojis import dict_emoji_racas
+from app.core.entities.equipamentos import Arma, Armadura, Escudo, Item
+from app.core.entities.habilidades_magias import Magia, Habilidade, Efeito
+from app.core.entities.emojis import dict_emoji_racas
 from math import ceil
 
 # ... (Mantenha as classes Raca e ClasseRPG exatamente como fizemos antes) ...

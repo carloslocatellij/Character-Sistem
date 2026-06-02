@@ -4,23 +4,21 @@ from textual.widgets import Static, RichLog, Label, Input
 from textual.containers import Container, ScrollableContainer
 from textual.events import Key
 from textual import on
-from time import sleep
 
 from app.db.database import SessionLocal
-from app.core.emojis import CatalogoTiles
-from app.core.engine.event_bus import EventBus
-from app.core.engine.systems import MovementSystem, InteractionSystem, AISystem
-from app.core.engine.render import RenderSystem
+from app.core.engine.systems import MovementSystem, InteractionSystem, AISystem, RenderSystem
 from app.core.engine.engine_loader import GameEngineLoader
 from app.core.engine.components import PositionComponent, RenderComponent, PlayerControlComponent
 
+
 class GamePlayScreen(Screen):
-    CSS_PATH = "game_styles.tcss"
+    CSS_PATH = "styles/game_styles.css"
     
     def __init__(self, mapa_id: int, personagem_id: int = 1):
         super().__init__()
         self.mapa_id = mapa_id
         self.personagem_id = personagem_id
+        self.direcao_olhar = "baixo"
 
         # Inicializa o Barramento e Carregador da Engine
         self.loader = GameEngineLoader()
@@ -31,7 +29,6 @@ class GamePlayScreen(Screen):
         self.movimento_sys = None
         self.interacao_sys = None
         self.render_sys = RenderSystem()
-        self.direcao_olhar = "baixo"
 
     def compose(self):
         with Container(id="game-layout"):
@@ -76,8 +73,9 @@ class GamePlayScreen(Screen):
                 
             self.mapa_matriz = self.loader.matriz_terrenos
             self.mapa_objetos = self.loader.camada_objetos
-            self.mapa_id = 1 #para não qubrar
+            self.mapa_id = self.loader.mapa_id
             
+            # TODO: teste pratico mostrou que o engine_load cria a entidade; limpar
             if not esper.entity_exists(1):
                 esper.create_entity(
                     PositionComponent(x=9, y=9),
@@ -90,7 +88,6 @@ class GamePlayScreen(Screen):
             # Interações com o Esper
             self.interacao_sys = InteractionSystem(self.loader.event_bus)
             
-            #self.render_sys = RenderSystem(self.engine_manager)
             self.ai_sys = AISystem(self.loader,
                                    self.movimento_sys, self.interacao_sys)
 
@@ -182,6 +179,7 @@ class GamePlayScreen(Screen):
         
     #     self.atualizar_paineis_status()
 
+
     # ==========================================
     # INTERPRETADOR DE COMANDOS DO TERMINAL (SUBMIT INPUT)
     # ==========================================
@@ -252,7 +250,7 @@ class GamePlayScreen(Screen):
         else:
             log.write(f"[red]Comando desconhecido: '{comando}'. Tente /usar ou /equipar.[/]")
         
-        self.atualizar_paineis_status()
+        #self.atualizar_paineis_status()
 
     # ==========================================
     # INPUTS DE MOVIMENTAÇÃO (MANTÉM O FOCO FORA DO PROMPT AO USAR SETAS)
@@ -267,20 +265,20 @@ class GamePlayScreen(Screen):
 
         if key in ("up", "w"):
             self.direcao_olhar = "cima"
-            self.centralizar_camera_no_jogador()
             moveu = self.movimento_sys.mover_entidade(1, "cima")
+            self.centralizar_camera_no_jogador()
         elif key in ("down", "s"):
             self.direcao_olhar = "baixo"
-            self.centralizar_camera_no_jogador()
             moveu = self.movimento_sys.mover_entidade(1, "baixo")
+            self.centralizar_camera_no_jogador()
         elif key in ("left", "a"):
             self.direcao_olhar = "esquerda"
-            self.centralizar_camera_no_jogador()
             moveu = self.movimento_sys.mover_entidade(1, "esquerda")
+            self.centralizar_camera_no_jogador()
         elif key in ("right", "d"):
             self.direcao_olhar = "direita"
-            self.centralizar_camera_no_jogador()
             moveu = self.movimento_sys.mover_entidade(1, "direita")
+            self.centralizar_camera_no_jogador()
         elif key == "enter":
             # Se o foco estiver no prompt do terminal, deixa o submit do input agir e ignora o raio
             if self.focused == self.query_one("#terminal-prompt"):

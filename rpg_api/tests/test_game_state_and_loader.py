@@ -129,7 +129,7 @@ def test_deve_inicializar_engine_loader_e_popular_mundo_com_esper(db_session, da
     stats_player = esper.component_for_entity(player_entity, StatsComponent)
 
     # Posição inicial segura do fallback
-    assert pos_player.x == 2 and pos_player.y == 2
+    assert pos_player.x == 45 and pos_player.y == 45
     assert stats_player.nome == "Charles"
 
 

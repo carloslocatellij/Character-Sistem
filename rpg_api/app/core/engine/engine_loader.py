@@ -1,5 +1,3 @@
-
-# rpg_api/app/core/engine/engine_loader.py
 import esper
 from sqlalchemy.orm import Session
 from app.core.engine.event_bus import EventBus
@@ -12,6 +10,20 @@ from app.core.engine.components import (PositionComponent, RenderComponent,
 
 
 class GameEngineLoader:
+    """
+    Gerencia carregamento, componentização e tradução de dados para entidades.
+    Args:
+        envent_bus = EventBus()
+        mapa_id = None
+        nome_mapa = ""
+        matriz_terrenos = []
+        camada_objetos = {}
+        altura = 0
+        largura = 0
+    Methods:
+        carregar_engine_do_banco(Session, mapa_id) -> bool
+    """
+    
     def __init__(self):
         self.event_bus = EventBus()
         self.mapa_id = None
@@ -95,7 +107,7 @@ class GameEngineLoader:
             print(f"erro ao acessar ou alimentar comp status: {e_bd}")
 
         # Posição inicial segura para o jogador nascer
-        px, py = 2, 2
+        px, py = 45, 45
 
         # Itens iniciais para garantir o funcionamento dos comandos do Chat (/inventario, /equipar)
         itens_iniciais = [
@@ -109,7 +121,7 @@ class GameEngineLoader:
         # Cria rigidamente a entidade do jogador (ID 1) no Esper com todos os componentes acoplados
         esper.create_entity(
             PositionComponent(x=px, y=py),
-            RenderComponent(emoji="🧙🏻‍♂️"),
+            RenderComponent(emoji="🦀"),
             PlayerControlComponent(),
             stats_comp,
             InventoryComponent(itens=itens_iniciais),

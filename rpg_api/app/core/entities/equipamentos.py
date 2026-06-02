@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from typing import Optional
-from app.core.emojis import dict_item_emoji
+from app.core.entities.emojis import dict_item_emoji
 
 # ==========================================
 # DOMÍNIO: SISTEMA DE EQUIPAMENTOS

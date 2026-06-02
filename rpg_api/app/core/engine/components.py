@@ -1,4 +1,3 @@
-
 from dataclasses import dataclass, field
 from typing import Dict, Any, Optional, Callable, List
 
@@ -17,7 +16,6 @@ class CollisionComponent:
 class RenderComponent:
     """Como a entidade se parece na interface."""
     emoji: str
-
 
 @dataclass
 class InteractableComponent:
@@ -38,7 +36,6 @@ class AIComponent:
     tipo_movimento: str       # Ex: "aleatório", "patrulha", "seguir"
     action_on_touch: dict    # O que faz se esbarrar em alguém
 
-
 @dataclass
 class StatsComponent:
     """Guarda os atributos de combate e informações vitais do personagem."""
@@ -51,13 +48,11 @@ class StatsComponent:
     ataque_base: int
     defesa_base: int
     
-
 @dataclass
 class InventoryComponent:
     """Armazena os itens que o personagem está carregando."""
     # Lista de dicionários representando os itens: [{"id": 1, "nome": "Poção", "tipo": "consumivel", "bonus": 0}]
     itens: List[Dict[str, Any]] = field(default_factory=list)
-
 
 @dataclass
 class EquipmentComponent:
@@ -67,3 +62,4 @@ class EquipmentComponent:
                    ] = None
     # Ex: {"nome": "Cota de Malha", "bonus_def": 5}
     armadura: Optional[Dict[str, Any]] = None
+    escudo: Optional[Dict[str, Any]] = None

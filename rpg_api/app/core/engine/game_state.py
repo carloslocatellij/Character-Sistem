@@ -1,4 +1,3 @@
-# app/core/engine/game_state.py
 import esper
 from app.models.plataforma_db import SaveDB
 from app.core.engine.components import PositionComponent, StatsComponent, RenderComponent, InteractableComponent

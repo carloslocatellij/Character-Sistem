@@ -37,30 +37,3 @@ class EventBus:
                     # Logs de salvaguarda para evitar que um erro na UI trave o loop interno da Engine
                     print(
                         f"[EventBus Error] Falha ao processar evento '{tipo_evento}': {e}")
-                    
-                    
-# class EventBus:
-#     """
-#     Sistema de Mensageria (Pub/Sub) para desacoplar a Engine da Interface.
-#     """
-#     def __init__(self):
-#         # Dicionário que guarda: {"tipo_do_evento": [lista_de_funcoes_callback]}
-#         self._listeners = {}
-
-#     def subscribe(self, tipo_evento: str, callback):
-#         """Inscreve uma função para escutar um tipo específico de evento."""
-#         if tipo_evento not in self._listeners:
-#             self._listeners[tipo_evento] = []
-        
-#         # Evita inscrever a mesma função duas vezes
-#         if callback not in self._listeners[tipo_evento]:
-#             self._listeners[tipo_evento].append(callback)
-
-#     def emit(self, tipo_evento: str, event_data: dict = None):
-#         """Grita para todos os ouvintes que o evento aconteceu, passando os dados."""
-#         if event_data is None:
-#             event_data = {}
-            
-#         if tipo_evento in self._listeners:
-#             for callback in self._listeners[tipo_evento]:
-#                 callback(event_data)

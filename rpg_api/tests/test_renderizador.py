@@ -1,7 +1,7 @@
 # rpg_api/tests/test_renderizador.py
 import pytest
 import esper
-from app.core.engine.render import RenderSystem
+from app.core.engine.systems import RenderSystem
 from app.core.engine.components import PositionComponent, RenderComponent
 
 

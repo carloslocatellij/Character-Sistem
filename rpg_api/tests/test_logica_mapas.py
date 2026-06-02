@@ -1,5 +1,5 @@
 import pytest
-from app.core.emojis import  CatalogoTiles, padronizar_largura_tile
+from app.core.entities.emojis import  CatalogoTiles, padronizar_largura_tile
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from app.db.database import Base

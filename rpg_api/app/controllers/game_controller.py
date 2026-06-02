@@ -2,12 +2,12 @@ from sqlalchemy.orm import Session
 from typing import List, Dict, Any
 from app.models.personagens_db import PersonagemDB, RacaDB, ClasseRPGDB
 from app.models.equipamentos_db import ItemDB
-from app.core.personagens import Personagem, Raca, ClasseRPG
-from app.core.simulador import SimuladorCombate
-from app.core.equipamentos import Arma, Armadura, Escudo
+from app.core.entities.personagens import Personagem, Raca, ClasseRPG
+from app.views.simulador import SimuladorCombate
+from app.core.entities.equipamentos import Arma, Armadura, Escudo
 
 from app.models.mapas_db import MapaDB
-from app.core.mapas import GestorDeMapas
+from app.core.entities.mapas import GestorDeMapas
 
 class GameController:
     def __init__(self, db: Session):

@@ -1,12 +1,48 @@
 import esper
-from app.core.engine.components import PositionComponent, InteractableComponent
-from app.core.emojis import CatalogoTiles
+from rich.text import Text
+from app.core.engine.components import PositionComponent, InteractableComponent, RenderComponent
+from app.core.entities.emojis import CatalogoTiles
 bloqueantes = CatalogoTiles.TERRENOS_BLOQUEANTES
 import random
 
 
-# rpg_api/app/core/engine/systems.py
+class RenderSystem:
+    """Sistema responsável por compilar as camadas de Terreno, Objetos e Esper ECS em um único frame Text."""
 
+    def renderizar_frame(self, mapa_matriz: list[list[str]], dict_objetos: dict) -> Text:
+        if not mapa_matriz:
+            return Text("Mapa Vazio")
+
+        texto_final = Text(no_wrap=True)
+        altura, largura = len(mapa_matriz), len(mapa_matriz[0])
+
+        # 🧠 Query eficiente no Esper: Coleta a posição de todas as entidades com aparência
+        posicoes_entidades = {}
+        for ent_id, (pos, render) in esper.get_components(PositionComponent, RenderComponent):
+            posicoes_entidades[(pos.y, pos.x)] = render.emoji
+
+        # Montagem do Buffer Visual aplicando o Z-Index de renderização
+        for y in range(altura):
+            for x in range(largura):
+                tile_chao = mapa_matriz[y][x]
+                tile_objeto = dict_objetos.get((y, x))
+                tile_entidade = posicoes_entidades.get((y, x))
+
+                # Descobre o background do terreno abaixo da célula para resolver a transparência
+                cor_bg = CatalogoTiles.obter_cor_fundo(tile_chao)
+                estilo_fundo = f"on {cor_bg}" if cor_bg else ""
+
+                # Prioridade do Z-Index: 1° Entidades ECS, 2° Objetos de Cenário, 3° Terreno Base
+                if tile_entidade is not None:
+                    texto_final.append(tile_entidade, style=estilo_fundo)
+                elif tile_objeto is not None:
+                    texto_final.append(tile_objeto, style=estilo_fundo)
+                else:
+                    texto_final.append(tile_chao)
+            texto_final.append("\n")
+
+        return texto_final
+    
 
 class MovementSystem:
     """Sistema lógico encarregado de validar a física e colisões de movimentos."""
@@ -55,75 +91,8 @@ class MovementSystem:
         pos.x = proximo_x
         pos.y = proximo_y
         return True
-
-
-
-# class MovementSystem:
-#     """Sistema responsável por processar as regras de física e atualizar posições."""
     
-#     # ✅ NOVO: Adicionado dict_objetos (com valor padrão vazio para não quebrar os testes antigos)
-#     def __init__(self, engine_manager, mapa_matriz: list[list[str]], dict_objetos: dict = None):
-#         self.engine = engine_manager
-#         self.mapa = mapa_matriz
-#         self.tiles_bloqueio = bloqueantes
-#         self.objetos = dict_objetos if dict_objetos is not None else {} # Guarda os objetos estáticos
-
-#     def move_entity(self, entity_id: int, dx: int, dy: int) -> bool:
-#         # ... (O código deste método mantém-se exatamente igual)
-#         pos_comp = self.engine.get_component(entity_id, "PositionComponent")
-#         if not pos_comp:
-#             return False
-
-#         self._update_direction(pos_comp, dx, dy)
-#         novo_x = pos_comp.x + dx
-#         novo_y = pos_comp.y + dy
-
-#         if self._can_move_to(novo_x, novo_y):
-#             pos_comp.x = novo_x
-#             pos_comp.y = novo_y
-#             return True
-            
-#         return False
-
-#     def _update_direction(self, pos_comp, dx: int, dy: int):
-#         # ... (Mantém-se igual)
-#         if dy == -1: pos_comp.direcao_olhar = "cima"
-#         elif dy == 1: pos_comp.direcao_olhar = "baixo"
-#         elif dx == -1: pos_comp.direcao_olhar = "esquerda"
-#         elif dx == 1: pos_comp.direcao_olhar = "direita"
-
-#     def _can_move_to(self, x: int, y: int) -> bool:
-#         # A) Limites do Mapa
-#         altura = len(self.mapa)
-#         if altura == 0: return False
-#         largura = len(self.mapa[0])
-        
-#         if not (0 <= y < altura and 0 <= x < largura):
-#             return False
-
-#         # B) Colisão com a Matriz (Chão estático)
-#         tile_chao = self.mapa[y][x].strip()
-#         if tile_chao in self.tiles_bloqueio:
-#             return False
-
-#         # ✅ C) Colisão com Objetos de Cenário (Árvores, Cadeiras, etc)
-#         # O dicionário usa a tupla (linha, coluna) que corresponde a (y, x)
-#         if (y, x) in self.objetos:
-#             return False
-
-#         # D) Colisão com outras Entidades (NPCs, Baús)
-#         solid_entities = self.engine.get_entities_with("PositionComponent", "CollisionComponent")
-        
-#         for ent_id in solid_entities:
-#             ent_pos = self.engine.get_component(ent_id, "PositionComponent")
-#             ent_col = self.engine.get_component(ent_id, "CollisionComponent")
-            
-#             if ent_col.solido and ent_pos.x == x and ent_pos.y == y:
-#                 return False
-
-#         return True
-
-
+    
 class InteractionSystem:
     def __init__(self, event_bus=None):
         self.event_bus = event_bus
@@ -155,40 +124,6 @@ class InteractionSystem:
                     return True
         return False
 
-# class InteractionSystem:
-#     def __init__(self, engine_manager, event_bus): # <- NOVO: Recebe o mensageiro
-#         self.engine = engine_manager
-#         self.event_bus = event_bus
-
-#     def interact(self, entity_id: int):
-#         pos_comp = self.engine.get_component(entity_id, "PositionComponent")
-#         if not pos_comp: return
-
-#         target_x, target_y = pos_comp.x, pos_comp.y
-#         if pos_comp.direcao_olhar == "cima": target_y -= 1
-#         elif pos_comp.direcao_olhar == "baixo": target_y += 1
-#         elif pos_comp.direcao_olhar == "esquerda": target_x -= 1
-#         elif pos_comp.direcao_olhar == "direita": target_x += 1
-
-#         interactable_entities = self.engine.get_entities_with("PositionComponent", "InteractableComponent")
-        
-#         for alvo_id in interactable_entities:
-#             alvo_pos = self.engine.get_component(alvo_id, "PositionComponent")
-#             alvo_interact = self.engine.get_component(alvo_id, "InteractableComponent")
-            
-#             if alvo_pos.x == target_x and alvo_pos.y == target_y and alvo_interact.is_active:
-                
-#                 # 🪄 A MÁGICA ACONTECE AQUI:
-#                 # Em vez de um simples 'return', a Engine emite o evento para o universo!
-#                 payload = {
-#                     "entity_id": alvo_id,
-#                     "parametros": alvo_interact.parametros
-#                 }
-                
-#                 # Exemplo: emite("bau", {"entity_id": 2, "parametros": {"item": "Espada"}})
-#                 self.event_bus.emit(alvo_interact.tipo_evento, payload)
-#                 return
-            
 
 class AISystem:
     """Sistema que processa a inteligência artificial (movimento autônomo e ações)."""

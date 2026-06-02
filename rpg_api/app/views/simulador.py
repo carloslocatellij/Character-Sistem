@@ -1,7 +1,7 @@
 import random
 from copy import deepcopy
 from typing import List, Dict, Any, Tuple
-from app.core.personagens import Personagem
+from app.core.entities.personagens import Personagem
 from rich.console import Console
 console = Console()
 print = console.print
