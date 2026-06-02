@@ -5,7 +5,7 @@ from app.models.mapas_db import MapaDB
 from app.models.personagens_db import PersonagemDB
 from app.controllers.game_controller import GameController
 from app.core.engine.components import (PositionComponent, RenderComponent,
-                                        InteractableComponent, StatsComponent,
+                                        InteractableComponent, StatsComponent, AIComponent,
                                         EquipmentComponent, InventoryComponent, PlayerControlComponent)
 
 
@@ -111,10 +111,10 @@ class GameEngineLoader:
 
         # Itens iniciais para garantir o funcionamento dos comandos do Chat (/inventario, /equipar)
         itens_iniciais = [
-            {"id": 101, "nome": "Poção de Vida",
+            {"id": 101, "nome": "poção",
                 "tipo": "consumivel", "bonus": 50},
-            {"id": 201, "nome": "Espada Longa", "tipo": "arma", "bonus_atk": 8},
-            {"id": 301, "nome": "Escudo de Madeira",
+            {"id": 201, "nome": "espada Longa", "tipo": "arma", "bonus_atk": 8},
+            {"id": 301, "nome": "armadura de couro",
                 "tipo": "armadura", "bonus_def": 4}
         ]
 
@@ -137,8 +137,23 @@ class GameEngineLoader:
                 x=evento_db.pos_x, y=evento_db.pos_y))
             esper.add_component(
                 entidade, RenderComponent(emoji=evento_db.emoji))
+
+            # Interpreta os parâmetros para determinar se é um monstro com IA
+            parametros = evento_db.parametros or {}
+            if "mover" in parametros:
+                direcao = parametros["mover"].get("direção", "aleatório")
+                esper.add_component(entidade, AIComponent(
+                    tipo_movimento=direcao,
+                    action_on_touch={
+                        "quando": "tocar_heroi",
+                        "tipo": "ataque",
+                        "dano": parametros.get("ataque", {}).get("dano", 1)
+                    }
+                ))
+
+            # Todos os eventos continuam com InteractableComponent para triggers adicionais
             esper.add_component(entidade, InteractableComponent(
-                tipo_evento=evento_db.tipo_evento, parametros=evento_db.parametros or {}
+                tipo_evento=evento_db.tipo_evento, parametros=parametros
             ))
 
         return True

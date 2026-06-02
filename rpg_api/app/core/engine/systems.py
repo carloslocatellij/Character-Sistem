@@ -1,9 +1,11 @@
 import esper
+import random
 from rich.text import Text
-from app.core.engine.components import PositionComponent, InteractableComponent, RenderComponent
+from app.core.engine.components import (
+    PositionComponent, InteractableComponent, RenderComponent, AIComponent
+)
 from app.core.entities.emojis import CatalogoTiles
 bloqueantes = CatalogoTiles.TERRENOS_BLOQUEANTES
-import random
 
 
 class RenderSystem:
@@ -69,7 +71,7 @@ class MovementSystem:
         elif direcao == "direita":      proximo_x += 1
 
         # 2. Validação contra os limites lógicos do mapa
-        if not (0 >= proximo_y < self.map_loader.altura and 0 >= proximo_x < self.map_loader.largura):
+        if not (0 <= proximo_y < self.map_loader.altura and 0 <= proximo_x < self.map_loader.largura):
             return False
 
         # 3. Validação contra a Camada de Terrenos (Paredes lidas do BD)
@@ -126,39 +128,124 @@ class InteractionSystem:
 
 
 class AISystem:
-    """Sistema que processa a inteligência artificial (movimento autônomo e ações)."""
-    
     def __init__(self, engine_manager, movement_system, event_bus):
         self.engine = engine_manager
         self.movement_system = movement_system
         self.event_bus = event_bus
 
     def update(self):
-        """Chamado a cada 'Tick' (batimento) do jogo."""
-        # Pega todos os monstros/NPCs que têm IA e Posição
-        entidades_ia = self.engine.get_entities_with("PositionComponent", "AIComponent")
-        
-        for ent_id in entidades_ia:
-            pos_comp = self.engine.get_component(ent_id, "PositionComponent")
-            ai_comp = self.engine.get_component(ent_id, "AIComponent")
-            
-            # Lógica de Movimento Aleatório
-            if ai_comp.tipo_movimento == "aleatório":
-                # Escolhe uma direção aleatória (cima, baixo, esquerda, direita ou ficar parado)
-                opcoes_movimento = [(0, -1), (0, 1), (-1, 0), (1, 0), (0, 0)]
-                dx, dy = random.choice(opcoes_movimento)
-                
-                if dx != 0 or dy != 0:
-                    # O monstro tenta andar usando a MESMA física que o jogador usa!
+        """Processa movimento autônomo de monstros/NPCs a cada tick."""
+        for ent_id, (pos_comp, ai_comp) in esper.get_components(PositionComponent, AIComponent):
+            # Só processa monstros com movimento aleatório por enquanto
+            if ai_comp.tipo_movimento != "aleatório":
+                continue
+
+            # Escolhe uma direção aleatória (4 direções + ficar parado)
+            opcoes = ["cima", "baixo", "esquerda", "direita", None]
+            direcao = random.choice(opcoes)
+
+            if not direcao:
+                continue  # 20% de chance de ficar parado
+
+            # Tenta mover usando a mesma lógica de colisão do jogador
+            moveu = self.movement_system.mover_entidade(ent_id, direcao)
+
+            # Se colidiu com algo, verifica se foi o herói
+            if not moveu:
+                pos_heroi = esper.component_for_entity(1, PositionComponent)
+                if pos_heroi:
+                    # Calcula a posição alvo que tentou alcançar
+                    deltas = {
+                        "cima": (0, -1),
+                        "baixo": (0, 1),
+                        "esquerda": (-1, 0),
+                        "direita": (1, 0)
+                    }
+                    dx, dy = deltas.get(direcao, (0, 0))
                     alvo_x = pos_comp.x + dx
                     alvo_y = pos_comp.y + dy
-                    moveu = self.movement_system.move_entity(ent_id, dx, dy)
-                    
-                    # Se não moveu, bateu em algo! (Futuramente trataremos o "action_on_touch" aqui)
-                    if not moveu and ai_comp.action_on_touch.get("quando") == "tocar_heroi":
-                        # Emite o evento de ataque (implementaremos a matemática de HP na próxima fase)
-                        pos_heroi = self.engine.get_component(1, "PositionComponent")
-                    
-                        if pos_heroi and pos_heroi.x == alvo_x and pos_heroi.y == alvo_y:
-                            # O monstro realmente esbarrou contra o peito do herói!
-                            self.event_bus.emit("ataque_monstro", ai_comp.action_on_touch)
+
+                    # Se a colisão foi com o herói, emite evento de ataque
+                    if pos_heroi.x == alvo_x and pos_heroi.y == alvo_y:
+                        if self.event_bus:
+                            self.event_bus.publish("ataque_monstro", {
+                                "parametros": ai_comp.action_on_touch
+                            })
+                            
+                            
+class InventarySystem():
+    """ Gerencia estoques de baús e o inventário do personagem. 
+    """
+       
+
+
+    def _get_inventory_mapping(self, inv):
+        itens = getattr(inv, "itens", None)
+        if isinstance(itens, dict):
+            return itens
+        if isinstance(itens, list):
+            mapped = {}
+            for entry in itens:
+                if isinstance(entry, dict):
+                    nome = entry.get("nome") or entry.get("item") or entry.get("nome_item")
+                    qtd = entry.get("quantidade", 1)
+                else:
+                    nome = str(entry)
+                    qtd = 1
+                if not nome:
+                    continue
+                mapped[nome] = mapped.get(nome, 0) + qtd
+            return mapped
+        return {}
+
+    def _inventory_has_item(self, inv, nome):
+        return self._get_inventory_mapping(inv).get(nome, 0) > 0
+
+    def _inventory_remove_item(self, inv, nome, quantidade=1):
+        if not inv:
+            return False
+        itens = getattr(inv, "itens", None)
+        if isinstance(itens, dict):
+            atual = itens.get(nome, 0)
+            if atual >= quantidade:
+                itens[nome] = atual - quantidade
+                if itens[nome] <= 0:
+                    itens.pop(nome, None)
+                return True
+            return False
+        if isinstance(itens, list):
+            if any(isinstance(x, dict) for x in itens):
+                for entry in itens:
+                    if isinstance(entry, dict) and entry.get("nome") == nome:
+                        qtd = entry.get("quantidade", 1)
+                        if qtd > quantidade:
+                            entry["quantidade"] = qtd - quantidade
+                        else:
+                            itens.remove(entry)
+                        return True
+                return False
+            removed = 0
+            while removed < quantidade and nome in itens:
+                itens.remove(nome)
+                removed += 1
+            return removed == quantidade
+        return False
+
+    def _inventory_add_item(self, inv, nome, quantidade=1):
+        if not inv:
+            return False
+        itens = getattr(inv, "itens", None)
+        if isinstance(itens, dict):
+            itens[nome] = itens.get(nome, 0) + quantidade
+            return True
+        if isinstance(itens, list):
+            if any(isinstance(x, dict) for x in itens):
+                for entry in itens:
+                    if isinstance(entry, dict) and entry.get("nome") == nome:
+                        entry["quantidade"] = entry.get("quantidade", 1) + quantidade
+                        return True
+                itens.append({"nome": nome, "quantidade": quantidade})
+                return True
+            itens.extend([nome] * quantidade)
+            return True
+        return False

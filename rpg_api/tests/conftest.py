@@ -1,11 +1,19 @@
 # tests/conftest.py
 import pytest
+import os
+import sys
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 from app.db.database import Base
 from app.models.personagens_db import PersonagemDB, RacaDB, ClasseRPGDB
 from app.models.equipamentos_db import ItemDB
 
+os.environ["DATABASE_URL"] = "sqlite:///:memory:"
+os.environ["ENV_MODE"] = "testing"
+
+# Opcional: Garante que o caminho do projeto esteja visível para os testes
+sys.path.insert(0, os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..")))
 
 @pytest.fixture(scope="function")
 def test_db():

@@ -6,9 +6,14 @@ from textual.events import Key
 from textual import on
 
 from app.db.database import SessionLocal
-from app.core.engine.systems import MovementSystem, InteractionSystem, AISystem, RenderSystem
+from app.core.engine.systems import (MovementSystem, InteractionSystem, AISystem,
+                                     RenderSystem, InventarySystem)
 from app.core.engine.engine_loader import GameEngineLoader
-from app.core.engine.components import PositionComponent, RenderComponent, PlayerControlComponent
+from app.core.engine.components import (PositionComponent, RenderComponent, AIComponent,
+                                        PlayerControlComponent, StatsComponent,
+                                        InventoryComponent, EquipmentComponent
+                                        
+)
 
 
 class GamePlayScreen(Screen):
@@ -29,6 +34,7 @@ class GamePlayScreen(Screen):
         self.movimento_sys = None
         self.interacao_sys = None
         self.render_sys = RenderSystem()
+        self.invSys = InventarySystem()
 
     def compose(self):
         with Container(id="game-layout"):
@@ -89,7 +95,7 @@ class GamePlayScreen(Screen):
             self.interacao_sys = InteractionSystem(self.loader.event_bus)
             
             self.ai_sys = AISystem(self.loader,
-                                   self.movimento_sys, self.interacao_sys)
+                                   self.movimento_sys, self.loader.event_bus)
 
             self.loader.event_bus.subscribe(
                 "INTERACTION_SUCCESS", self.on_evento_interacao)
@@ -100,7 +106,7 @@ class GamePlayScreen(Screen):
 
 
             # Assina eventos globais da rádio lúdica
-            self.loader.event_bus.subscribe("bau", self.ao_recolher_bau)
+            #self.loader.event_bus.subscribe("bau", self.ao_recolher_bau)
             self.loader.event_bus.subscribe("ataque_monstro", self.ao_levar_ataque)
 
             # Batimento dos monstros autónomos a cada 1 segundo
@@ -117,6 +123,10 @@ class GamePlayScreen(Screen):
         """Injeta mensagens formatadas no painel lateral de logs."""
         try:
             self.query_one("#log-eventos", RichLog).write(texto)
+        except Exception:
+            pass
+        try:
+            self.query_one("#area-interacao", RichLog).write(texto)
         except Exception:
             pass
 
@@ -136,6 +146,7 @@ class GamePlayScreen(Screen):
         params = payload.get("parametros", {})
 
         if tipo == "bau":
+            self.ao_recolher_bau(payload)
             self.log_mensagem(
                 f"[yellow]📦 {params.get('mensagem', 'Você abriu um baú!')}[/]")
         elif tipo == "npc_dialogo":
@@ -144,40 +155,43 @@ class GamePlayScreen(Screen):
             self.log_mensagem(f"[white]✨ Evento ativado: {tipo}[/]")
             
 
+
+    def ao_recolher_bau(self, dados):
+        params = dados.get("parametros", {})
+        item_nome = params.get("item", "Moeda Antiga")
+        qtd = params.get("quantidade", 1)
+
+        inv = esper.component_for_entity(1, InventoryComponent)
+        if inv:
+            self.invSys._inventory_add_item(inv, item_nome, qtd)
+
+        self.log_mensagem(
+            f"[bold cyan]🎁 Você abriu um baú e coletou: [yellow]{item_nome} x{qtd}[/yellow]! "
+            f"(Digite /equipar ou /usar no terminal para usufruir)[/]"
+        )
+        self.atualizar_paineis_status()
+
+
+
+
     # ANTES DO ESPER
-    # def ao_recolher_bau(self, dados):
-    #     log = self.query_one("#area-interacao", RichLog)
-    #     params = dados["parametros"]
-    #     item_nome = params.get("item", "Moeda Antiga")
-    #     qtd = params.get("quantidade", 1)
+    def ao_levar_ataque(self, dados_ataque):
+        log = self.query_one("#area-interacao", RichLog)
+        dano = dados_ataque.get("mudar_hp", {}).get("valor", 1)
         
-    #     # Injeta o item coletado no Inventário Lógico da Engine!
-    #     inv = self.engine_manager.get_component(1, "InventoryComponent")
-    #     if inv:
-    #         inv.itens[item_nome] = inv.itens.get(item_nome, 0) + qtd
+        stats = esper.component_for_entity(1, StatsComponent)
+        if stats:
+            # Desconta o dano mitigado pela defesa real do personagem
+            dano_real = max(1, dano - (stats.defesa_base // 3))
+            stats.hp = max(0, stats.hp - dano_real)
+            self.log_mensagem(
+                f"[bold red]⚔️ O monstro atacou você! Sofreu {dano_real} de dano real (Defesa mitigou o resto).[/]")
             
-    #     self.log_mensagem(
-    #         f"[bold cyan]🎁 Você abriu um baú e coletou: [yellow]{item_nome} x{qtd}[/yellow]! (Digite /equipar ou /usar no terminal para usufruir)[/]")
-    #     self.atualizar_paineis_status()
-
-
-    # def ao_levar_ataque(self, dados_ataque):
-    #     log = self.query_one("#area-interacao", RichLog)
-    #     dano = dados_ataque.get("mudar_hp", {}).get("valor", 1)
+            if stats.hp <= 0:
+                self.log_mensagem(
+                    "[bold background red]💀 VOCÊ MORREU! Fim de Jogo.[/]")
         
-    #     stats = self.engine_manager.get_component(1, "StatsComponent")
-    #     if stats:
-    #         # Desconta o dano mitigado pela defesa real do personagem
-    #         dano_real = max(1, dano - (stats.defesa_base // 3))
-    #         stats.hp = max(0, stats.hp - dano_real)
-    #         self.log_mensagem(
-    #             f"[bold red]⚔️ O monstro atacou você! Sofreu {dano_real} de dano real (Defesa mitigou o resto).[/]")
-            
-    #         if stats.hp <= 0:
-    #             self.log_mensagem(
-    #                 "[bold background red]💀 VOCÊ MORREU! Fim de Jogo.[/]")
-        
-    #     self.atualizar_paineis_status()
+        self.atualizar_paineis_status()
 
 
     # ==========================================
@@ -202,53 +216,62 @@ class GamePlayScreen(Screen):
         comando = partes[0]
         argumento = partes[1] if len(partes) > 1 else ""
 
-        stats = self.engine_manager.get_component(1, "StatsComponent")
-        inv = self.engine_manager.get_component(1, "InventoryComponent")
-        eqp = self.engine_manager.get_component(1, "EquipmentComponent")
+        stats = esper.component_for_entity(1, StatsComponent)
+        inv = esper.component_for_entity(1, InventoryComponent)
+        eqp = esper.component_for_entity(1, EquipmentComponent)
 
         # 🥤 COMANDO: /usar
         if comando == "/usar":
-            if not argumento:
-                log.write("[orange]Use: /usar <nome_do_item>[/]")
-                return
-            
-            if inv and inv.itens.get(argumento, 0) > 0:
-                if argumento == "poção" or argumento == "potion":
-                    inv.itens[argumento] -= 1
-                    stats.hp = min(stats.max_hp, stats.hp + 20) # Cura 20 de vida
-                    log.write(f"[bold green]✨ Você tomou uma poção. Recuperou 20 PV![/]")
+            if inv and self.invSys._inventory_has_item(inv, argumento):
+                if argumento in ("poção", "potion"):
+                    if self.invSys._inventory_remove_item(inv, argumento, 1):
+                        stats.hp = min(stats.max_hp, stats.hp + 20)
+                        self.log_mensagem(
+                            f"[bold green]✨ Você tomou uma poção. Recuperou 20 PV![/]")
+                    else:
+                        self.log_mensagem(
+                            f"[red]Erro ao usar '{argumento}'.[/]")
                 else:
-                    log.write(f"[orange]O item '{argumento}' não possui efeito de uso imediato.[/]")
+                    self.log_mensagem(
+                        f"[orange]O item '{argumento}' não possui efeito de uso imediato.[/]")
             else:
-                log.write(f"[red]Você não possui '{argumento}' no seu inventário.[/]")
-
+                self.log_mensagem(
+                    f"[red]Você não possui '{argumento}' no seu inventário.[/]")
+            self.atualizar_paineis_status()
+            
         # ⚔️ COMANDO: /equipar
         elif comando == "/equipar":
             if not argumento:
-                log.write("[orange]Use: /equipar <nome_da_arma_ou_armadura>[/]")
+                self.log_mensagem(
+                    "[orange]Use: /equipar <nome_da_arma_ou_armadura>[/]")
                 return
-                
-            if inv and inv.itens.get(argumento, 0) > 0:
-                # Simula um banco de dados de itens simples para conferir os bónus lógicos
+
+            if inv and self.invSys._inventory_has_item(inv, argumento):
                 if "espada" in argumento:
                     bonus = 5 if "longa" in argumento else 3
                     eqp.arma = {"nome": argumento, "bonus_atk": bonus}
-                    log.write(f"[bold blue]⚔️ Equipado com sucesso: {argumento.upper()} (+{bonus} ATK).[/]")
+                    self.log_mensagem(
+                        f"[bold blue]⚔️ Equipado com sucesso: {argumento.upper()} (+{bonus} ATK).[/]")
                 elif "armadura" in argumento or "escudo" in argumento:
                     bonus = 6 if "placas" in argumento else 3
                     eqp.armadura = {"nome": argumento, "bonus_def": bonus}
-                    log.write(f"[bold blue]🛡️ Equipado com sucesso: {argumento.upper()} (+{bonus} DEF).[/]")
+                    self.log_mensagem(
+                        f"[bold blue]🛡️ Equipado com sucesso: {argumento.upper()} (+{bonus} DEF).[/]")
                 else:
-                    log.write("[orange]Este item não pode ser equipado como arma ou armadura.[/]")
+                    self.log_mensagem(
+                        "[orange]Este item não pode ser equipado como arma ou armadura.[/]")
             else:
-                log.write(f"[red]Você não possui o equipamento '{argumento}' no inventário.[/]")
+                self.log_mensagem(
+                    f"[red]Você não possui o equipamento '{argumento}' no inventário.[/]")
+            self.atualizar_paineis_status()
         
 
         # Força a interface a recalcular e redesenhar os novos valores obtidos
         elif comando in ["/sair", "/q", "/exit", "/quit"]:
             self.app.pop_screen()
         else:
-            log.write(f"[red]Comando desconhecido: '{comando}'. Tente /usar ou /equipar.[/]")
+            self.log_mensagem(
+                f"[red]Comando desconhecido: '{comando}'. Tente /usar ou /equipar.[/]")
         
         #self.atualizar_paineis_status()
 
@@ -299,7 +322,7 @@ class GamePlayScreen(Screen):
     # ANTERIOR AO ESPER
     def atualizar_tudo(self):
         self.atualizar_tela()
-        #self.atualizar_paineis_status()
+        self.atualizar_paineis_status()
         
     def atualizar_tela(self):
         """Compila o frame atual do Esper e atualiza o Canvas Único na tela."""
@@ -338,20 +361,6 @@ class GamePlayScreen(Screen):
             pass
     
     
-
-    # ANTERIOR AO ESPER
-    # def atualizar_visual_do_jogo(self):
-    #     buffer_renderizado = self.render_sys.renderizar_frame(self.mapa_matriz, self.mapa_objetos)
-    #     self.query_one("#tela-mapa", Static).update(buffer_renderizado)
-        
-    #     # Faz o scroll da câmara acompanhar o jogador no viewport
-    #     viewport = self.query_one("#mapa-viewport", ScrollableContainer)
-    #     pos_jogador = self.engine_manager.get_component(1, "PositionComponent")
-    #     if pos_jogador and viewport.size.width > 0:
-    #         alvo_x = (pos_jogador.x * 2) - (viewport.size.width // 2)
-    #         alvo_y = pos_jogador.y - (viewport.size.height // 2)
-    #         viewport.scroll_to(x=max(0, alvo_x), y=max(0, alvo_y), animate=False)
-            
     @on(Input.Submitted, "#txt-chat")
     def ao_enviar_comando_chat(self, event: Input.Submitted):
         """Processa a caixa de comandos rápidos de texto."""
@@ -362,9 +371,9 @@ class GamePlayScreen(Screen):
 
 
     def atualizar_paineis_status(self):
-        stats = self.engine_manager.get_component(1, "StatsComponent")
-        inv = self.engine_manager.get_component(1, "InventoryComponent")
-        eqp = self.engine_manager.get_component(1, "EquipmentComponent")
+        stats = esper.component_for_entity(1, StatsComponent)
+        inv = esper.component_for_entity(1, InventoryComponent)
+        eqp = esper.component_for_entity(1, EquipmentComponent)
 
         if not stats: return
 
@@ -383,8 +392,9 @@ class GamePlayScreen(Screen):
 
         # Atualiza Painel de Itens (Inventário)
         texto_inv = ""
-        if inv and inv.itens:
-            for nome_item, qtd in inv.itens.items():
+        if inv:
+            for nome_item, qtd in self.invSys._get_inventory_mapping(inv).items():
                 if qtd > 0:
                     texto_inv += f"• {nome_item.capitalize()} (x{qtd})\n"
-        self.query_one("#lbl-inventario", Static).update(texto_inv if texto_inv else "Inventário Vazio")
+        self.query_one(
+            "#lbl-inventario", Static).update(texto_inv if texto_inv else "Inventário Vazio")

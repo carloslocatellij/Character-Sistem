@@ -13,20 +13,24 @@ class MockMapLoader:
         self.altura = 5
         self.largura = 5
         self.matriz_terrenos = [["  " for _ in range(5)] for _ in range(5)]
-        # Bloqueia a coordenada (1, 3) com uma parede lógica
-        self.matriz_terrenos[1][3] = "🧱"
-        # Adiciona um objeto sólido estático na coordenada (2, 1)
-        self.camada_objetos = {(2, 1): "🌳"}
+        # Bloqueia a coordenada x=1, y=2 com uma parede lógica (matriz[y][x])
+        self.matriz_terrenos[2][1] = "🧱"
+        # Adiciona um objeto sólido estático na coordenada x=2, y=1 (matriz[y][x])
+        self.camada_objetos = {(1, 2): "🌳"}
 
 
 @pytest.fixture(autouse=True)
 def setup_esper():
     """Reseta o mundo global do Esper antes de cada teste."""
-    esper.switch_world(esper.list_worlds()[0])
+    esper.clear_database()
+    if esper.list_worlds():
+        esper.switch_world(esper.list_worlds()[0])
+    else:
+        esper.switch_world(esper.World())
 
 
 def test_deve_mover_entidade_para_posicao_valida():
-    # 1. SETUP: Criar o jogador em (1, 1) livre de obstáculos
+    # 1. SETUP: Criar o jogador em (1, 0) livre de obstáculos
     player = esper.create_entity(
         PositionComponent(x=1, y=0),
         PlayerControlComponent()
@@ -34,14 +38,13 @@ def test_deve_mover_entidade_para_posicao_valida():
     map_loader = MockMapLoader()
     system = MovementSystem(map_loader)
 
-    # 2. AÇÃO: Mover para baixo (Y aumenta) -> nova posição esperada: (1, 2)
-    
+    # 2. AÇÃO: Mover para a direita (X aumenta) -> nova posição esperada: (2, 0)
     sucesso = system.mover_entidade(player, "direita")
 
     # 3. VALIDAÇÃO: O movimento deve ser aceito e a posição alterada
     pos = esper.component_for_entity(player, PositionComponent)
-    #assert sucesso is True
-    assert pos.x == 1
+    assert sucesso is True
+    assert pos.x == 2
     assert pos.y == 0
 
 
@@ -54,8 +57,7 @@ def test_nao_deve_mover_para_cima_de_terreno_bloqueante():
     map_loader = MockMapLoader()
     system = MovementSystem(map_loader)
 
-    # 2. AÇÃO: Tentar mover para "baixo" onde há a parede
-    sucesso = system.mover_entidade(player, "baixo")
+    # 2. AÇÃO: Tentar mover para "baixo" (Y aumenta) -> (1, 2), onde há a parede
     sucesso = system.mover_entidade(player, "baixo")
 
     # 3. VALIDAÇÃO: O movimento deve ser recusado e a posição mantida em (1, 1)
@@ -74,7 +76,7 @@ def test_nao_deve_mover_para_cima_de_objeto_solido():
     map_loader = MockMapLoader()
     system = MovementSystem(map_loader)
 
-    # 2. AÇÃO: Tentar mover para a direita (X aumenta) -> (2, 1)
+    # 2. AÇÃO: Tentar mover para a direita (X aumenta) -> (2, 1) onde está a árvore
     sucesso = system.mover_entidade(player, "direita")
 
     # 3. VALIDAÇÃO: Bloqueado pelo objeto estático
