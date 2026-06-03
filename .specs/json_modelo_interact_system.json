@@ -1,7 +1,8 @@
-{ "1 - ex: Baú":
+{ "1 Baú":
 
 {"movimento": null,
 "estado_atual": "nunca aberto",
+"gatilho": "enter",
 "estados": 
     {
     "nunca aberto": 
@@ -20,9 +21,10 @@
     }
 },
 
-"2 - ex: NPC":
+"2 - NPC":
 {"movimento" : null,
 "estado_atual": "desconhecido",
+"gatilho": "enter",
 "estados": 
     {
     "desconhecido":
@@ -34,16 +36,18 @@
         "tipo": "mensagem",
         "texto": "Que bom que voltou a Riverwood."
         }
+    }
 },
 
 "3 - monstro":
 { "movimento": "aleatório",
 "estado_atual": "vivo",
+"gatilho": "gatilho_colisao",
 "estados": 
     {
         "vivo": {
         "condicao": null,
-        "gatilho": "gatilho_colisao",
+        
         "comandos": [
             {
                 "tipo": "ataque",
@@ -52,13 +56,57 @@
         },
 
         "morto": {
+            "mudar_gatilho": "enter",
             "mudar_movimento": null,
             "tipo": "mensagem",
-            "texto": "Você já pegou tudo que tinha aqui."
+            "texto": "Ele está morto."
 
         }
     }
 
+},
+
+"4 Teleporte":{
+    "movimento": null,
+    "estado_atual": "imutavel",
+    "gatilho": "andar_sobre",
+    "estados": {
+        "imutavel": {
+            "tipo": "teleport",
+            "mapa_id": 2,
+            "pos_x": 5,
+            "pos_y": 10
+        }
+    }
+},
+
+"5 - Loja": {
+    "movimento": null,
+    "estado_atual": "aberta",
+    "gatilho": "enter",
+    "estados": {
+        "aberta": {"loop":
+                {    "condicao": {
+                        "switch": "deseja_comprar",
+                        "valor": true
+                    },
+                        "deseja_comprar_sim": 
+                        {"estoque": [
+                            "Espada",
+                            "Poção"
+                        ],
+                        "msg": "Deseja comprar algo mais?",
+                        "deseja_comprar": ["sim", "não"]
+
+                    },
+                    "deseja_comprar_não": "Sair"
+                }
+        },
+        "fechada": {
+            "tipo": "mensagem",
+            "texto": "A loja está fechada."
+        }
+    }
 }
 
 

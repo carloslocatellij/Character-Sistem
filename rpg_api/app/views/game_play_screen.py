@@ -9,10 +9,9 @@ from app.db.database import SessionLocal
 from app.core.engine.systems import (MovementSystem, InteractionSystem, AISystem,
                                      RenderSystem, InventarySystem)
 from app.core.engine.engine_loader import GameEngineLoader
-from app.core.engine.components import (PositionComponent, RenderComponent, AIComponent,
+from app.core.engine.components import (PositionComponent, RenderComponent, 
                                         PlayerControlComponent, StatsComponent,
-                                        InventoryComponent, EquipmentComponent
-                                        
+                                        InventoryComponent, EquipmentComponent                                       
 )
 
 
@@ -35,6 +34,8 @@ class GamePlayScreen(Screen):
         self.interacao_sys = None
         self.render_sys = RenderSystem()
         self.invSys = InventarySystem()
+
+    BINDINGS = [("/", "focus_in_command_bar", "")]
 
     def compose(self):
         with Container(id="game-layout"):
@@ -106,7 +107,7 @@ class GamePlayScreen(Screen):
 
 
             # Assina eventos globais da rádio lúdica
-            #self.loader.event_bus.subscribe("bau", self.ao_recolher_bau)
+            self.loader.event_bus.subscribe("bau", self.ao_recolher_bau)
             self.loader.event_bus.subscribe("ataque_monstro", self.ao_levar_ataque)
 
             # Batimento dos monstros autónomos a cada 1 segundo
@@ -136,6 +137,15 @@ class GamePlayScreen(Screen):
             self.atualizar_tudo()
 
 
+    def action_focus_in_command_bar(self):
+            self.log_mensagem("[blue]Digite um comando.[/]")
+            commandbox = self.query_one("#terminal-prompt", Input)
+            commandbox.select_on_focus = False
+            commandbox.value += '/'
+            commandbox.cursor_position = len(commandbox.value) + 1
+            commandbox.focus()
+            
+
     # ==========================================
     # EVENTOS DA ENGINE
     # ==========================================
@@ -145,36 +155,37 @@ class GamePlayScreen(Screen):
         tipo = payload.get("tipo", "evento")
         params = payload.get("parametros", {})
 
-        if tipo == "bau":
+        if tipo == "bau" and "mudar_inventario" in params:
             self.ao_recolher_bau(payload)
             self.log_mensagem(
                 f"[yellow]📦 {params.get('mensagem', 'Você abriu um baú!')}[/]")
+            
         elif tipo == "npc_dialogo":
             self.log_mensagem(f"[cyan]💬 NPC: {params.get('texto', 'Olá!')}[/]")
         else:
             self.log_mensagem(f"[white]✨ Evento ativado: {tipo}[/]")
             
-
-
+            
     def ao_recolher_bau(self, dados):
         params = dados.get("parametros", {})
-        item_nome = params.get("item", "Moeda Antiga")
-        qtd = params.get("quantidade", 1)
-
+        estado_atual = params.get("estado_atual", "")
+        
+        item_nome = params.get(estado_atual).get("item", "talher velho")
+        qtd = params.get(estado_atual).get("qtd", 1)
+        
+        message = params.get(estado_atual).get("msg", "Vc abriu ")
+        
         inv = esper.component_for_entity(1, InventoryComponent)
         if inv:
             self.invSys._inventory_add_item(inv, item_nome, qtd)
 
         self.log_mensagem(
-            f"[bold cyan]🎁 Você abriu um baú e coletou: [yellow]{item_nome} x{qtd}[/yellow]! "
+            f"[bold cyan]🎁 {message} e coletou: [yellow]{item_nome} x{qtd}[/yellow]! "
             f"(Digite /equipar ou /usar no terminal para usufruir)[/]"
         )
         self.atualizar_paineis_status()
 
 
-
-
-    # ANTES DO ESPER
     def ao_levar_ataque(self, dados_ataque):
         log = self.query_one("#area-interacao", RichLog)
         dano = dados_ataque.get("mudar_hp", {}).get("valor", 1)
@@ -282,9 +293,13 @@ class GamePlayScreen(Screen):
         key = event.key
         moveu = False
         
-        if key in ("up", "down", "left", "right", "w", "s", "a", "d"):
+        if event.key == '/' or event.key == r'\\':
+            self.action_focus_in_command_bar(event)
+            
+        if key in ("up", "down", "left", "right", "w", "s", "a", "d", "/"):
             event.prevent_default()  # Interrompe o scroll automático do Textual!
             event.stop()
+
 
         if key in ("up", "w"):
             self.direcao_olhar = "cima"
@@ -305,13 +320,16 @@ class GamePlayScreen(Screen):
         elif key == "enter":
             # Se o foco estiver no prompt do terminal, deixa o submit do input agir e ignora o raio
             if self.focused == self.query_one("#terminal-prompt"):
+                self.query_one("#tela-mapa").focus()
                 return
             achou_evento = self.interacao_sys.interagir(1, self.direcao_olhar)
+            
             if not achou_evento:
                 self.log_mensagem(
                     "[gray]Não há nada para acionar aqui na sua frente.[/]")
             self.atualizar_tudo()
             return
+
         #sleep(0.01)
         self.atualizar_tudo()
 

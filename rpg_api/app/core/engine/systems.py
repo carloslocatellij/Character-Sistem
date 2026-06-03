@@ -124,6 +124,7 @@ class InteractionSystem:
                             "parametros": interact.parametros
                         })
                     return True
+                return True
         return False
 
 
