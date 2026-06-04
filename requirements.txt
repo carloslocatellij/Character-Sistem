@@ -8,7 +8,7 @@ esper==3.7
 fastapi==0.109.0
 greenlet==3.4.0
 h11==0.16.0
-idna==3.11
+idna==3.15
 iniconfig==2.3.0
 just_playback==0.1.8
 linkify-it-py==2.1.0
@@ -22,12 +22,12 @@ pycparser==3.0
 pydantic==2.13.0
 pydantic_core==2.46.0
 Pygments==2.20.0
-pytest==8.0.0
+pytest==9.0.3
 python-dotenv==1.2.2
 rich==15.0.0
 shellingham==1.5.4
 SQLAlchemy==2.1.0b1
-starlette==0.35.1
+starlette==0.36.0
 textual==8.2.4
 tinytag==2.2.1
 typer==0.24.1
