@@ -1,14 +1,16 @@
-# app/core/engine/game_state.py
-from app.models.saves_db import SaveDB
+import esper
+from app.models.plataforma_db import SaveDB
+from app.core.engine.components import PositionComponent, StatsComponent, RenderComponent, InteractableComponent
+
 
 class GameStateManager:
     """
-    Gerenciador de Estado Global de Altura Máxima.
-    Suporta persistência multi-jogo isolada no banco de dados.
+    Gerenciador de Estado Global e Persistência de Sessão (Saves).
+    Adaptado para capturar e restaurar snapshots do Esper ECS.
     """
+
     def __init__(self):
         self.switches: dict[str, bool] = {}
-        # Suporta implicitamente: int, float, bool, str (Perfeito para nomes de NPCs, facções, etc)
         self.variables: dict[str, any] = {}
 
     # ==========================================
@@ -27,64 +29,52 @@ class GameStateManager:
         self.variables[nome] = valor
 
     def modificar_variavel(self, nome: str, operacao: str, valor: any):
-        """Modifica incrementalmente se for numérico ou substitui via 'set'."""
         atual = self.get_variable(nome, 0)
-        
         if operacao == "set":
             self.variables[nome] = valor
             return
-            
         if isinstance(atual, (int, float)) and isinstance(valor, (int, float)):
-            if operacao == "add": self.variables[nome] = atual + valor
-            elif operacao == "sub": self.variables[nome] = atual - valor
+            if operacao == "+":
+                self.variables[nome] = atual + valor
+            elif operacao == "-":
+                self.variables[nome] = atual - valor
 
     # ==========================================
-    # PERSISTÊNCIA MULTIPLAYER / MULTI-JOGO
+    # PERSISTÊNCIA ATÔMICA DO MUNDO (ESPER ECS ➡️ BD)
     # ==========================================
-    def salvar_sessao_no_banco(self, ecs_manager, db_session, usuario_id: int, cenario_id: int, mapa_atual_id: int, slot: int = 1):
+    def salvar_sessao_no_banco(self, db_session, usuario_id: int, cenario_id: int, mapa_atual_id: int = 1, slot: int = 1) -> int:
         """
-        Gera um snapshot completo em tempo de execução de todas as entidades do mapa 
-        e salva no banco isolado por Usuário e Cenário.
+        Captura o estado dos seletores e gera um snapshot das entidades vivas
+        no Esper ECS, gravando em JSON na tabela 'saves'.
         """
         snapshot_entidades = {}
 
-        # 1. Captura o estado de todas as entidades ativas na Engine lúdica
-        for ent_id, componentes in ecs_manager.entities.items():
-            pos = componentes.get("PositionComponent")
-            stats = componentes.get("StatsComponent")
-            inv = componentes.get("InventoryComponent")
-            eqp = componentes.get("EquipmentComponent")
-            interact = componentes.get("InteractableComponent")
-            render = componentes.get("RenderComponent")
-            ai = componentes.get("AIComponent")
+        # 🧠 Query em lote no Esper para salvar a posição e dados de cada entidade mutável
+        for ent_id, (pos, ren) in esper.get_components(PositionComponent, RenderComponent):
+            # Tenta pegar componentes opcionais (como os status de vida e parâmetros dinâmicos)
+            stats = esper.component_for_entity(
+                ent_id, StatsComponent) if esper.has_component(ent_id, StatsComponent) else None
+            interact = esper.component_for_entity(ent_id, InteractableComponent) if esper.has_component(
+                ent_id, InteractableComponent) else None
 
-            if pos:
-                dados_entidade = {
-                    "pos_x": pos.x,
-                    "pos_y": pos.y,
-                    "direcao": pos.direcao_olhar,
-                    "render_emoji": render.emoji if render else "👾"
+            snapshot_entidades[str(ent_id)] = {
+                "components": {
+                    "PositionComponent": {"x": pos.x, "y": pos.y},
+                    "RenderComponent": {"emoji": ren.emoji},
+                    "StatsComponent": {
+                        "nome": stats.nome, "classe": stats.classe,
+                        "hp": stats.hp, "max_hp": stats.max_hp,
+                        "mp": stats.mp, "max_mp": stats.max_mp,
+                        "ataque_base": stats.ataque_base, "defesa_base": stats.defesa_base
+                    } if stats else None,
+                    "InteractableComponent": {
+                        "tipo_evento": interact.tipo_evento,
+                        "parametros": interact.parametros
+                    } if interact else None
                 }
+            }
 
-                if stats:
-                    dados_entidade["stats"] = {
-                        "nome": stats.nome,
-                        "hp": stats.hp,
-                        "max_hp": stats.max_hp,
-                        "mp": stats.mp,
-                        "max_mp": stats.max_mp,
-                        "atk": stats.ataque_base,
-                        "def": stats.defesa_base
-                    }
-
-                if inv: dados_entidade["inventario"] = inv.itens
-                if eqp: dados_entidade["equipamento"] = {"arma": eqp.arma, "armadura": eqp.armadura}
-                if interact: dados_entidade["is_active"] = interact.is_active
-
-                # Salva o estado e os IDs textuais no dicionário serializável
-                snapshot_entidades[str(ent_id)] = dados_entidade
-
-        # 2. Consolida o pacote de sessão independente
+        # Consolida o pacote que será persistido na coluna JSON do banco
         dados_sessao_completa = {
             "mapa_atual_id": mapa_atual_id,
             "switches": self.switches,
@@ -92,7 +82,6 @@ class GameStateManager:
             "entidades": snapshot_entidades
         }
 
-        # 3. Executa a gravação atómica no SQL
         save_db = db_session.query(SaveDB).filter(
             SaveDB.usuario_id == usuario_id,
             SaveDB.cenario_id == cenario_id,
@@ -102,18 +91,19 @@ class GameStateManager:
         if save_db:
             save_db.dados_sessao = dados_sessao_completa
         else:
-            novo_save = SaveDB(
+            save_db = SaveDB(
                 usuario_id=usuario_id,
                 cenario_id=cenario_id,
                 slot_numero=slot,
                 dados_sessao=dados_sessao_completa
             )
-            db_session.add(novo_save)
+            db_session.add(save_db)
 
         db_session.commit()
+        return save_db.id
 
     def carregar_sessao_do_banco(self, db_session, usuario_id: int, cenario_id: int, slot: int = 1) -> dict | None:
-        """Busca os dados de sessão salvos. Retorna o JSON completo ou None se for um jogo novo."""
+        """Busca a sessão persistida no BD e restaura os dicionários de controle da campanha."""
         save_db = db_session.query(SaveDB).filter(
             SaveDB.usuario_id == usuario_id,
             SaveDB.cenario_id == cenario_id,
@@ -123,8 +113,8 @@ class GameStateManager:
         if not save_db:
             return None
 
-        # Restaura os switches e variáveis globais da campanha para a memória do gestor
-        self.switches = save_db.dados_sessao.get("switches", {})
-        self.variables = save_db.dados_sessao.get("variables", {})
+        dados = save_db.dados_sessao or {}
+        self.switches = dados.get("switches", {})
+        self.variables = dados.get("variables", {})
 
-        return save_db.dados_sessao
+        return dados

@@ -1,4 +1,4 @@
-# app/views/game_play_screen.py
+import esper
 from textual.screen import Screen
 from textual.widgets import Static, RichLog, Label, Input
 from textual.containers import Container, ScrollableContainer
@@ -6,29 +6,36 @@ from textual.events import Key
 from textual import on
 
 from app.db.database import SessionLocal
-from app.core.emojis import CatalogoTiles
-from app.core.engine.event_bus import EventBus
-from app.core.engine.systems import MovementSystem, InteractionSystem, AISystem
-from app.core.engine.render import RenderSystem
-from app.core.engine.engine_loader import carregar_engine_do_banco
+from app.core.engine.systems import (MovementSystem, InteractionSystem, AISystem,
+                                     RenderSystem, InventarySystem)
+from app.core.engine.engine_loader import GameEngineLoader
+from app.core.engine.components import (PositionComponent, RenderComponent, 
+                                        PlayerControlComponent, StatsComponent,
+                                        InventoryComponent, EquipmentComponent                                       
+)
+
 
 class GamePlayScreen(Screen):
-    CSS_PATH = "game_styles.tcss"
+    CSS_PATH = "styles/game_styles.css"
     
-    def __init__(self, mapa_id: int, personagem_id: int = 1): # Recebe mapa e herói reais
+    def __init__(self, mapa_id: int, personagem_id: int = 1):
         super().__init__()
         self.mapa_id = mapa_id
         self.personagem_id = personagem_id
-        self.event_bus = EventBus()
-        
-        self.engine_manager = None
+        self.direcao_olhar = "baixo"
+
+        # Inicializa o Barramento e Carregador da Engine
+        self.loader = GameEngineLoader()
         self.mapa_matriz = None
         self.mapa_objetos = {}
-        
+
+        # Sistemas lógicos adaptados para Esper
         self.movimento_sys = None
         self.interacao_sys = None
-        self.ai_sys = None
-        self.render_sys = None
+        self.render_sys = RenderSystem()
+        self.invSys = InventarySystem()
+
+    BINDINGS = [("/", "focus_in_command_bar", "")]
 
     def compose(self):
         with Container(id="game-layout"):
@@ -54,78 +61,150 @@ class GamePlayScreen(Screen):
                 yield RichLog(id="area-interacao", markup=True)
                 yield Input(placeholder="Digite um comando... (ex: /usar poção, /equipar espada_fogo)", id="terminal-prompt")
 
+    
     def on_mount(self):
-        log = self.query_one("#area-interacao", RichLog)
-        log.write("[bold yellow]>>> Inicializando sistemas de campanha...[/]")
+        self.log_mensagem(
+            "[bold yellow]>>> Inicializando sistemas de campanha...[/]")
         
         try:
             with SessionLocal() as db:
                 # Carregamento autêntico sem simulações!
-                # self.engine_manager, self.mapa_matriz, self.mapa_objetos = carregar_engine_do_banco(
-                #     self.mapa_id, self.personagem_id, db
-                # )
-                self.engine_manager, self.mapa_matriz, self.mapa_objetos, self.mapa_id = carregar_engine_do_banco(
-                        db_session=db,
-                        usuario_id=self.personagem_id, # ID do jogador ativo
-                        cenario_id=1,                  # ID do jogo/campanha escolhida
-                        slot_numero=1                  # Slot selecionado
-                    )
+                
+                self.engine_manager = self.loader.carregar_engine_do_banco(
+                        #usuario_id=self.personagem_id, # ID do jogador ativo
+                        #cenario_id=1,                  # ID do jogo/campanha escolhida
+                        #slot_numero=1                  # Slot selecionado
+                        db,
+                        mapa_id=1
+                                            )
+                
+            self.mapa_matriz = self.loader.matriz_terrenos
+            self.mapa_objetos = self.loader.camada_objetos
+            self.mapa_id = self.loader.mapa_id
             
-            self.movimento_sys = MovementSystem(self.engine_manager, self.mapa_matriz, self.mapa_objetos)
-            self.interacao_sys = InteractionSystem(self.engine_manager, self.event_bus)
-            self.render_sys = RenderSystem(self.engine_manager)
-            self.ai_sys = AISystem(self.engine_manager, self.movimento_sys, self.event_bus)
+            # TODO: teste pratico mostrou que o engine_load cria a entidade; limpar
+            if not esper.entity_exists(1):
+                esper.create_entity(
+                    PositionComponent(x=9, y=9),
+                    RenderComponent(emoji="🐱"),
+                    PlayerControlComponent()
+                )
+
+            self.movimento_sys = MovementSystem(self.loader)
+            
+            # Interações com o Esper
+            self.interacao_sys = InteractionSystem(self.loader.event_bus)
+            
+            self.ai_sys = AISystem(self.loader,
+                                   self.movimento_sys, self.loader.event_bus)
+
+            self.loader.event_bus.subscribe(
+                "INTERACTION_SUCCESS", self.on_evento_interacao)
+
+            self.log_mensagem(
+                f"[green]Mapa '[bold]{self.loader.nome_mapa}[/]' carregado com sucesso![/]")
+            self.atualizar_tudo()
+
 
             # Assina eventos globais da rádio lúdica
-            self.event_bus.subscribe("bau", self.ao_recolher_bau)
-            self.event_bus.subscribe("ataque_monstro", self.ao_levar_ataque)
+            self.loader.event_bus.subscribe("bau", self.ao_recolher_bau)
+            self.loader.event_bus.subscribe("ataque_monstro", self.ao_levar_ataque)
 
             # Batimento dos monstros autónomos a cada 1 segundo
             self.set_interval(1.0, self.game_tick)
 
-            log.write("[bold green]>>> Engine Pronta! Use setas para andar, ENTER para interagir ou use o Terminal de comandos abaixo.[/]")
+            self.log_mensagem(
+                "[bold green]>>> Engine Pronta! Use setas para andar, ENTER para interagir ou use o Terminal de comandos abaixo.[/]")
             self.atualizar_tudo()
 
         except Exception as e:
-            log.write(f"[bold red]❌ Erro crítico: {e}[/]")
+            self.log_mensagem(f"[bold red]❌ Erro crítico: {e}[/]")
+            
+    def log_mensagem(self, texto: str):
+        """Injeta mensagens formatadas no painel lateral de logs."""
+        try:
+            self.query_one("#log-eventos", RichLog).write(texto)
+        except Exception:
+            pass
+        try:
+            self.query_one("#area-interacao", RichLog).write(texto)
+        except Exception:
+            pass
 
     def game_tick(self):
         if self.ai_sys:
             self.ai_sys.update()
-            self.atualizar_visual_do_jogo()
+            self.atualizar_tudo()
+
+
+    def action_focus_in_command_bar(self):
+            self.log_mensagem("[blue]Digite um comando.[/]")
+            commandbox = self.query_one("#terminal-prompt", Input)
+            commandbox.select_on_focus = False
+            commandbox.value += '/'
+            commandbox.cursor_position = len(commandbox.value) + 1
+            commandbox.focus()
+            
 
     # ==========================================
     # EVENTOS DA ENGINE
     # ==========================================
-    def ao_recolher_bau(self, dados):
-        log = self.query_one("#area-interacao", RichLog)
-        params = dados["parameters"]
-        item_nome = params.get("item", "Moeda Antiga")
-        qtd = params.get("quantidade", 1)
-        
-        # Injeta o item coletado no Inventário Lógico da Engine!
-        inv = self.engine_manager.get_component(1, "InventoryComponent")
-        if inv:
-            inv.itens[item_nome] = inv.itens.get(item_nome, 0) + qtd
+    
+    def on_evento_interacao(self, payload: dict):
+        """Callback acionado via Event Bus quando o InteractionSystem processa algo."""
+        tipo = payload.get("tipo", "evento")
+        params = payload.get("parametros", {})
+
+        if tipo == "bau":
+            self.ao_recolher_bau(payload)
             
-        log.write(f"[bold cyan]🎁 Você abriu um baú e coletou: [yellow]{item_nome} x{qtd}[/yellow]! (Digite /equipar ou /usar no terminal para usufruir)[/]")
+        elif tipo == "npc_dialogo":
+            self.log_mensagem(f"[cyan]💬 NPC: {params.get('texto', 'Olá!')}[/]")
+        else:
+            self.log_mensagem(f"[white]✨ Evento ativado: {tipo}[/]")
+            
+            
+    def ao_recolher_bau(self, dados):
+        params = dados.get("parametros", {})
+        
+        # Resolução genérica: Tenta pegar dados de um estado específico ou do nível raiz
+        estado_nome = params.get("estado_atual")
+        bloco = params.get(estado_nome) if estado_nome and estado_nome in params else params
+        
+        # Normalização de campos para aceitar múltiplos modelos de JSON
+        item_nome = bloco.get("item") or bloco.get("item_id") or bloco.get("nome") or "item desconhecido"
+        qtd = bloco.get("quantidade") or bloco.get("qtd") or 1
+        msg = bloco.get("mensagem") or bloco.get("msg") or "Você abriu um baú!"
+        
+        inv = esper.component_for_entity(1, InventoryComponent)
+        if inv:
+            self.invSys._inventory_add_item(inv, item_nome, qtd)
+
+        self.log_mensagem(
+            f"[bold cyan]🎁 {msg} e coletou: [yellow]{item_nome} x{qtd}[/yellow]! "
+            f"(Digite /equipar ou /usar no terminal para usufruir)[/]"
+        )
         self.atualizar_paineis_status()
+
 
     def ao_levar_ataque(self, dados_ataque):
         log = self.query_one("#area-interacao", RichLog)
         dano = dados_ataque.get("mudar_hp", {}).get("valor", 1)
         
-        stats = self.engine_manager.get_component(1, "StatsComponent")
+        stats = esper.component_for_entity(1, StatsComponent)
         if stats:
             # Desconta o dano mitigado pela defesa real do personagem
             dano_real = max(1, dano - (stats.defesa_base // 3))
             stats.hp = max(0, stats.hp - dano_real)
-            log.write(f"[bold red]⚔️ O monstro atacou você! Sofreu {dano_real} de dano real (Defesa mitigou o resto).[/]")
+            self.log_mensagem(
+                f"[bold red]⚔️ O monstro atacou você! Sofreu {dano_real} de dano real (Defesa mitigou o resto).[/]")
             
             if stats.hp <= 0:
-                log.write("[bold background red]💀 VOCÊ MORREU! Fim de Jogo.[/]")
+                self.log_mensagem(
+                    "[bold background red]💀 VOCÊ MORREU! Fim de Jogo.[/]")
         
         self.atualizar_paineis_status()
+
 
     # ==========================================
     # INTERPRETADOR DE COMANDOS DO TERMINAL (SUBMIT INPUT)
@@ -141,107 +220,179 @@ class GamePlayScreen(Screen):
 
         if not texto: return
 
-        log.write(f"[dim]>>> {texto}[/]") # Mostra o comando ecoado no log
+        # Mostra o comando ecoado no log
+        self.log_mensagem(f"[dim]>>> {texto}[/]")
 
         # 1. Separar o comando do argumento. Ex: "/usar poção" -> comando="/usar", argumento="poção"
         partes = texto.split(" ", 1)
         comando = partes[0]
         argumento = partes[1] if len(partes) > 1 else ""
 
-        stats = self.engine_manager.get_component(1, "StatsComponent")
-        inv = self.engine_manager.get_component(1, "InventoryComponent")
-        eqp = self.engine_manager.get_component(1, "EquipmentComponent")
+        stats = esper.component_for_entity(1, StatsComponent)
+        inv = esper.component_for_entity(1, InventoryComponent)
+        eqp = esper.component_for_entity(1, EquipmentComponent)
 
         # 🥤 COMANDO: /usar
         if comando == "/usar":
-            if not argumento:
-                log.write("[orange]Use: /usar <nome_do_item>[/]")
-                return
-            
-            if inv and inv.itens.get(argumento, 0) > 0:
-                if argumento == "poção" or argumento == "potion":
-                    inv.itens[argumento] -= 1
-                    stats.hp = min(stats.max_hp, stats.hp + 20) # Cura 20 de vida
-                    log.write(f"[bold green]✨ Você tomou uma poção. Recuperou 20 PV![/]")
+            if inv and self.invSys._inventory_has_item(inv, argumento):
+                if argumento in ("poção", "potion"):
+                    if self.invSys._inventory_remove_item(inv, argumento, 1):
+                        stats.hp = min(stats.max_hp, stats.hp + 20)
+                        self.log_mensagem(
+                            f"[bold green]✨ Você tomou uma poção. Recuperou 20 PV![/]")
+                    else:
+                        self.log_mensagem(
+                            f"[red]Erro ao usar '{argumento}'.[/]")
                 else:
-                    log.write(f"[orange]O item '{argumento}' não possui efeito de uso imediato.[/]")
+                    self.log_mensagem(
+                        f"[orange]O item '{argumento}' não possui efeito de uso imediato.[/]")
             else:
-                log.write(f"[red]Você não possui '{argumento}' no seu inventário.[/]")
-
+                self.log_mensagem(
+                    f"[red]Você não possui '{argumento}' no seu inventário.[/]")
+            self.atualizar_paineis_status()
+            
         # ⚔️ COMANDO: /equipar
         elif comando == "/equipar":
             if not argumento:
-                log.write("[orange]Use: /equipar <nome_da_arma_ou_armadura>[/]")
+                self.log_mensagem(
+                    "[orange]Use: /equipar <nome_da_arma_ou_armadura>[/]")
                 return
-                
-            if inv and inv.itens.get(argumento, 0) > 0:
-                # Simula um banco de dados de itens simples para conferir os bónus lógicos
+
+            if inv and self.invSys._inventory_has_item(inv, argumento):
                 if "espada" in argumento:
                     bonus = 5 if "longa" in argumento else 3
                     eqp.arma = {"nome": argumento, "bonus_atk": bonus}
-                    log.write(f"[bold blue]⚔️ Equipado com sucesso: {argumento.upper()} (+{bonus} ATK).[/]")
+                    self.log_mensagem(
+                        f"[bold blue]⚔️ Equipado com sucesso: {argumento.upper()} (+{bonus} ATK).[/]")
                 elif "armadura" in argumento or "escudo" in argumento:
                     bonus = 6 if "placas" in argumento else 3
                     eqp.armadura = {"nome": argumento, "bonus_def": bonus}
-                    log.write(f"[bold blue]🛡️ Equipado com sucesso: {argumento.upper()} (+{bonus} DEF).[/]")
+                    self.log_mensagem(
+                        f"[bold blue]🛡️ Equipado com sucesso: {argumento.upper()} (+{bonus} DEF).[/]")
                 else:
-                    log.write("[orange]Este item não pode ser equipado como arma ou armadura.[/]")
+                    self.log_mensagem(
+                        "[orange]Este item não pode ser equipado como arma ou armadura.[/]")
             else:
-                log.write(f"[red]Você não possui o equipamento '{argumento}' no inventário.[/]")
+                self.log_mensagem(
+                    f"[red]Você não possui o equipamento '{argumento}' no inventário.[/]")
+            self.atualizar_paineis_status()
         
 
         # Força a interface a recalcular e redesenhar os novos valores obtidos
         elif comando in ["/sair", "/q", "/exit", "/quit"]:
             self.app.pop_screen()
         else:
-            log.write(f"[red]Comando desconhecido: '{comando}'. Tente /usar ou /equipar.[/]")
+            self.log_mensagem(
+                f"[red]Comando desconhecido: '{comando}'. Tente /usar ou /equipar.[/]")
         
-        self.atualizar_paineis_status()
+        #self.atualizar_paineis_status()
 
     # ==========================================
     # INPUTS DE MOVIMENTAÇÃO (MANTÉM O FOCO FORA DO PROMPT AO USAR SETAS)
     # ==========================================
     def on_key(self, event: Key) -> None:
-        chave = event.key
+        key = event.key
         moveu = False
+        
+        if event.key == '/' or event.key == r'\\':
+            self.action_focus_in_command_bar(event)
+            
+        if key in ("up", "down", "left", "right", "w", "s", "a", "d", "/"):
+            event.prevent_default()  # Interrompe o scroll automático do Textual!
+            event.stop()
 
-        if chave == "up": moveu = self.movimento_sys.move_entity(1, 0, -1)
-        elif chave == "down": moveu = self.movimento_sys.move_entity(1, 0, 1)
-        elif chave == "left": moveu = self.movimento_sys.move_entity(1, -1, 0)
-        elif chave == "right": moveu = self.movimento_sys.move_entity(1, 1, 0)
-        elif chave == "enter":
+
+        if key in ("up", "w"):
+            self.direcao_olhar = "cima"
+            moveu = self.movimento_sys.mover_entidade(1, "cima")
+            self.centralizar_camera_no_jogador()
+        elif key in ("down", "s"):
+            self.direcao_olhar = "baixo"
+            moveu = self.movimento_sys.mover_entidade(1, "baixo")
+            self.centralizar_camera_no_jogador()
+        elif key in ("left", "a"):
+            self.direcao_olhar = "esquerda"
+            moveu = self.movimento_sys.mover_entidade(1, "esquerda")
+            self.centralizar_camera_no_jogador()
+        elif key in ("right", "d"):
+            self.direcao_olhar = "direita"
+            moveu = self.movimento_sys.mover_entidade(1, "direita")
+            self.centralizar_camera_no_jogador()
+        elif key == "enter":
             # Se o foco estiver no prompt do terminal, deixa o submit do input agir e ignora o raio
             if self.focused == self.query_one("#terminal-prompt"):
+                self.query_one("#tela-mapa").focus()
                 return
-            self.interacao_sys.interact(1)
+            achou_evento = self.interacao_sys.interagir(1, self.direcao_olhar)
+            
+            if not achou_evento:
+                self.log_mensagem(
+                    "[gray]Não há nada para acionar aqui na sua frente.[/]")
+            self.atualizar_tudo()
             return
 
-        if moveu:
-            self.atualizar_visual_do_jogo()
+        #sleep(0.01)
+        self.atualizar_tudo()
 
     # ==========================================
     # REDESENHO DE TELAS E RECALCULO DE ATRIBUTOS + EQUIPAMENTOS
     # ==========================================
+    
+    # ANTERIOR AO ESPER
     def atualizar_tudo(self):
-        self.atualizar_visual_do_jogo()
+        self.atualizar_tela()
         self.atualizar_paineis_status()
-
-    def atualizar_visual_do_jogo(self):
-        buffer_renderizado = self.render_sys.renderizar_frame(self.mapa_matriz, self.mapa_objetos)
-        self.query_one("#tela-mapa", Static).update(buffer_renderizado)
         
-        # Faz o scroll da câmara acompanhar o jogador no viewport
-        viewport = self.query_one("#mapa-viewport", ScrollableContainer)
-        pos_jogador = self.engine_manager.get_component(1, "PositionComponent")
-        if pos_jogador and viewport.size.width > 0:
-            alvo_x = (pos_jogador.x * 2) - (viewport.size.width // 2)
-            alvo_y = pos_jogador.y - (viewport.size.height // 2)
-            viewport.scroll_to(x=max(0, alvo_x), y=max(0, alvo_y), animate=False)
+    def atualizar_tela(self):
+        """Compila o frame atual do Esper e atualiza o Canvas Único na tela."""
+        
+        self.centralizar_camera_no_jogador()
+        
+        frame_text = self.render_sys.renderizar_frame(
+            self.mapa_matriz, self.mapa_objetos)
+        self.query_one("#tela-mapa", Static).update(frame_text)
+
+        # Centraliza a câmera no jogador de forma dinâmica
+
+    def centralizar_camera_no_jogador(self):
+        """Busca a posição do jogador no Esper e move o viewport do ScrollableContainer."""
+        try:
+            # O ID do jogador principal é 1
+            pos_player = esper.component_for_entity(1, PositionComponent)
+            if pos_player:
+                # Pegamos o container de scroll
+                viewport = self.query_one(
+                    "#mapa-viewport", ScrollableContainer)
+
+                # Coordenadas virtuais baseadas no tamanho das fontes do terminal
+                # Multiplicamos o X por 2 porque cada coluna visual de emoji gasta 2 caracteres de largura
+                largura_tela_virtual = viewport.content_size.width
+                altura_tela_virtual = viewport.content_size.height
+
+                # Centraliza a mira subtraindo metade do viewport visível
+                alvo_x = (pos_player.x * 2) - (largura_tela_virtual // 2)
+                alvo_y = pos_player.y - (altura_tela_virtual // 2)
+
+                # Força a rolagem exata sem animações para evitar trepidação (flicker)
+                viewport.scroll_to(x=max(0, alvo_x), y=max(
+                    0, alvo_y), animate=False)
+        except Exception:
+            pass
+    
+    
+    @on(Input.Submitted, "#txt-chat")
+    def ao_enviar_comando_chat(self, event: Input.Submitted):
+        """Processa a caixa de comandos rápidos de texto."""
+        texto = event.value.strip()
+        if texto:
+            self.log_mensagem(f"[bold white]Você:[/] {texto}")
+            self.query_one("#txt-chat", Input).value = ""
+
 
     def atualizar_paineis_status(self):
-        stats = self.engine_manager.get_component(1, "StatsComponent")
-        inv = self.engine_manager.get_component(1, "InventoryComponent")
-        eqp = self.engine_manager.get_component(1, "EquipmentComponent")
+        stats = esper.component_for_entity(1, StatsComponent)
+        inv = esper.component_for_entity(1, InventoryComponent)
+        eqp = esper.component_for_entity(1, EquipmentComponent)
 
         if not stats: return
 
@@ -260,8 +411,9 @@ class GamePlayScreen(Screen):
 
         # Atualiza Painel de Itens (Inventário)
         texto_inv = ""
-        if inv and inv.itens:
-            for nome_item, qtd in inv.itens.items():
+        if inv:
+            for nome_item, qtd in self.invSys._get_inventory_mapping(inv).items():
                 if qtd > 0:
                     texto_inv += f"• {nome_item.capitalize()} (x{qtd})\n"
-        self.query_one("#lbl-inventario", Static).update(texto_inv if texto_inv else "Inventário Vazio")
+        self.query_one(
+            "#lbl-inventario", Static).update(texto_inv if texto_inv else "Inventário Vazio")

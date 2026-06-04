@@ -85,6 +85,7 @@ class TestGameControllerCriacoes:
             nome="Aragorn",
             raca_id=raca_default.id,
             classe_id=classe_default.id,
+            usuario_id=1, cenario_id=1,
             atributos={
                 "forca": 4,
                 "agilidade": 3,
@@ -339,6 +340,7 @@ class TestSimuladorArena:
             nome="Orc Guerreiro",
             raca_id=raca.id,
             classe_id=classe.id,
+            usuario_id=1, cenario_id=1,
             forca_base=5,
             agilidade_base=2,
             resistencia_base=4,
@@ -363,6 +365,7 @@ class TestSimuladorArena:
             nome="Goblin",
             raca_id=raca.id,
             classe_id=classe.id,
+            usuario_id=1, cenario_id=1,
             forca_base=2,
             agilidade_base=3,
             resistencia_base=1,
@@ -381,21 +384,21 @@ class TestSimuladorArena:
         """Deve simular batalha com múltiplos personagens em cada equipe."""
         # Cria 2 aliados
         aliado1 = PersonagemDB(
-            nome="Legolas", raca_id=raca_default.id, classe_id=classe_default.id,
+            nome="Legolas", raca_id=raca_default.id, classe_id=classe_default.id,usuario_id=1, cenario_id=1,
             forca_base=2, agilidade_base=5, resistencia_base=3, percepcao_base=4, exuberancia_base=2, nivel=1
         )
         aliado2 = PersonagemDB(
-            nome="Gimli", raca_id=raca_default.id, classe_id=classe_default.id,
+            nome="Gimli", raca_id=raca_default.id, classe_id=classe_default.id, usuario_id=1, cenario_id=1,
             forca_base=4, agilidade_base=2, resistencia_base=5, percepcao_base=3, exuberancia_base=2, nivel=1
         )
         
         # Cria 2 oponentes
         oponente1 = PersonagemDB(
-            nome="Orc1", raca_id=raca_default.id, classe_id=classe_default.id,
+            nome="Orc1", raca_id=raca_default.id, classe_id=classe_default.id, usuario_id=1, cenario_id=1,
             forca_base=5, agilidade_base=2, resistencia_base=4, percepcao_base=2, exuberancia_base=2, nivel=1
         )
         oponente2 = PersonagemDB(
-            nome="Orc2", raca_id=raca_default.id, classe_id=classe_default.id,
+            nome="Orc2", raca_id=raca_default.id, classe_id=classe_default.id, usuario_id=1, cenario_id=1,
             forca_base=4, agilidade_base=3, resistencia_base=3, percepcao_base=2, exuberancia_base=2, nivel=1
         )
         

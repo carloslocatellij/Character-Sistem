@@ -2,7 +2,7 @@
 from dataclasses import dataclass, field # Add field here
 from typing import Dict
 from typing import Optional
-from app.core.emojis import dict_emoji_efeito
+from app.core.entities.emojis import dict_emoji_efeito
 
 # ==========================================
 # DOMÍNIO: EFEITOS, HABILIDADES E MAGIAS

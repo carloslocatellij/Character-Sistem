@@ -11,10 +11,21 @@ class CenarioDB(Base):
     descricao = Column(String)
     criador_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False)
 
+
+    mapa_inicial_id = Column(Integer, ForeignKey(
+    "mapas.id", ondelete="SET NULL"), nullable=True)
+
     # Relacionamentos
     criador = relationship("UsuarioDB", back_populates="cenarios_criados")
-    mapas = relationship("MapaDB", back_populates="cenario") # Garanta que MapaDB tenha a FK cenario_id
-    saves = relationship("SaveDB", back_populates="cenario")
+    mapa_inicial = relationship("MapaDB", back_populates="cenarios")
+    mapa_inicial = relationship(
+        "MapaDB",
+        back_populates="cenarios",
+        foreign_keys=[mapa_inicial_id]
+    )
+    saves = relationship("SaveDB", back_populates="cenario", cascade="all, delete-orphan")
+    personagens = relationship(
+        "PersonagemDB", back_populates="cenario", cascade="all, delete-orphan")
     
 
 class MapaDB(Base):
@@ -36,5 +47,10 @@ class MapaDB(Base):
     objetos = Column(JSON, nullable=True , default=dict)
     cenario_id = Column(Integer, ForeignKey("cenarios.id"))
     
-    cenario = relationship("CenarioDB", back_populates="mapas")
+    cenarios = relationship(
+        "CenarioDB",
+        back_populates="mapa_inicial",
+        # Passado como string para evitar import circular
+        foreign_keys="[CenarioDB.mapa_inicial_id]"
+    )
     eventos = relationship("EventoDB", back_populates="mapa", cascade="all, delete-orphan")

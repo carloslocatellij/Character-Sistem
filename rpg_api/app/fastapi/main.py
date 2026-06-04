@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from app.db.database import Base, engine
-from app.routers import personagens
+from app.fastapi.routers import personagens
 
 
 # Inicia a aplicação FastAPI

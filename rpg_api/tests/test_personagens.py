@@ -1,6 +1,6 @@
-from app.core.personagens import Raca, ClasseRPG, Personagem
-from app.core.equipamentos import Arma, Armadura
-from app.core.habilidades_magias import Magia
+from app.core.entities.personagens import Raca, ClasseRPG, Personagem
+from app.core.entities.equipamentos import Arma, Armadura
+from app.core.entities.habilidades_magias import Magia
 
 def test_criacao_raca_e_classe():
     """Garante que dicionários e listas vazias sejam tratados corretamente pelas dataclasses."""

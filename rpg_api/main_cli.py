@@ -13,7 +13,6 @@ from app.db.database import SessionLocal, engine, Base
 from app.models.personagens_db import PersonagemDB, RacaDB, ClasseRPGDB
 from app.models.equipamentos_db import ItemDB
 from app.controllers.game_controller import GameController, simular_arena
-from app.core.emojis import dict_emoji_racas, dict_item_emoji
 from musics.audio_player import music
 from app.models.mapas_db import MapaDB
 from app.views.map_manager_screen import MapManagerScreen
@@ -721,7 +720,7 @@ class MainScreen(Screen):
 # CONFIGURAÇÃO DE ESTILOS E LANÇAMENTO
 # ==========================================
 class RPGApp(App):
-    CSS_PATH = "app/views/styles.css"
+    CSS_PATH = "app/views/styles/styles.css"
     BINDINGS = [("d", "toggle_dark", "Mudar Tema Escuro/Claro"), ("q", "quit", "Sair"), ("m", "start_stop_music", "Música On/Off")]
     #music.play()
     

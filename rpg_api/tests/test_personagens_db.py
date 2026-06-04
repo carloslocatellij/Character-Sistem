@@ -33,6 +33,8 @@ def test_criar_personagem_com_relacionamentos():
         nivel=3,
         raca_id=raca_orc.id,
         classe_id=classe_barbaro.id,
+        usuario_id = 1,
+        cenario_id = 1,
         forca_base=3,
         agilidade_base=2,
         resistencia_base=4,
@@ -88,6 +90,8 @@ def test_personagem_com_equipamentos():
         nome="Arthur",
         nivel=5,
         raca_id=raca.id,
+        usuario_id = 1,
+        cenario_id = 1,
         classe_id=classe.id,
         mao_direita_id=espada.id,
         mao_esquerda_id=escudo.id

@@ -1,9 +1,9 @@
 import random
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, field
-from app.core.equipamentos import Arma, Armadura, Escudo, Item
-from app.core.habilidades_magias import Magia, Habilidade, Efeito
-from app.core.emojis import dict_emoji_racas
+from app.core.entities.equipamentos import Arma, Armadura, Escudo, Item
+from app.core.entities.habilidades_magias import Magia, Habilidade, Efeito
+from app.core.entities.emojis import dict_emoji_racas
 from math import ceil
 
 # ... (Mantenha as classes Raca e ClasseRPG exatamente como fizemos antes) ...
@@ -29,8 +29,16 @@ class ClasseRPG:
 # ==========================================
 
 class Personagem:
-    def __init__(self, nome: str, nivel: int, raca: Raca, classe_rpg: ClasseRPG,
-                 forca_base: int, agilidade_base: int, res_base: int, perc_base: int, exub_base: int):
+    def __init__(self, nome: str, 
+                 nivel: int,
+                 raca: Raca,
+                 classe_rpg: ClasseRPG,
+                 forca_base: int,
+                 agilidade_base: int,
+                 res_base: int,
+                 perc_base: int,
+                 exub_base: int):
+        
         self.nome = nome
         self.nivel = nivel
         self.raca = raca
@@ -93,14 +101,12 @@ class Personagem:
         # Bônus de Atributos
         for attr, valor in self.raca.bonus_atributos.items():
             if attr in self.atributos_totais: self.atributos_totais[attr] += valor
-        # for attr, valor in self.classe.bonus_atributos.items():
-        #     if attr in self.atributos_totais: self.atributos_totais[attr] += valor
             
         # NOVO: Bônus de Caminhos de Magia da Classe
         if self.classe.bonus_caminhos:
             for caminho, pontos in self.classe.bonus_caminhos.items():
-                if caminho in self.caminhos_magia:
-                    self.caminhos_magia[caminho] += pontos
+                #if caminho in self.caminhos_magia:
+                self.caminhos_magia[caminho] += pontos
                 
         self._calcular_status_derivados()
 
@@ -226,6 +232,7 @@ class Personagem:
         # Guarda na lista para controle de tempo
         from copy import deepcopy
         self.efeitos_ativos.append(deepcopy(efeito)) # Copia para não alterar o objeto base
+        
 
     def finalizar_turno(self) -> List[Dict]:
         """Roda no fim do turno: processa venenos, curas e reduz duração."""

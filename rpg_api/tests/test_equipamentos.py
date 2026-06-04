@@ -1,4 +1,4 @@
-from app.core.equipamentos import Item, Arma, Armadura, Escudo
+from app.core.entities.equipamentos import Item, Arma, Armadura, Escudo
 
 def test_criacao_item_basico():
     """Testa se um item genérico é criado com os valores corretos."""
