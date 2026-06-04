@@ -27,7 +27,7 @@ python-dotenv==1.2.2
 rich==15.0.0
 shellingham==1.5.4
 SQLAlchemy==2.1.0b1
-starlette==0.35.1
+starlette==1.0.1
 textual==8.2.4
 tinytag==2.2.1
 typer==0.24.1
