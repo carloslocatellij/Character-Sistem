@@ -1,6 +1,6 @@
-from app.core.personagens import Personagem, Raca, ClasseRPG
-from app.core.equipamentos import Arma
-from app.core.simulador import SimuladorCombate
+from app.core.entities.personagens import Personagem, Raca, ClasseRPG
+from app.core.entities.equipamentos import Arma
+from app.views.simulador import SimuladorCombate
 
 def criar_lutadores():
     """Função utilitária para gerar lutadores para o teste."""

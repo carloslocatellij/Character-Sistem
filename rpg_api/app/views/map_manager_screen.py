@@ -10,11 +10,11 @@ from textual.containers import Horizontal, Vertical, Container
 from textual.message import Message
 from textual import on
 from textual.events import MouseDown, MouseUp, MouseMove
-from app.core.mapas import GestorDeMapas
+from app.core.entities.mapas import GestorDeMapas
 from app.db.database import SessionLocal
 from app.models.mapas_db import MapaDB
 from app.models.eventos_db import EventoDB
-from app.core.emojis import CatalogoTiles, padronizar_largura_tile
+from app.core.entities.emojis import CatalogoTiles, padronizar_largura_tile
 from rich.text import Text
 
 import rich.cells
@@ -30,7 +30,7 @@ def patched_cell_len(text: str) -> int:
 # Substituição global na biblioteca Rich
 rich.cells.cell_len = patched_cell_len
 
-CSS_PATH = "styles.css"
+CSS_PATH = "styles/styles.css"
 
 
 class MapaInterativo(Static):

@@ -2,12 +2,12 @@ from sqlalchemy.orm import Session
 from typing import List, Dict, Any
 from app.models.personagens_db import PersonagemDB, RacaDB, ClasseRPGDB
 from app.models.equipamentos_db import ItemDB
-from app.core.personagens import Personagem, Raca, ClasseRPG
-from app.core.simulador import SimuladorCombate
-from app.core.equipamentos import Arma, Armadura, Escudo
+from app.core.entities.personagens import Personagem, Raca, ClasseRPG
+from app.views.simulador import SimuladorCombate
+from app.core.entities.equipamentos import Arma, Armadura, Escudo
 
 from app.models.mapas_db import MapaDB
-from app.core.mapas import GestorDeMapas
+from app.core.entities.mapas import GestorDeMapas
 
 class GameController:
     def __init__(self, db: Session):
@@ -16,6 +16,7 @@ class GameController:
     # ==========================================
     # TRADUTOR (MAPPER): BANCO DE DADOS -> DOMÍNIO
     # ==========================================
+    
     def converter_para_dominio(db_char: PersonagemDB) -> Personagem:
         """Converte um modelo do SQLAlchemy para a Entidade pura do RPG."""
         # 1. Recria a Raça do Domínio
@@ -108,9 +109,9 @@ class GameController:
             return f"Não foi possível registrar a classe devido ao ERRO: {e}"
         
 
-    def criar_personagem(db, nome, raca_id, classe_id, atributos):
+    def criar_personagem(db, nome, raca_id, classe_id, atributos, usuario_id=None, cenario_id=None):
         novo_personagem = PersonagemDB(
-            nome=nome, raca_id=raca_id, classe_id=classe_id,
+            nome=nome, raca_id=raca_id, classe_id=classe_id, usuario_id=usuario_id, cenario_id=cenario_id,
             forca_base=atributos.get('forca'),
             agilidade_base=atributos.get('agilidade'),
             resistencia_base=atributos.get('resistencia'),

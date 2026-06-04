@@ -4,7 +4,7 @@ from typing import List
 
 from app.db.database import get_db
 from app.models import personagens_db as models
-from app.schemas import rpg_schemas as schemas
+from app.models.schemas import rpg_schemas as schemas
 
 # Cria o roteador base para o prefixo /personagens
 router = APIRouter(prefix="/api/v1", tags=["RPG Geral"])

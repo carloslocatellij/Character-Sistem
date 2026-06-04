@@ -1,6 +1,6 @@
 import pytest # Necessário para testar exceções
-from app.core.personagens import Personagem, Raca, ClasseRPG
-from app.core.habilidades_magias import Efeito, Magia, Habilidade
+from app.core.entities.personagens import Personagem, Raca, ClasseRPG
+from app.core.entities.habilidades_magias import Efeito, Magia, Habilidade
 
 def criar_cobaia():
     raca = Raca("Humano")

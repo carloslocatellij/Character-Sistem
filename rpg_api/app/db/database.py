@@ -1,4 +1,5 @@
 import os
+import sys
 from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
@@ -23,12 +24,21 @@ if IS_TEST_ENV:
     print("🔧 [DB] MODO DE TESTE ATIVADO: Usando banco de dados de teste.")
 else:
     SQLALCHEMY_DATABASE_URL = "sqlite:///" + os.path.join(basedir, "rpg_producao.db") or os.getenv("DATABASE_URL", "sqlite:///" + os.path.join(basedir, "rpg_producao.db"))
-    print("🚀 [DB] MODO DE PRODUÇÃO ATIVADO: Usando banco oficial.")    
-    # 4. Cria o Motor (Engine) do banco de dados
-    # O argumento connect_args={"check_same_thread": False} é necessário apenas para o SQLite trabalhar bem com o FastAPI.
-    engine = create_engine(
-        SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
-    )
+    if "pytest" in sys.modules or "pytest" in sys.argv[0]:
+        if "prod" in SQLALCHEMY_DATABASE_URL:
+            engine = create_engine(
+                "sqlite:///:memory:",
+                connect_args={"check_same_thread": False},
+                poolclass=StaticPool,)
+        print("🔧 [DB] MODO DE TESTE ATIVADO: Usando banco de dados de teste.")
+        
+    else:
+        print("🚀 [DB] MODO DE PRODUÇÃO ATIVADO: Usando banco oficial.")    
+        # 4. Cria o Motor (Engine) do banco de dados
+        # O argumento connect_args={"check_same_thread": False} é necessário apenas para o SQLite trabalhar bem com o FastAPI.
+        engine = create_engine(
+            SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
+        )
 
 # 5. Fábrica de Sessões (Onde as transações do banco acontecem)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

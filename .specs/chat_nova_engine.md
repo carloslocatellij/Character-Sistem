@@ -71,7 +71,7 @@ Percebemos que misturar a lógica de colisão e a física com os Widgets da inte
 
 
 2. **engine e Memória Lógica (✅ Concluído):**
-* Criadas as classes `EngineManeger`, `Components` e `GameEngine`.
+* Criadas as classes `EngineManager`, `Components` e `GameEngine`.
 * A Engine já consegue ler um mapa da base de dados, interpretar os seus eventos e instanciá-los como Entidades com Componentes na memória lógica. Testes aprovados.
 
 

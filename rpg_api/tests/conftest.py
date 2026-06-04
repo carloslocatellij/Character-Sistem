@@ -1,11 +1,19 @@
 # tests/conftest.py
 import pytest
+import os
+import sys
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 from app.db.database import Base
 from app.models.personagens_db import PersonagemDB, RacaDB, ClasseRPGDB
 from app.models.equipamentos_db import ItemDB
 
+os.environ["DATABASE_URL"] = "sqlite:///:memory:"
+os.environ["ENV_MODE"] = "testing"
+
+# Opcional: Garante que o caminho do projeto esteja visível para os testes
+sys.path.insert(0, os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..")))
 
 @pytest.fixture(scope="function")
 def test_db():
@@ -42,7 +50,7 @@ def classe_default(test_db):
     """Fixture: Classe padrão para testes."""
     classe = ClasseRPGDB(
         nome="Arqueiro",
-        bonus_caminhos={"Ar": 2, "Luz": 1},
+        bonus_caminhos={"ar": 2, "fogo": 1},
         habilidades=["Tiro Preciso", "Visão Aguçada"]
     )
     test_db.add(classe)
@@ -57,6 +65,7 @@ def personagem_default(test_db, raca_default, classe_default):
         nome="Legolas",
         raca_id=raca_default.id,
         classe_id=classe_default.id,
+        usuario_id=1, cenario_id=1,
         forca_base=2,
         agilidade_base=5,
         resistencia_base=3,

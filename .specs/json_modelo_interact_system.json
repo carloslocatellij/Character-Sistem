@@ -1,0 +1,113 @@
+{ "1 Baú":
+
+{"movimento": null,
+"estado_atual": "nunca aberto",
+"gatilho": "enter",
+"estados": 
+    {
+    "nunca aberto": 
+        {
+            "tipo": "mudar_inventario",
+            "item": "Poção",
+            "qtd": 2,
+            "msg": "Você encontrou Poções!",
+            "mudar_proprio_estado": "aberto"
+        },
+    "aberto":
+        {
+            "tipo": "mensagem",
+            "texto": "Você já pegou tudo que tinha aqui."
+        }
+    }
+},
+
+"2 - NPC":
+{"movimento" : null,
+"estado_atual": "desconhecido",
+"gatilho": "enter",
+"estados": 
+    {
+    "desconhecido":
+        {
+        "tipo": "mensagem",
+        "texto": "Bem-vindo a Riverwood."
+        },
+    "cumprimentado": {
+        "tipo": "mensagem",
+        "texto": "Que bom que voltou a Riverwood."
+        }
+    }
+},
+
+"3 - monstro":
+{ "movimento": "aleatório",
+"estado_atual": "vivo",
+"gatilho": "gatilho_colisao",
+"estados": 
+    {
+        "vivo": {
+        "condicao": null,
+        
+        "comandos": [
+            {
+                "tipo": "ataque",
+                "dano": 3
+            } ]
+        },
+
+        "morto": {
+            "mudar_gatilho": "enter",
+            "mudar_movimento": null,
+            "tipo": "mensagem",
+            "texto": "Ele está morto."
+
+        }
+    }
+
+},
+
+"4 Teleporte":{
+    "movimento": null,
+    "estado_atual": "imutavel",
+    "gatilho": "andar_sobre",
+    "estados": {
+        "imutavel": {
+            "tipo": "teleport",
+            "mapa_id": 2,
+            "pos_x": 5,
+            "pos_y": 10
+        }
+    }
+},
+
+"5 - Loja": {
+    "movimento": null,
+    "estado_atual": "aberta",
+    "gatilho": "enter",
+    "estados": {
+        "aberta": {"loop":
+                {    "condicao": {
+                        "switch": "deseja_comprar",
+                        "valor": true
+                    },
+                        "deseja_comprar_sim": 
+                        {"estoque": [
+                            "Espada",
+                            "Poção"
+                        ],
+                        "msg": "Deseja comprar algo mais?",
+                        "deseja_comprar": ["sim", "não"]
+
+                    },
+                    "deseja_comprar_não": "Sair"
+                }
+        },
+        "fechada": {
+            "tipo": "mensagem",
+            "texto": "A loja está fechada."
+        }
+    }
+}
+
+
+}
