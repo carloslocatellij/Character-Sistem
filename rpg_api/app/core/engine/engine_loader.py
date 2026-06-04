@@ -106,8 +106,10 @@ class GameEngineLoader:
         except Exception as e_bd:
             print(f"erro ao acessar ou alimentar comp status: {e_bd}")
 
-        # Posição inicial segura para o jogador nascer
-        px, py = 45, 45
+        # Tenta obter posição inicial das configs do mapa ou usa fallback seguro
+        configs = getattr(mapa_db, 'configs', {}) or {}
+        pos_inicial = configs.get("pos_inicial", [45, 45])
+        px, py = pos_inicial[0], pos_inicial[1]
 
         # Itens iniciais para garantir o funcionamento dos comandos do Chat (/inventario, /equipar)
         itens_iniciais = [
@@ -367,4 +369,3 @@ class GameEngineLoader:
 #                 continue
 
 #     return engine, mapa_db.mapa_em_si, objetos_cenario, mapa_id
-

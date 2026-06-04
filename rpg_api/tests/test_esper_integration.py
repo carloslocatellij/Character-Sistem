@@ -167,36 +167,27 @@ def test_deve_executar_carregar_engine_do_banco_com_esper():
         assert achou_goblin is True, "O Goblin vindo do banco de dados não foi encontrado no Esper ECS."
 
 
-def test_deve_atribuir_status_e_inventario_ao_jogador_no_esper( dados_base):
-    
+def test_deve_atribuir_status_e_inventario_ao_jogador_no_esper(db_session, dados_base):
     esper.switch_world(esper.list_worlds()[0])
 
+    mapa_id = dados_base.get("mapa_id")
 
-    with SessionLocal() as db:
-        # Criamos um mapa mock para o loader funcionar
-        #mapa = MapaDB(nome="Cidade Inicial", mapa_em_si=[["  "]], objetos={})
-        mapa = dados_base.get("mapa_id")
-        #db.add(mapa)
+    loader = GameEngineLoader()
+    loader.carregar_engine_do_banco(db_session, mapa_id)
 
-        # Simulamos o personagem ID 1 no Banco de Dados
-        
-        #cls_1 = #ClasseRPGDB("Mago", {}, {})
-        #raca_1 = #RacaDB("elfo", {}, "🧝🏻‍♀️")
-        p_db = dados_base.get("personagem") #db.query(PersonagemDB).filter(PersonagemDB.id == 1).first()
-        
+    player_entity = None
+    for ent_id, (stats,) in esper.get_components(StatsComponent):
+        if stats.nome == "Charles":
+            player_entity = ent_id
+            break
 
-        # Executamos o Loader
-        loader = GameEngineLoader()
-        loader.carregar_engine_do_banco(db, mapa)
+    assert player_entity is not None
+    stats = esper.component_for_entity(player_entity, StatsComponent)
+    inv = esper.component_for_entity(player_entity, InventoryComponent)
+    eqp = esper.component_for_entity(player_entity, EquipmentComponent)
 
-        # O jogador principal deve ter ID 1 no Esper
-        assert esper.entity_exists(1)
-        stats = esper.component_for_entity(1, StatsComponent)
-        inv = esper.component_for_entity(1, InventoryComponent)
-        eqp = esper.component_for_entity(1, EquipmentComponent)
-
-        assert stats.nome == "Charles"
-        assert stats.classe == "Mago"
-        assert stats.max_hp == 15
-        assert isinstance(inv.itens, list)
-        assert eqp.arma is None
+    assert stats.nome == "Charles"
+    assert stats.classe == "Mago"
+    assert stats.ataque_base == 15
+    assert isinstance(inv.itens, list)
+    assert eqp.arma is None

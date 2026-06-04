@@ -155,10 +155,8 @@ class GamePlayScreen(Screen):
         tipo = payload.get("tipo", "evento")
         params = payload.get("parametros", {})
 
-        if tipo == "bau" and "mudar_inventario" in params:
+        if tipo == "bau":
             self.ao_recolher_bau(payload)
-            self.log_mensagem(
-                f"[yellow]📦 {params.get('mensagem', 'Você abriu um baú!')}[/]")
             
         elif tipo == "npc_dialogo":
             self.log_mensagem(f"[cyan]💬 NPC: {params.get('texto', 'Olá!')}[/]")
@@ -168,19 +166,22 @@ class GamePlayScreen(Screen):
             
     def ao_recolher_bau(self, dados):
         params = dados.get("parametros", {})
-        estado_atual = params.get("estado_atual", "")
         
-        item_nome = params.get(estado_atual).get("item", "talher velho")
-        qtd = params.get(estado_atual).get("qtd", 1)
+        # Resolução genérica: Tenta pegar dados de um estado específico ou do nível raiz
+        estado_nome = params.get("estado_atual")
+        bloco = params.get(estado_nome) if estado_nome and estado_nome in params else params
         
-        message = params.get(estado_atual).get("msg", "Vc abriu ")
+        # Normalização de campos para aceitar múltiplos modelos de JSON
+        item_nome = bloco.get("item") or bloco.get("item_id") or bloco.get("nome") or "item desconhecido"
+        qtd = bloco.get("quantidade") or bloco.get("qtd") or 1
+        msg = bloco.get("mensagem") or bloco.get("msg") or "Você abriu um baú!"
         
         inv = esper.component_for_entity(1, InventoryComponent)
         if inv:
             self.invSys._inventory_add_item(inv, item_nome, qtd)
 
         self.log_mensagem(
-            f"[bold cyan]🎁 {message} e coletou: [yellow]{item_nome} x{qtd}[/yellow]! "
+            f"[bold cyan]🎁 {msg} e coletou: [yellow]{item_nome} x{qtd}[/yellow]! "
             f"(Digite /equipar ou /usar no terminal para usufruir)[/]"
         )
         self.atualizar_paineis_status()

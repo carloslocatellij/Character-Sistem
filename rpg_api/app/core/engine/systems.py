@@ -117,13 +117,13 @@ class InteractionSystem:
                 if interact.on_interact:
                     interact.on_interact(entidade_id, interact.parametros)
 
-                    # SE TIVER EVENT BUS: Notifica a UI de forma desacoplada!
-                    if self.event_bus:
-                        self.event_bus.publish("INTERACTION_SUCCESS", {
-                            "tipo": interact.tipo_evento,
-                            "parametros": interact.parametros
-                        })
-                    return True
+                # SE TIVER EVENT BUS: Notifica a UI de forma desacoplada!
+                if self.event_bus:
+                    self.event_bus.publish("INTERACTION_SUCCESS", {
+                        "entidade_id": entidade_alvo,
+                        "tipo": interact.tipo_evento,
+                        "parametros": interact.parametros
+                    })
                 return True
         return False
 
