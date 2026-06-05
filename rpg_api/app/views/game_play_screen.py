@@ -13,6 +13,8 @@ from app.core.engine.components import (PositionComponent, RenderComponent,
                                         PlayerControlComponent, StatsComponent,
                                         InventoryComponent, EquipmentComponent                                       
 )
+import logging
+logging.basicConfig(level=logging.INFO, filename="log.log", filemode="a")
 
 
 class GamePlayScreen(Screen):
@@ -107,7 +109,7 @@ class GamePlayScreen(Screen):
 
 
             # Assina eventos globais da rádio lúdica
-            self.loader.event_bus.subscribe("bau", self.ao_recolher_bau)
+            #self.loader.event_bus.subscribe("bau", self.ao_recolher_bau)
             self.loader.event_bus.subscribe("ataque_monstro", self.ao_levar_ataque)
 
             # Batimento dos monstros autónomos a cada 1 segundo
@@ -160,6 +162,7 @@ class GamePlayScreen(Screen):
             
         elif tipo == "npc_dialogo":
             self.log_mensagem(f"[cyan]💬 NPC: {params.get('texto', 'Olá!')}[/]")
+            
         else:
             self.log_mensagem(f"[white]✨ Evento ativado: {tipo}[/]")
             
@@ -169,7 +172,8 @@ class GamePlayScreen(Screen):
         
         # Resolução genérica: Tenta pegar dados de um estado específico ou do nível raiz
         estado_nome = params.get("estado_atual")
-        bloco = params.get(estado_nome) if estado_nome and estado_nome in params else params
+        bloco = params.get("estados").get(
+            estado_nome) if estado_nome and estado_nome in params.get("estados") else params
         
         # Normalização de campos para aceitar múltiplos modelos de JSON
         item_nome = bloco.get("item") or bloco.get("item_id") or bloco.get("nome") or "item desconhecido"
@@ -190,11 +194,12 @@ class GamePlayScreen(Screen):
     def ao_levar_ataque(self, dados_ataque):
         log = self.query_one("#area-interacao", RichLog)
         dano = dados_ataque.get("mudar_hp", {}).get("valor", 1)
+        self.log_mensagem(f'dano: {dano} - dados ataque: {dados_ataque}')
         
         stats = esper.component_for_entity(1, StatsComponent)
         if stats:
             # Desconta o dano mitigado pela defesa real do personagem
-            dano_real = max(1, dano - (stats.defesa_base // 3))
+            dano_real = max(0, dano - (stats.defesa_base // 3))
             stats.hp = max(0, stats.hp - dano_real)
             self.log_mensagem(
                 f"[bold red]⚔️ O monstro atacou você! Sofreu {dano_real} de dano real (Defesa mitigou o resto).[/]")
@@ -277,7 +282,29 @@ class GamePlayScreen(Screen):
                     f"[red]Você não possui o equipamento '{argumento}' no inventário.[/]")
             self.atualizar_paineis_status()
         
+        elif comando in ["/h", "/help", ]:
+            self.log_mensagem(f"[yellow] /usar <item consumível> -> 'utiliza o item aplicando seus efeitos' \n /equipar <equipamento> -> 'coloca o equipamento no personagem' \n /sair /q /quit -> 'Sai do jogo'[/]""")
 
+        elif comando == '/>':
+            # Interpretador de comandos python que redireciona para o log.add(element)
+            codigo = argumento.strip()
+            import sys
+            try:
+                sys.stdout = log
+                sys.stderr = log
+                sys.stdin.readline = lambda: codigo
+                result = exec(codigo)
+                sys.stdout = sys.__stdout__
+                sys.stderr = sys.__stderr__
+                
+                self.log_mensagem(f"[purple]>>> {sys.stdout.write(str(result))}[/]")
+            except Exception as e:
+                self.log_mensagem(f"[red]{e}[/]")
+
+        elif comando == '/status':
+            stats = esper.component_for_entity(1, StatsComponent)
+            self.log_mensagem(f"{stats}")
+            
         # Força a interface a recalcular e redesenhar os novos valores obtidos
         elif comando in ["/sair", "/q", "/exit", "/quit"]:
             self.app.pop_screen()
@@ -294,7 +321,7 @@ class GamePlayScreen(Screen):
         key = event.key
         moveu = False
         
-        if event.key == '/' or event.key == r'\\':
+        if event.key == '/' or event.key == "\\":
             self.action_focus_in_command_bar(event)
             
         if key in ("up", "down", "left", "right", "w", "s", "a", "d", "/"):
@@ -321,8 +348,9 @@ class GamePlayScreen(Screen):
         elif key == "enter":
             # Se o foco estiver no prompt do terminal, deixa o submit do input agir e ignora o raio
             if self.focused == self.query_one("#terminal-prompt"):
-                self.query_one("#tela-mapa").focus()
-                return
+                telamapa = self.query_one("#tela-mapa", Static)
+                telamapa.focus()
+            
             achou_evento = self.interacao_sys.interagir(1, self.direcao_olhar)
             
             if not achou_evento:

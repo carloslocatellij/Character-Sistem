@@ -7,6 +7,8 @@ from app.controllers.game_controller import GameController
 from app.core.engine.components import (PositionComponent, RenderComponent,
                                         InteractableComponent, StatsComponent, AIComponent,
                                         EquipmentComponent, InventoryComponent, PlayerControlComponent)
+import logging
+logging.basicConfig(level=logging.INFO, filename="log.log", filemode="a")
 
 
 class GameEngineLoader:
@@ -73,25 +75,30 @@ class GameEngineLoader:
             defesa_base=10
         )
 
+        #controller = GameController()
         try:
-            p_db = db.query(PersonagemDB).filter(PersonagemDB.id == 1).first()
+            # db.query(PersonagemDB).filter(PersonagemDB.id == 1).first()
+            p_db = GameController.obter_personagem_por_id(db, 1)
             if p_db:
                 # ⚔️ Tenta converter usando o GameController tradutor
                 try:
                     p_logic = GameController.converter_para_dominio(p_db)
+                    defesa_base = None
+                    if p_logic.mao_esquerda:
+                        defesa_base = p_logic.mao_esquerda.defesa_extra
                     stats_comp = StatsComponent(
                         nome=p_logic.nome,
                         classe=p_logic.classe.nome,
-                        hp=p_logic.atributos.get("pv", 100),
-                        max_hp=p_logic.atributos.get("pv_max", 100),
-                        mp=p_logic.atributos.get("pm", 50),
-                        max_mp=p_logic.atributos.get("pm_max", 50),
-                        ataque_base=p_logic.atributos.get("ataque", 15),
-                        defesa_base=p_logic.atributos.get("defesa", 10)
+                        hp=p_logic.pv_atual,
+                        max_hp=p_logic.pv_max,
+                        mp=p_logic.pm_atual,
+                        max_mp=p_logic.pm_max,
+                        ataque_base=p_logic.mod_atq_corpo or 0,
+                        defesa_base=defesa_base or 0
                     )
                 except Exception as e_conv:
-                    print(
-                        f"erro ao converter para personagem lógico, usando fallback parcial do BD: {e_conv}")
+                    logging.info(
+                        f"erro ao converter para personagem lógico, usando fallback parcial do BD: {e_conv} - {p_db}")
                     # Caso a conversão falhe por falta de raça/classe populada no mock, usa os dados crus do BD
                     stats_comp = StatsComponent(
                         nome=getattr(p_db, 'nome', "Charles"),
@@ -104,7 +111,7 @@ class GameEngineLoader:
                         defesa_base=getattr(p_db, 'defesa', 10)
                     )
         except Exception as e_bd:
-            print(f"erro ao acessar ou alimentar comp status: {e_bd}")
+            logging.info(f"erro ao acessar ou alimentar comp status: {e_bd}")
 
         # Tenta obter posição inicial das configs do mapa ou usa fallback seguro
         configs = getattr(mapa_db, 'configs', {}) or {}
