@@ -79,7 +79,8 @@ def test_receber_dano():
     assert alvo.pv_atual == 45 # 50 - 5
     assert evento["morreu"] is False
 
-def test_sistema_de_magia_mana():
+
+def test_sistema_de_magia_mana(monkeypatch):
     """Testa o gasto de PM ao lançar magias com a nova assinatura de objetos."""
     raca = Raca("elven")
     classe = ClasseRPG("magee")
@@ -91,6 +92,10 @@ def test_sistema_de_magia_mana():
     # Criamos os objetos Magia como a nova arquitetura exige
     magia_fogo = Magia(nome="Bola de Fogo", custo_pm=6)
     magia_raio = Magia(nome="Raio", custo_pm=5)
+    
+    # Congela rolagem para sempre acertar (Atacante tira alto, alvo tira baixo)
+    monkeypatch.setattr(mago, "_rolar_d6", lambda qtd: qtd * 6)
+    monkeypatch.setattr(alvo, "_rolar_d6", lambda qtd: qtd * 1)
     
     # Teste 1: Sucesso ao lançar magia
     evento = mago.lancar_magia(magia_fogo, alvo)
