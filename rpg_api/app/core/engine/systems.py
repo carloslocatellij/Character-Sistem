@@ -6,7 +6,8 @@ from app.core.engine.components import (
 )
 from app.core.entities.emojis import CatalogoTiles
 bloqueantes = CatalogoTiles.TERRENOS_BLOQUEANTES
-
+import logging
+logging.basicConfig(level=logging.INFO, filename="log.log", filemode="a")
 
 class RenderSystem:
     """Sistema responsável por compilar as camadas de Terreno, Objetos e Esper ECS em um único frame Text."""
@@ -116,6 +117,8 @@ class InteractionSystem:
             if pos_alvo.x == alvo_x and pos_alvo.y == alvo_y:
                 if interact.on_interact:
                     interact.on_interact(entidade_id, interact.parametros)
+                    logging.info(
+                        f"foi por on_interact: id {entidade_id} - par: {interact.parametros}")
 
                 # SE TIVER EVENT BUS: Notifica a UI de forma desacoplada!
                 if self.event_bus:
@@ -124,6 +127,8 @@ class InteractionSystem:
                         "tipo": interact.tipo_evento,
                         "parametros": interact.parametros
                     })
+                    logging.info(
+                        f"foi por event_bus: ent: {entidade_alvo} - par: {interact.parametros}")
                 return True
         return False
 

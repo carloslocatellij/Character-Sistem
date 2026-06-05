@@ -218,7 +218,8 @@ class TestGameControllerConsultas:
     def test_obter_personagem_por_id_valido(self, test_db, personagem_default):
         """Deve retornar um personagem válido pelo ID."""
         ctrl = GameController(test_db)
-        personagem = ctrl.obter_personagem_por_id(personagem_default.id)
+        personagem = GameController.obter_personagem_por_id(test_db,
+            personagem_default.id)
         
         assert personagem is not None
         assert personagem.nome == "Legolas"
@@ -226,8 +227,8 @@ class TestGameControllerConsultas:
 
     def test_obter_personagem_por_id_invalido(self, test_db):
         """Deve retornar None para ID inexistente."""
-        ctrl = GameController(test_db)
-        personagem = ctrl.obter_personagem_por_id(999)
+        #ctrl = GameController(test_db)
+        personagem = GameController.obter_personagem_por_id(test_db, 999)
         
         assert personagem is None
 
