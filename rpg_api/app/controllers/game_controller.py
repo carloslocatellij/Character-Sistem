@@ -9,6 +9,9 @@ from app.core.entities.equipamentos import Arma, Armadura, Escudo
 from app.models.mapas_db import MapaDB
 from app.core.entities.mapas import GestorDeMapas
 
+import logging
+logging.basicConfig(level=logging.INFO, filename="log.log", filemode="a")
+
 class GameController:
     def __init__(self, db: Session):
         self.db = db
@@ -20,40 +23,63 @@ class GameController:
     def converter_para_dominio(db_char: PersonagemDB) -> Personagem:
         """Converte um modelo do SQLAlchemy para a Entidade pura do RPG."""
         # 1. Recria a Raça do Domínio
-        raca_domain = Raca(nome=db_char.raca.nome, bonus_atributos=db_char.raca.bonus_atributos, emoji=db_char.raca.emoji)
+        try:
+            raca_domain = Raca(nome=db_char.raca.nome, bonus_atributos=db_char.raca.bonus_atributos, emoji=db_char.raca.emoji)
+        except Exception as e:
+            logging.info(f"Erro ao instanciar raça: {e}")
         
         # 2. Recria a Classe do Domínio
-        classe_domain = ClasseRPG(
-            nome=db_char.classe.nome, 
-            bonus_caminhos=db_char.classe.bonus_caminhos,
-            habilidades=db_char.classe.habilidades,
-            #bonus_atributos=db_char.classe.bonus_atributos
-        )
-        
+        try:
+            classe_domain = ClasseRPG(
+                nome=db_char.classe.nome, 
+                bonus_caminhos=db_char.classe.bonus_caminhos,
+                habilidades=db_char.classe.habilidades,
+                #bonus_atributos=db_char.classe.bonus_atributos
+            )
+        except Exception as e:
+            logging.info(f"Erro ao instanciar classe: {e}")
+            
+            
         # 3. Recria o Personagem
-        personagem = Personagem(
-            nome=db_char.nome,
-            nivel=db_char.nivel,
-            raca=raca_domain,
-            classe_rpg=classe_domain,
-            forca_base=db_char.forca_base,
-            agilidade_base=db_char.agilidade_base,
-            res_base=db_char.resistencia_base,
-            perc_base=db_char.percepcao_base,
-            exub_base=db_char.exuberancia_base
-        )
+        try:
+            personagem = Personagem(
+                nome=db_char.nome,
+                nivel= int(db_char.nivel),
+                raca=raca_domain,
+                classe_rpg=classe_domain,
+                forca_base=int(db_char.forca_base),
+                agilidade_base=int(db_char.agilidade_base),
+                res_base=int(db_char.resistencia_base),
+                perc_base=int(db_char.percepcao_base),
+                exub_base=int(db_char.exuberancia_base)
+            )
+        except Exception as e:
+            logging.info(f"Erro ao instanciar personagem: {e} = {db_char}")
+            
+            
         # Equipar itens se existirem no banco
         if db_char.mao_direita:
-            personagem.mao_direita = Arma(db_char.mao_direita.nome, db_char.mao_direita.dano, db_char.mao_direita.tipo_ataque)
+            try:
+                personagem.mao_direita = Arma(db_char.mao_direita.nome, db_char.mao_direita.dano, db_char.mao_direita.tipo_ataque)
+            except Exception as e:
+                logging.info(f"Erro ao instanciar mao direita: {e}")
+                
         if db_char.mao_esquerda:
-            item = db_char.mao_esquerda
-            if item.categoria == "escudo":
-                personagem.mao_esquerda = Escudo(item.nome, item.defesa)
-            else:
-                personagem.mao_esquerda = Arma(item.nome, item.dano, item.tipo_ataque)
+            try:
+                item = db_char.mao_esquerda
+                if item.categoria == "escudo":
+                    personagem.mao_esquerda = Escudo(item.nome, item.defesa)
+                else:
+                    personagem.mao_esquerda = Arma(item.nome, item.dano, item.tipo_ataque)
+            except Exception as e:
+                logging.info(f"Erro ao instanciar mão esquerda: {e}")   
+                
         if db_char.armadura_equipada:
-            personagem.armadura = Armadura(db_char.armadura_equipada.nome, db_char.armadura_equipada.defesa)
-        
+            try:
+                personagem.armadura = Armadura(db_char.armadura_equipada.nome, db_char.armadura_equipada.defesa)
+            except Exception as e:
+                logging.info(f"Erro ao instanciar armadura: {e}")
+                
         return personagem
     
     
@@ -147,8 +173,9 @@ class GameController:
             return f"Não foi possível registrar o item devido ao ERRO: {e}"
         
         
-    def obter_personagem_por_id(self, p_id: int):
-            return self.db.query(PersonagemDB).get(p_id)
+    def obter_personagem_por_id(db, p_id: int):
+        person = db.query(PersonagemDB).get(p_id)
+        return person
         
     
     def atualizar_elemento(self,  el_id:int, dados:dict, model):
@@ -210,3 +237,5 @@ def exportar_mapa_para_csv(self, mapa_id: int, caminho_arquivo: str):
     csv_text = GestorDeMapas.para_csv(mapa_db.mapa_em_si)
     with open(caminho_arquivo, 'w', encoding='utf-8') as f:
         f.write(csv_text)
+        
+        
