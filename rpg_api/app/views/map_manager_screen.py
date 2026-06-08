@@ -4,7 +4,7 @@ import copy
 import json
 from textual.app import ComposeResult
 from textual.screen import Screen, ModalScreen
-from textual.widgets import Footer, Header, Tree, Static, Label, Button, Input, Select
+from textual.widgets import Footer, Header, Tree, Static, Label, Button, Input, Select, ListView, ListItem
 from textual.widgets import TabbedContent, TabPane
 from textual.containers import Horizontal, Vertical, Container
 from textual.message import Message
@@ -955,92 +955,405 @@ class PropriedadesFormScreen(ModalScreen[dict]):
 
 
 class PropriedadesEventoFormScreen(ModalScreen[dict]):
-    """Formulário flutuante para configurar a lógica, nome e JSON de um Evento/Entidade."""
-
+    """Formulário principal que gerencia o JSON do evento com páginas e comandos."""
 
     def __init__(self, linha: int, coluna: int, emoji: str, dados_existentes: dict = None):
         super().__init__()
         self.linha = linha
         self.coluna = coluna
         self.emoji = emoji
-        self.dados_existentes = dados_existentes or {}
+        self.dados_existentes = copy.deepcopy(dados_existentes) or {}
+        
+        # Estrutura JSON Universal
+        params = self.dados_existentes.get("parametros", {})
+        if "paginas" not in params:
+             # Evento simples ou novo
+             self.paginas = [
+                 {
+                     "id_pagina": 1,
+                     "condicoes": {},
+                     "configuracao_visual": {"emoji": self.emoji},
+                     "gatilho": "acao_jogador",
+                     "comandos": []
+                 }
+             ]
+        else:
+             self.paginas = params["paginas"]
+             
+        self.pagina_atual_idx = 0
 
     def compose(self):
-        with Vertical(id="evt-caixa"):
-            titulo = f"⚙️ Configurar Evento ({self.emoji}) em [{self.linha},{self.coluna}]"
+        with Vertical(id="evt-caixa-full"):
+            titulo = f"⚙️ Evento em [{self.linha},{self.coluna}]"
             yield Label(titulo, classes="titulo-secao")
             
-            yield Label("Nome da Entidade/Evento:", classes="campo-rotulo")
-            yield Input(
-                value=self.dados_existentes.get("nome", f"evento_{self.linha}_{self.coluna}"), 
-                placeholder="ex: monstro_patrulha_1", id="evt-nome"
-            )
-            # yield Input(
-            #     value=self.dados_existentes.get("emoji", "😀" ), id='evt-emoji' ),
+            with Horizontal(classes="linha-dupla"):
+                yield Label("Nome:", classes="campo-rotulo")
+                yield Input(value=self.dados_existentes.get("nome", f"ev_{self.linha}_{self.coluna}"), id="evt-nome")
+                yield Label("Emoji:", classes="campo-rotulo")
+                yield Input(value=self.emoji, id="evt-emoji")
             
-            yield Label("Tipo de Mecânica (Comportamento Engine):", classes="campo-rotulo")
-            tipos_engine = [
-                ("Baú de Itens", "bau"),
-                ("NPC Diálogo", "npc_dialogo"),
-                ("NPC Loja", "npc_loja"),
-                ("Inimigo/Monstro", "monstro"),
-                ("Porta/Teletransporte", "porta"),
-                ("Armadilha", "armadilha") 
-            ]
-            yield Select(
-                tipos_engine, 
-                prompt="Selecione o Comportamento", 
-                value=self.dados_existentes.get("tipo_evento", "monstro"), 
-                id="evt-tipo"
-            )
+            with Horizontal(classes="linha-dupla"):
+                yield Label("Página:", classes="campo-rotulo")
+                yield Button("<", id="btn-pag-ant", classes="btn-pequeno")
+                yield Label(f" {self.pagina_atual_idx + 1} / {len(self.paginas)} ", id="lbl-pag-atual")
+                yield Button(">", id="btn-pag-prox", classes="btn-pequeno")
+                yield Button("+ Pág", id="btn-add-pag", variant="primary", classes="btn-pequeno")
+                yield Button("- Pág", id="btn-del-pag", variant="error", classes="btn-pequeno")
+                
+            yield Label("Gatilho:", classes="campo-rotulo")
+            yield Select([
+                ("Ação do Jogador (Pressionar Botão)", "acao_jogador"),
+                ("Toque do Jogador (Pisar)", "toque_jogador"),
+                ("Toque do Evento (Bater no herói)", "toque_evento"),
+                ("Processo Automático", "processo_automatico"),
+                ("Processo Paralelo", "processo_paralelo")
+            ], value=self.paginas[0].get("gatilho", "acao_jogador"), id="evt-gatilho")
             
-            yield Label("Parâmetros do Evento (Formato Dicionário Python/JSON):", classes="campo-rotulo")
-            # Converte o dict de volta para string legível para exibição no Input
-            params_atuais = self.dados_existentes.get("parametros", {"mover": {"direção": "aleatório", "ciclos": "infinito"}, "ação": {"quando":"tocar_heroi", "alvo": "heroi", "mudar_hp": {"op": "sub", "valor": 2}}})
-            yield Input(value=str(params_atuais).replace("'", '"'), placeholder='ex: {"hp": 50, "forca": 10}', id="evt-params")
-
+            yield Label("Comandos da Página:", classes="campo-rotulo")
+            yield ListView(id="lista-comandos")
+            
             with Horizontal(id="evt-botoes"):
+                yield Button("+ Adicionar Comando", id="btn-add-cmd", variant="primary")
                 yield Button("Cancelar", id="btn-evt-cancelar", variant="error")
-                yield Button("Confirmar e Instanciar", id="btn-evt-salvar", variant="success")
+                yield Button("Salvar Evento", id="btn-evt-salvar", variant="success")
+
+    def on_mount(self):
+        self.atualizar_tela_pagina()
+
+    def atualizar_tela_pagina(self):
+        lbl = self.query_one("#lbl-pag-atual", Label)
+        lbl.update(f" {self.pagina_atual_idx + 1} / {len(self.paginas)} ")
+        
+        select_gatilho = self.query_one("#evt-gatilho", Select)
+        select_gatilho.value = self.paginas[self.pagina_atual_idx].get("gatilho", "acao_jogador")
+        
+        self.atualizar_lista_comandos()
+
+    def atualizar_lista_comandos(self):
+        lista = self.query_one("#lista-comandos", ListView)
+        lista.clear()
+        comandos = self.paginas[self.pagina_atual_idx].get("comandos", [])
+        for i, cmd in enumerate(comandos):
+            dados_str = json.dumps(cmd['dados'], ensure_ascii=False, indent=2)
+            texto = f"[{i}] {cmd['tipo']}\n{dados_str}"
+            lista.append(ListItem(Label(texto), name=str(i)))
+
+    @on(Select.Changed, "#evt-gatilho")
+    def on_gatilho_changed(self, event: Select.Changed):
+        if event.value != Select.BLANK:
+            self.paginas[self.pagina_atual_idx]["gatilho"] = event.value
 
     def on_button_pressed(self, event: Button.Pressed):
         if event.button.id == "btn-evt-cancelar":
             self.dismiss(None)
-            
+        elif event.button.id == "btn-pag-ant":
+            if self.pagina_atual_idx > 0:
+                self.pagina_atual_idx -= 1
+                self.atualizar_tela_pagina()
+        elif event.button.id == "btn-pag-prox":
+            if self.pagina_atual_idx < len(self.paginas) - 1:
+                self.pagina_atual_idx += 1
+                self.atualizar_tela_pagina()
+        elif event.button.id == "btn-add-pag":
+            nova_pagina = {
+                "id_pagina": len(self.paginas) + 1,
+                "condicoes": {},
+                "configuracao_visual": {"emoji": self.query_one("#evt-emoji").value},
+                "gatilho": "acao_jogador",
+                "comandos": []
+            }
+            self.paginas.append(nova_pagina)
+            self.pagina_atual_idx = len(self.paginas) - 1
+            self.atualizar_tela_pagina()
+        elif event.button.id == "btn-del-pag":
+            if len(self.paginas) > 1:
+                self.paginas.pop(self.pagina_atual_idx)
+                # Reordenar IDs
+                for i, p in enumerate(self.paginas):
+                    p["id_pagina"] = i + 1
+                self.pagina_atual_idx = min(self.pagina_atual_idx, len(self.paginas) - 1)
+                self.atualizar_tela_pagina()
+            else:
+                self.notify("Não é possível deletar a única página!", severity="warning")
+        elif event.button.id == "btn-add-cmd":
+            self.app.push_screen(AdicionarComandoScreen(), self.ao_adicionar_comando)
         elif event.button.id == "btn-evt-salvar":
             nome = self.query_one("#evt-nome").value
-            tipo = self.query_one("#evt-tipo").value
-            params_raw = self.query_one("#evt-params").value
-
-            if not nome or tipo == Select.BLANK:
-                self.notify("Nome e Tipo são obrigatórios!", severity="error")
-                return
-
-            # Validação Segura do Campo de Parâmetros JSON
-            try:
-                # O usuário pode digitar no formato JSON padrão do Python. 
-                # json.loads exige aspas duplas, por isso tratamos inputs comuns com segurança.
-                if not params_raw.strip():
-                    parametros = {}
-                else:
-                    parametros = json.loads(params_raw)
-            except Exception:
-                self.notify("Erro nos Parâmetros! Use formato JSON válido: {\"chave\": \"valor\"}", severity="error")
-                return
-
-            # Montamos o payload estruturado idêntico ao modelo do Banco de Dados
+            emoji = self.query_one("#evt-emoji").value
+            
+            parametros = {"paginas": self.paginas}
+            
             dados_retorno = {
                 "nome": nome,
-                "emoji": self.emoji,
-                "tipo_evento": str(tipo),
+                "emoji": emoji,
+                "tipo_evento": "evento_custom", 
                 "parametros": parametros
             }
-            
-            # Preserva o ID caso seja uma edição de um evento que já veio do banco
             if "id" in self.dados_existentes:
                 dados_retorno["id"] = self.dados_existentes["id"]
-
+                
             self.dismiss(dados_retorno)
+
+    def ao_adicionar_comando(self, novo_comando):
+        if novo_comando:
+            self.paginas[self.pagina_atual_idx].setdefault("comandos", []).append(novo_comando)
+            self.atualizar_lista_comandos()
+
+    def ao_salvar_edicao_comando(self, novo_comando, idx):
+        if novo_comando:
+            # Mantemos os ramos caso seja bifurcação para não perder se não editou
+            if novo_comando["tipo"] == self.paginas[self.pagina_atual_idx]["comandos"][idx]["tipo"]:
+                if "ramos" in self.paginas[self.pagina_atual_idx]["comandos"][idx]["dados"]:
+                    novo_comando["dados"]["ramos"] = self.paginas[self.pagina_atual_idx]["comandos"][idx]["dados"]["ramos"]
+            self.paginas[self.pagina_atual_idx]["comandos"][idx] = novo_comando
+            self.atualizar_lista_comandos()
+
+    def on_list_view_selected(self, event: ListView.Selected):
+        if event.list_view.id == "lista-comandos":
+            idx = int(event.item.name)
+            cmd = self.paginas[self.pagina_atual_idx]["comandos"][idx]
+            self.app.push_screen(AcoesComandoScreen(cmd), lambda acao: self.ao_acao_comando(acao, idx))
+
+    def ao_acao_comando(self, acao: str, idx: int):
+        if not acao: return
+        comandos = self.paginas[self.pagina_atual_idx]["comandos"]
+        if acao == "excluir":
+            comandos.pop(idx)
+            self.atualizar_lista_comandos()
+        elif acao == "editar":
+            cmd = comandos[idx]
+            self.app.push_screen(AdicionarComandoScreen(cmd), lambda novo_cmd: self.ao_salvar_edicao_comando(novo_cmd, idx))
+        elif acao.startswith("editar_ramo_"):
+            ramo_nome = acao.replace("editar_ramo_", "")
+            cmd = comandos[idx]
+            ramos = cmd["dados"].setdefault("ramos", {})
+            ramo_cmds = ramos.setdefault(ramo_nome, [])
+            self.app.push_screen(RamoEditorScreen(ramo_nome, ramo_cmds), lambda novos_cmds: self.ao_salvar_ramo(novos_cmds, idx, ramo_nome))
+
+    def ao_salvar_ramo(self, novos_cmds, idx, ramo_nome):
+        if novos_cmds is not None:
+            self.paginas[self.pagina_atual_idx]["comandos"][idx]["dados"]["ramos"][ramo_nome] = novos_cmds
+            self.atualizar_lista_comandos()
+
+
+class AdicionarComandoScreen(ModalScreen[dict]):
+    """Sub-formulário para gerar comandos baseados no tipo selecionado."""
+    def __init__(self, comando_existente: dict = None):
+        super().__init__()
+        self.comando_existente = comando_existente
+
+    def compose(self):
+        with Vertical(id="add-cmd-caixa"):
+            yield Label("Escolha o tipo de Comando", classes="titulo-secao")
+            yield Select([
+                ("Mensagem (Texto)", "mensagem"),
+                ("Teleporte (Mudar Mapa/Posição)", "teleporte"),
+                ("Inventário (Add/Sub)", "mudar_inventario"),
+                ("Status do Herói (HP/MP)", "mudar_status_heroi"),
+                ("Bifurcação Condicional (Opções)", "bifurcacao_condicional"),
+                ("Switch (Liga/Desliga)", "controle_switch"),
+                ("Self Switch (Local)", "controle_self_switch")
+            ], id="cmd-tipo")
+            yield Container(id="cmd-form-container")
+            with Horizontal(id="evt-botoes"):
+                yield Button("Cancelar", id="btn-cancel", variant="error")
+                yield Button("Confirmar", id="btn-save", variant="success")
+
+    def on_mount(self):
+        if self.comando_existente:
+            self.query_one("#cmd-tipo", Select).value = self.comando_existente["tipo"]
+
+    @on(Select.Changed, "#cmd-tipo")
+    def on_tipo_changed(self, event: Select.Changed):
+        container = self.query_one("#cmd-form-container")
+        container.remove_children()
+        tipo = event.value
+        
+        dados = {}
+        if self.comando_existente and self.comando_existente["tipo"] == tipo:
+            dados = self.comando_existente.get("dados", {})
+            
+        if tipo == "mensagem":
+            container.mount(Input(placeholder="Texto da mensagem (Use tags [color] se quiser)", id="cmd-msg-texto", value=dados.get("texto", "")))
+        elif tipo == "teleporte":
+            container.mount(Input(placeholder="ID do Mapa Destino", id="cmd-tel-mapa", value=str(dados.get("mapa_id", ""))))
+            container.mount(Input(placeholder="Coordenada X (Coluna)", id="cmd-tel-x", value=str(dados.get("pos_x", ""))))
+            container.mount(Input(placeholder="Coordenada Y (Linha)", id="cmd-tel-y", value=str(dados.get("pos_y", ""))))
+        elif tipo == "mudar_inventario":
+            container.mount(Input(placeholder="Nome exato do Item (ex: pocao_cura)", id="cmd-inv-item", value=dados.get("item", "")))
+            container.mount(Select([("Adicionar", "add"), ("Remover", "sub")], value=dados.get("operacao", "add"), id="cmd-inv-op"))
+            container.mount(Input(placeholder="Quantidade (ex: 1)", value=str(dados.get("quantidade", 1)), id="cmd-inv-qtd"))
+        elif tipo == "mudar_status_heroi":
+            container.mount(Select([("Vida (HP)", "hp"), ("Mana (MP)", "mp")], value=dados.get("parametro", "hp"), id="cmd-stat-param"))
+            container.mount(Select([("Recuperar (Add)", "add"), ("Causar Dano (Sub)", "sub")], value=dados.get("operacao", "add"), id="cmd-stat-op"))
+            container.mount(Input(placeholder="Valor Numérico", value=str(dados.get("valor", 10)), id="cmd-stat-valor"))
+        elif tipo == "bifurcacao_condicional":
+            container.mount(Input(placeholder="Pergunta ao Jogador?", id="cmd-bif-pergunta", value=dados.get("pergunta", "")))
+            opcoes = dados.get("opcoes", ["", ""])
+            op1 = opcoes[0] if len(opcoes) > 0 else ""
+            op2 = opcoes[1] if len(opcoes) > 1 else ""
+            container.mount(Input(placeholder="Opção 1 (ex: Sim)", id="cmd-bif-op1", value=op1))
+            container.mount(Input(placeholder="Opção 2 (ex: Não)", id="cmd-bif-op2", value=op2))
+        elif tipo == "controle_switch":
+            container.mount(Input(placeholder="Nome da Variável Switch", id="cmd-sw-nome", value=dados.get("nome", "")))
+            val_str = "true" if dados.get("valor", True) else "false"
+            container.mount(Select([("Ligar (True)", "true"), ("Desligar (False)", "false")], value=val_str, id="cmd-sw-valor"))
+        elif tipo == "controle_self_switch":
+            container.mount(Select([("A", "A"), ("B", "B"), ("C", "C"), ("D", "D")], value=dados.get("letra", "A"), id="cmd-ssw-letra"))
+            val_str = "true" if dados.get("valor", True) else "false"
+            container.mount(Select([("Ligar (True)", "true"), ("Desligar (False)", "false")], value=val_str, id="cmd-ssw-valor"))
+
+    def on_button_pressed(self, event: Button.Pressed):
+        if event.button.id == "btn-cancel":
+            self.dismiss(None)
+        elif event.button.id == "btn-save":
+            tipo = self.query_one("#cmd-tipo").value
+            if not tipo or tipo == Select.BLANK:
+                return
+                
+            comando = {"tipo": tipo, "dados": {}}
+            try:
+                if tipo == "mensagem":
+                    comando["dados"]["texto"] = self.query_one("#cmd-msg-texto").value
+                elif tipo == "teleporte":
+                    comando["dados"]["mapa_id"] = int(self.query_one("#cmd-tel-mapa").value)
+                    comando["dados"]["pos_x"] = int(self.query_one("#cmd-tel-x").value)
+                    comando["dados"]["pos_y"] = int(self.query_one("#cmd-tel-y").value)
+                elif tipo == "mudar_inventario":
+                    comando["dados"]["item"] = self.query_one("#cmd-inv-item").value
+                    comando["dados"]["operacao"] = self.query_one("#cmd-inv-op").value
+                    comando["dados"]["quantidade"] = int(self.query_one("#cmd-inv-qtd").value)
+                elif tipo == "mudar_status_heroi":
+                    comando["dados"]["parametro"] = self.query_one("#cmd-stat-param").value
+                    comando["dados"]["operacao"] = self.query_one("#cmd-stat-op").value
+                    comando["dados"]["valor"] = int(self.query_one("#cmd-stat-valor").value)
+                elif tipo == "bifurcacao_condicional":
+                    pergunta = self.query_one("#cmd-bif-pergunta").value
+                    op1 = self.query_one("#cmd-bif-op1").value
+                    op2 = self.query_one("#cmd-bif-op2").value
+                    comando["dados"]["pergunta"] = pergunta
+                    opcoes = []
+                    ramos = {}
+                    if op1:
+                        opcoes.append(op1)
+                        ramos[op1] = []
+                    if op2:
+                        opcoes.append(op2)
+                        ramos[op2] = []
+                    comando["dados"]["opcoes"] = opcoes
+                    comando["dados"]["ramos"] = ramos
+                elif tipo == "controle_switch":
+                    comando["dados"]["nome"] = self.query_one("#cmd-sw-nome").value
+                    comando["dados"]["valor"] = self.query_one("#cmd-sw-valor").value == "true"
+                elif tipo == "controle_self_switch":
+                    comando["dados"]["letra"] = self.query_one("#cmd-ssw-letra").value
+                    comando["dados"]["valor"] = self.query_one("#cmd-ssw-valor").value == "true"
+            except Exception as e:
+                self.notify(f"Erro ao salvar comando: Preencha os campos corretamente", severity="error")
+                return
+
+            self.dismiss(comando)
+
+
+class AcoesComandoScreen(ModalScreen[str]):
+    """Menu contextual ao clicar num comando."""
+    def __init__(self, comando: dict):
+        super().__init__()
+        self.comando = comando
+        
+    def compose(self):
+        with Vertical(id="acoes-cmd-caixa"):
+            yield Label(f"Ações: {self.comando['tipo']}", classes="titulo-secao")
+            yield Button("Editar Comando", id="btn-editar", variant="success")
+            if self.comando["tipo"] == "bifurcacao_condicional":
+                for op in self.comando["dados"].get("opcoes", []):
+                    yield Button(f"Editar Ramo: '{op}'", id=f"ramo_{op}", variant="primary")
+            yield Button("Excluir Comando", id="btn-excluir", variant="error")
+            yield Button("Voltar", id="btn-cancelar")
+
+    def on_button_pressed(self, event: Button.Pressed):
+        if event.button.id == "btn-cancelar":
+            self.dismiss(None)
+        elif event.button.id == "btn-excluir":
+            self.dismiss("excluir")
+        elif event.button.id == "btn-editar":
+            self.dismiss("editar")
+        elif event.button.id.startswith("ramo_"):
+            ramo_nome = event.button.id.replace("ramo_", "")
+            self.dismiss(f"editar_ramo_{ramo_nome}")
+
+
+class RamoEditorScreen(ModalScreen[list]):
+    """Tela recursiva para editar os comandos dentro de um ramo (ex: resposta Sim ou Não)."""
+    def __init__(self, nome_ramo: str, comandos: list):
+        super().__init__()
+        self.nome_ramo = nome_ramo
+        self.comandos = copy.deepcopy(comandos)
+        
+    def compose(self):
+        with Vertical(id="evt-caixa-full"):
+            yield Label(f"🌿 Ramo de Escolha: '{self.nome_ramo}'", classes="titulo-secao")
+            yield ListView(id="lista-comandos-ramo")
+            with Horizontal(id="evt-botoes"):
+                yield Button("+ Adicionar Comando", id="btn-add-cmd", variant="primary")
+                yield Button("Concluir Ramo", id="btn-salvar-ramo", variant="success")
+
+    def on_mount(self):
+        self.atualizar_lista()
+
+    def atualizar_lista(self):
+        lista = self.query_one("#lista-comandos-ramo", ListView)
+        lista.clear()
+        for i, cmd in enumerate(self.comandos):
+            dados_str = json.dumps(cmd['dados'], ensure_ascii=False, indent=2)
+            texto = f"[{i}] {cmd['tipo']}\n{dados_str}"
+            lista.append(ListItem(Label(texto), name=str(i)))
+
+    def on_button_pressed(self, event: Button.Pressed):
+        if event.button.id == "btn-add-cmd":
+            self.app.push_screen(AdicionarComandoScreen(), self.ao_adicionar_comando)
+        elif event.button.id == "btn-salvar-ramo":
+            self.dismiss(self.comandos)
+
+    def ao_adicionar_comando(self, novo_comando):
+        if novo_comando:
+            self.comandos.append(novo_comando)
+            self.atualizar_lista()
+            
+    def on_list_view_selected(self, event: ListView.Selected):
+        idx = int(event.item.name)
+        cmd = self.comandos[idx]
+        self.app.push_screen(AcoesComandoScreen(cmd), lambda acao: self.ao_acao_comando(acao, idx))
+
+    def ao_acao_comando(self, acao: str, idx: int):
+        if not acao: return
+        if acao == "excluir":
+            self.comandos.pop(idx)
+            self.atualizar_lista()
+        elif acao == "editar":
+            cmd = self.comandos[idx]
+            self.app.push_screen(AdicionarComandoScreen(cmd), lambda novo_cmd: self.ao_salvar_edicao_comando(novo_cmd, idx))
+        elif acao.startswith("editar_ramo_"):
+            ramo_nome = acao.replace("editar_ramo_", "")
+            cmd = self.comandos[idx]
+            ramos = cmd["dados"].setdefault("ramos", {})
+            ramo_cmds = ramos.setdefault(ramo_nome, [])
+            # RECURSÃO: Chama outro RamoEditorScreen por cima deste!
+            self.app.push_screen(RamoEditorScreen(ramo_nome, ramo_cmds), lambda novos_cmds: self.ao_salvar_subramo(novos_cmds, idx, ramo_nome))
+
+    def ao_salvar_edicao_comando(self, novo_comando, idx):
+        if novo_comando:
+            if novo_comando["tipo"] == self.comandos[idx]["tipo"]:
+                if "ramos" in self.comandos[idx]["dados"]:
+                    novo_comando["dados"]["ramos"] = self.comandos[idx]["dados"]["ramos"]
+            self.comandos[idx] = novo_comando
+            self.atualizar_lista()
+
+    def ao_salvar_subramo(self, novos_cmds, idx, ramo_nome):
+        if novos_cmds is not None:
+            self.comandos[idx]["dados"]["ramos"][ramo_nome] = novos_cmds
+            self.atualizar_lista()
 
 
 # ==============================================================================

@@ -17,7 +17,7 @@ class CatalogoTiles:
                 "🧪", "🪑", "☕", "🚪" , "🦴", "💀",
                 "🔱", "🗿", "🔹", "🍒", "🍀"]
     
-    EVENTOS = ["📦", "🧙‍♂️", "👾", "🚪", "🧷"]
+    EVENTOS = ["📦", "🧙", "👾", "🚪", "🧷"]
     
     # Mapeamento de cores de fundo para os terrenos
     CORES_BG = {

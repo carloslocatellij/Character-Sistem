@@ -2,7 +2,8 @@ import esper
 import random
 from rich.text import Text
 from app.core.engine.components import (
-    PositionComponent, InteractableComponent, RenderComponent, AIComponent
+    PositionComponent, InteractableComponent, RenderComponent,
+    StatsComponent, AIComponent, InventoryComponent
 )
 from app.core.entities.emojis import CatalogoTiles
 bloqueantes = CatalogoTiles.TERRENOS_BLOQUEANTES
@@ -133,6 +134,7 @@ class InteractionSystem:
         return False
 
 
+
 class AISystem:
     def __init__(self, engine_manager, movement_system, event_bus):
         self.engine = engine_manager
@@ -255,3 +257,186 @@ class InventarySystem():
             itens.extend([nome] * quantidade)
             return True
         return False
+
+class EventSystem:
+    """Sistema processador de eventos universais."""
+    
+    def __init__(self, inv_sys: InventarySystem, game_state, log_callback):
+        self.inv_sys = inv_sys
+        self.game_state = game_state
+        self.log_callback = log_callback
+
+    def processar_evento_interacao(self, payload: dict):
+        try:
+            params = payload.get("parametros", {})
+            if "paginas" not in params:
+                self._processar_evento_antigo(payload)
+                return
+            
+            entidade_id = payload.get("entidade_id")
+            pagina_ativa = self._filtrar_pagina_valida(params.get("paginas", []), entidade_id)
+            if not pagina_ativa:
+                return
+                
+            gatilho = pagina_ativa.get("gatilho", "acao_jogador")
+            comandos = pagina_ativa.get("comandos", [])
+            self._processar_comandos_sequenciais(comandos, entidade_id)
+        except Exception as e:
+            logging.info(f"Erro em processar_evento_interacao: {e}")
+
+    def _filtrar_pagina_valida(self, paginas: list, entidade_id: int) -> dict:
+        try:
+            paginas_ordenadas = sorted(paginas, key=lambda p: p.get("id_pagina", 0), reverse=True)
+            for pagina in paginas_ordenadas:
+                condicoes = pagina.get("condicoes", {})
+                if self._avaliar_condicoes(condicoes, entidade_id):
+                    return pagina
+            return None
+        except Exception as e:
+            logging.info(f"Erro em _filtrar_pagina_valida: {e}")
+            return None
+
+    def _avaliar_condicoes(self, condicoes: dict, entidade_id: int) -> bool:
+        try:
+            item_req = condicoes.get("item_requerido")
+            if item_req:
+                inv = esper.component_for_entity(1, InventoryComponent)
+                if not inv or not self.inv_sys._inventory_has_item(inv, item_req):
+                    return False
+                    
+            switches = condicoes.get("switches", [])
+            for sw in switches:
+                if self.game_state.get_switch(sw["nome"]) != sw.get("valor", True):
+                    return False
+                    
+            variaveis = condicoes.get("variaveis", [])
+            for var in variaveis:
+                atual = self.game_state.get_variable(var["nome"], 0)
+                op = var.get("operador", "igual")
+                val = var.get("valor", 0)
+                if op == "maior_ou_igual" and not (atual >= val): return False
+                if op == "menor_ou_igual" and not (atual <= val): return False
+                if op == "igual" and not (atual == val): return False
+                if op == "diferente" and not (atual != val): return False
+
+            self_sw = condicoes.get("self_switch")
+            if self_sw:
+                if not self.game_state.get_switch(f"evento_{entidade_id}_{self_sw}"):
+                    return False
+                    
+            return True
+        except Exception as e:
+            logging.info(f"Erro em _avaliar_condicoes: {e}")
+            return False
+
+    def _processar_comandos_sequenciais(self, comandos: list, entidade_id: int):
+        for comando in comandos:
+            try:
+                tipo = comando.get("tipo")
+                dados = comando.get("dados", {})
+                
+                if tipo == "mensagem":
+                    texto = dados.get("texto", "")
+                    self.log_callback(f"[cyan]💬 {texto}[/]")
+                    
+                elif tipo == "mudar_inventario":
+                    item = dados.get("item")
+                    operacao = dados.get("operacao")
+                    qtd = dados.get("quantidade", 1)
+                    inv = esper.component_for_entity(1, InventoryComponent)
+                    if inv:
+                        if operacao == "add":
+                            self.inv_sys._inventory_add_item(inv, item, qtd)
+                            self.log_callback(f"[bold cyan]🎁 Obteve: [yellow]{item} x{qtd}[/yellow]![/]")
+                        elif operacao == "sub":
+                            self.inv_sys._inventory_remove_item(inv, item, qtd)
+                            self.log_callback(f"[bold red]❌ Perdeu: [yellow]{item} x{qtd}[/yellow]![/]")
+                            
+                elif tipo == "mudar_status_heroi":
+                    parametro = dados.get("parametro")
+                    operacao = dados.get("operacao")
+                    valor = dados.get("valor", 0)
+                    stats = esper.component_for_entity(1, StatsComponent)
+                    if stats and hasattr(stats, parametro):
+                        atual = getattr(stats, parametro, 0)
+                        if operacao == "add":
+                            setattr(stats, parametro, atual + valor)
+                        elif operacao == "sub":
+                            setattr(stats, parametro, max(0, atual - valor))
+                        self.log_callback(f"[white]⚡ {parametro.upper()} modificado ({operacao} {valor}).[/]")
+                        
+                elif tipo == "mudar_render":
+                    novo_emoji = dados.get("novo_emoji")
+                    alvo = dados.get("alvo", "proprio")
+                    id_alvo = entidade_id if alvo == "proprio" else 1
+                    try:
+                        render = esper.component_for_entity(id_alvo, RenderComponent)
+                        if render and novo_emoji:
+                            render.emoji = novo_emoji
+                    except KeyError:
+                        pass
+                        
+                elif tipo == "controle_switch":
+                    nome = dados.get("nome")
+                    valor = dados.get("valor")
+                    self.game_state.set_switch(nome, valor)
+                    
+                elif tipo == "controle_self_switch":
+                    letra = dados.get("letra")
+                    valor = dados.get("valor")
+                    self.game_state.set_switch(f"evento_{entidade_id}_{letra}", valor)
+                    
+                elif tipo == "bifurcacao_condicional":
+                    pergunta = dados.get("pergunta", "Escolha:")
+                    opcoes = dados.get("opcoes", [])
+                    ramos = dados.get("ramos", {})
+                    
+                    self.log_callback(f"[yellow]❓ {pergunta} (Opções: {', '.join(opcoes)})[/]")
+                    if opcoes and opcoes[0] in ramos:
+                        self.log_callback(f"[dim]>>> Simulando escolha: {opcoes[0]}[/]")
+                        self._processar_comandos_sequenciais(ramos[opcoes[0]], entidade_id)
+                
+                elif tipo == "efeito_sonoro":
+                    arquivo = dados.get("arquivo")
+                    self.log_callback(f"[dim]🎵 Som tocando: {arquivo}[/]")
+                    
+                elif tipo == "mover_evento":
+                    self.log_callback(f"[dim]🏃 Movimento de evento acionado.[/]")
+            except Exception as e:
+                logging.info(f"Erro em _processar_comandos_sequenciais no comando '{comando.get('tipo', 'desconhecido')}': {e}")
+
+    def _processar_evento_antigo(self, payload: dict):
+        try:
+            tipo = payload.get("tipo", "evento")
+            params = payload.get("parametros", {})
+
+            if tipo == "bau":
+                self.ao_recolher_bau(payload)
+            elif tipo == "npc_dialogo":
+                self.log_callback(f"[cyan]💬 NPC: {params.get('texto', 'Olá!')}[/]")
+            else:
+                self.log_callback(f"[white]✨ Evento ativado: {tipo}[/]")
+        except Exception as e:
+            logging.info(f"Erro em _processar_evento_antigo: {e}")
+
+    def ao_recolher_bau(self, dados):
+        try:
+            params = dados.get("parametros", {})
+            estado_nome = params.get("estado_atual")
+            bloco = params.get("estados").get(
+                estado_nome) if estado_nome and estado_nome in params.get("estados") else params
+            
+            item_nome = bloco.get("item") or bloco.get("item_id") or bloco.get("nome") or "item desconhecido"
+            qtd = bloco.get("quantidade") or bloco.get("qtd") or 1
+            msg = bloco.get("mensagem") or bloco.get("msg") or "Você abriu um baú!"
+            
+            inv = esper.component_for_entity(1, InventoryComponent)
+            if inv:
+                self.inv_sys._inventory_add_item(inv, item_nome, qtd)
+
+            self.log_callback(
+                f"[bold cyan]🎁 {msg} e coletou: [yellow]{item_nome} x{qtd}[/yellow]! "
+                f"(Digite /equipar ou /usar no terminal para usufruir)[/]"
+            )
+        except Exception as e:
+            logging.info(f"Erro em ao_recolher_bau: {e}")

@@ -1,4 +1,3 @@
-
 Screen { align: center middle; background: $background; }
 
 #main-menu { width: 45; padding: 2; border: tall $accent; background: $surface; }
@@ -340,6 +339,29 @@ PropriedadesEventoFormScreen {
     margin-right: 1;
 }
 
+#evt-caixa-full {
+    width: 90;
+    height: 80%;
+    padding: 1 2;
+    background: $surface;
+    border: solid rgb(255, 165, 0);
+}
+
+#add-cmd-caixa {
+    width: 60;
+    height: auto;
+    padding: 1 2;
+    background: $surface;
+    border: solid cyan;
+}
+
+#acoes-cmd-caixa {
+    width: 40;
+    height: auto;
+    padding: 1 2;
+    background: $surface;
+    border: solid red;
+}
 
 GamePlayScreen {
     background: #0c0c0c;
