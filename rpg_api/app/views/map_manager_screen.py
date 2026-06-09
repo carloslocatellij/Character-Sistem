@@ -1010,6 +1010,36 @@ class PropriedadesEventoFormScreen(ModalScreen[dict]):
                 ("Processo Paralelo", "processo_paralelo")
             ], value=self.paginas[0].get("gatilho", "acao_jogador"), id="evt-gatilho")
             
+            # ==========================================
+            # SEÇÃO DE CONDIÇÕES DA PÁGINA
+            # ==========================================
+            yield Label("📋 Condições desta Página:", classes="campo-rotulo")
+            with Vertical(id="secao-condicoes"):
+                # --- Switches ---
+                with Horizontal(classes="linha-dupla"):
+                    yield Label("Switches:", classes="campo-rotulo")
+                    yield Button("+ Switch", id="btn-add-switch", variant="primary", classes="btn-pequeno")
+                yield Static("", id="lista-switches")
+                
+                # --- Variáveis ---
+                with Horizontal(classes="linha-dupla"):
+                    yield Label("Variáveis:", classes="campo-rotulo")
+                    yield Button("+ Variável", id="btn-add-variavel", variant="primary", classes="btn-pequeno")
+                yield Static("", id="lista-variaveis")
+                
+                # --- Self Switch ---
+                with Horizontal(classes="linha-dupla"):
+                    yield Label("Self Switch:", classes="campo-rotulo")
+                    yield Select([
+                        ("Nenhum", "nenhum"),
+                        ("A", "A"), ("B", "B"), ("C", "C"), ("D", "D")
+                    ], value="nenhum", id="evt-self-switch")
+                
+                # --- Item Requerido ---
+                with Horizontal(classes="linha-dupla"):
+                    yield Label("Item Requerido:", classes="campo-rotulo")
+                    yield Input(placeholder="(vazio = sem requisito)", id="evt-item-requerido", value="")
+            
             yield Label("Comandos da Página:", classes="campo-rotulo")
             yield ListView(id="lista-comandos")
             
@@ -1028,7 +1058,58 @@ class PropriedadesEventoFormScreen(ModalScreen[dict]):
         select_gatilho = self.query_one("#evt-gatilho", Select)
         select_gatilho.value = self.paginas[self.pagina_atual_idx].get("gatilho", "acao_jogador")
         
+        # Atualiza a seção de condições com os dados da página atual
+        self.atualizar_exibicao_condicoes()
+        
         self.atualizar_lista_comandos()
+
+    def _obter_condicoes_pagina_atual(self) -> dict:
+        """Retorna o dict de condições da página atual, criando se não existir."""
+        pagina = self.paginas[self.pagina_atual_idx]
+        if "condicoes" not in pagina:
+            pagina["condicoes"] = {}
+        return pagina["condicoes"]
+
+    def atualizar_exibicao_condicoes(self):
+        """Popula os widgets de condições com os dados da página atual."""
+        condicoes = self._obter_condicoes_pagina_atual()
+        
+        # --- Switches ---
+        switches = condicoes.get("switches", [])
+        if switches:
+            linhas_sw = []
+            for i, sw in enumerate(switches):
+                val_str = "✅" if sw.get("valor", True) else "❌"
+                linhas_sw.append(f"  [{i}] {sw['nome']} = {val_str}")
+            texto_sw = "\n".join(linhas_sw) + "\n  (Clique num switch na lista de comandos para remover)"
+        else:
+            texto_sw = "  (nenhum)"
+        self.query_one("#lista-switches", Static).update(texto_sw)
+        
+        # --- Variáveis ---
+        variaveis = condicoes.get("variaveis", [])
+        if variaveis:
+            linhas_var = []
+            op_simbolos = {
+                "maior_ou_igual": ">=", "menor_ou_igual": "<=",
+                "igual": "==", "diferente": "!="
+            }
+            for i, var in enumerate(variaveis):
+                op = op_simbolos.get(var.get("operador", "igual"), "==")
+                linhas_var.append(f"  [{i}] {var['nome']} {op} {var.get('valor', 0)}")
+            texto_var = "\n".join(linhas_var)
+        else:
+            texto_var = "  (nenhuma)"
+        self.query_one("#lista-variaveis", Static).update(texto_var)
+        
+        # --- Self Switch ---
+        self_sw = condicoes.get("self_switch")
+        select_ssw = self.query_one("#evt-self-switch", Select)
+        select_ssw.value = self_sw if self_sw else "nenhum"
+        
+        # --- Item Requerido ---
+        item_req = condicoes.get("item_requerido") or ""
+        self.query_one("#evt-item-requerido", Input).value = item_req
 
     def atualizar_lista_comandos(self):
         lista = self.query_one("#lista-comandos", ListView)
@@ -1043,6 +1124,27 @@ class PropriedadesEventoFormScreen(ModalScreen[dict]):
     def on_gatilho_changed(self, event: Select.Changed):
         if event.value != Select.BLANK:
             self.paginas[self.pagina_atual_idx]["gatilho"] = event.value
+
+    @on(Select.Changed, "#evt-self-switch")
+    def on_self_switch_changed(self, event: Select.Changed):
+        """Sincroniza o self_switch da página atual quando o Select muda."""
+        if event.value == Select.BLANK:
+            return
+        condicoes = self._obter_condicoes_pagina_atual()
+        if event.value == "nenhum":
+            condicoes.pop("self_switch", None)
+        else:
+            condicoes["self_switch"] = event.value
+
+    @on(Input.Changed, "#evt-item-requerido")
+    def on_item_requerido_changed(self, event: Input.Changed):
+        """Sincroniza o item_requerido da página atual quando o Input muda."""
+        condicoes = self._obter_condicoes_pagina_atual()
+        valor = event.value.strip()
+        if valor:
+            condicoes["item_requerido"] = valor
+        else:
+            condicoes.pop("item_requerido", None)
 
     def on_button_pressed(self, event: Button.Pressed):
         if event.button.id == "btn-evt-cancelar":
@@ -1078,6 +1180,17 @@ class PropriedadesEventoFormScreen(ModalScreen[dict]):
                 self.notify("Não é possível deletar a única página!", severity="warning")
         elif event.button.id == "btn-add-cmd":
             self.app.push_screen(AdicionarComandoScreen(), self.ao_adicionar_comando)
+        # --- Botões de Condições ---
+        elif event.button.id == "btn-add-switch":
+            self.app.push_screen(AdicionarSwitchScreen(), self.ao_adicionar_switch)
+        elif event.button.id == "btn-add-variavel":
+            self.app.push_screen(AdicionarVariavelScreen(), self.ao_adicionar_variavel)
+        elif event.button.id and event.button.id.startswith("btn-del-sw-"):
+            idx_sw = int(event.button.id.replace("btn-del-sw-", ""))
+            self._remover_switch(idx_sw)
+        elif event.button.id and event.button.id.startswith("btn-del-var-"):
+            idx_var = int(event.button.id.replace("btn-del-var-", ""))
+            self._remover_variavel(idx_var)
         elif event.button.id == "btn-evt-salvar":
             nome = self.query_one("#evt-nome").value
             emoji = self.query_one("#evt-emoji").value
@@ -1099,6 +1212,45 @@ class PropriedadesEventoFormScreen(ModalScreen[dict]):
         if novo_comando:
             self.paginas[self.pagina_atual_idx].setdefault("comandos", []).append(novo_comando)
             self.atualizar_lista_comandos()
+
+    # ==========================================
+    # MÉTODOS DE GERENCIAMENTO DE CONDIÇÕES
+    # ==========================================
+    def ao_adicionar_switch(self, dados_switch: dict | None):
+        """Callback do modal AdicionarSwitchScreen."""
+        if dados_switch is None:
+            return
+        condicoes = self._obter_condicoes_pagina_atual()
+        condicoes.setdefault("switches", []).append(dados_switch)
+        self.atualizar_exibicao_condicoes()
+        self.notify(f"Switch '{dados_switch['nome']}' adicionado!")
+
+    def ao_adicionar_variavel(self, dados_variavel: dict | None):
+        """Callback do modal AdicionarVariavelScreen."""
+        if dados_variavel is None:
+            return
+        condicoes = self._obter_condicoes_pagina_atual()
+        condicoes.setdefault("variaveis", []).append(dados_variavel)
+        self.atualizar_exibicao_condicoes()
+        self.notify(f"Variável '{dados_variavel['nome']}' adicionada!")
+
+    def _remover_switch(self, idx: int):
+        """Remove um switch pelo índice da lista."""
+        condicoes = self._obter_condicoes_pagina_atual()
+        switches = condicoes.get("switches", [])
+        if 0 <= idx < len(switches):
+            removido = switches.pop(idx)
+            self.atualizar_exibicao_condicoes()
+            self.notify(f"Switch '{removido['nome']}' removido.")
+
+    def _remover_variavel(self, idx: int):
+        """Remove uma variável pelo índice da lista."""
+        condicoes = self._obter_condicoes_pagina_atual()
+        variaveis = condicoes.get("variaveis", [])
+        if 0 <= idx < len(variaveis):
+            removido = variaveis.pop(idx)
+            self.atualizar_exibicao_condicoes()
+            self.notify(f"Variável '{removido['nome']}' removida.")
 
     def ao_salvar_edicao_comando(self, novo_comando, idx):
         if novo_comando:
@@ -1135,6 +1287,82 @@ class PropriedadesEventoFormScreen(ModalScreen[dict]):
         if novos_cmds is not None:
             self.paginas[self.pagina_atual_idx]["comandos"][idx]["dados"]["ramos"][ramo_nome] = novos_cmds
             self.atualizar_lista_comandos()
+
+
+# ==============================================================================
+# SUB-MODAL: ADICIONAR SWITCH À CONDIÇÃO
+# ==============================================================================
+class AdicionarSwitchScreen(ModalScreen[dict]):
+    """Modal simples para adicionar uma condição de Switch a uma página."""
+
+    def compose(self):
+        with Vertical(id="add-cmd-caixa"):
+            yield Label("🔀 Adicionar Condição de Switch", classes="titulo-secao")
+            yield Label("Nome do Switch:")
+            yield Input(placeholder="Ex: missao_guarda_ativa", id="sw-nome")
+            yield Label("Valor Esperado:")
+            yield Select([
+                ("Ligado (True)", "true"),
+                ("Desligado (False)", "false")
+            ], value="true", id="sw-valor")
+            with Horizontal(id="evt-botoes"):
+                yield Button("Cancelar", id="btn-cancel", variant="error")
+                yield Button("Confirmar", id="btn-save", variant="success")
+
+    def on_button_pressed(self, event: Button.Pressed):
+        if event.button.id == "btn-cancel":
+            self.dismiss(None)
+        elif event.button.id == "btn-save":
+            nome = self.query_one("#sw-nome", Input).value.strip()
+            if not nome:
+                self.notify("Preencha o nome do switch!", severity="error")
+                return
+            valor = self.query_one("#sw-valor", Select).value == "true"
+            self.dismiss({"nome": nome, "valor": valor})
+
+
+# ==============================================================================
+# SUB-MODAL: ADICIONAR VARIÁVEL À CONDIÇÃO
+# ==============================================================================
+class AdicionarVariavelScreen(ModalScreen[dict]):
+    """Modal simples para adicionar uma condição de Variável numérica a uma página."""
+
+    def compose(self):
+        with Vertical(id="add-cmd-caixa"):
+            yield Label("📊 Adicionar Condição de Variável", classes="titulo-secao")
+            yield Label("Nome da Variável:")
+            yield Input(placeholder="Ex: reputacao", id="var-nome")
+            yield Label("Operador:")
+            yield Select([
+                ("Maior ou Igual (>=)", "maior_ou_igual"),
+                ("Menor ou Igual (<=)", "menor_ou_igual"),
+                ("Igual (==)", "igual"),
+                ("Diferente (!=)", "diferente")
+            ], value="maior_ou_igual", id="var-operador")
+            yield Label("Valor:")
+            yield Input(placeholder="Ex: 15", id="var-valor", value="0")
+            with Horizontal(id="evt-botoes"):
+                yield Button("Cancelar", id="btn-cancel", variant="error")
+                yield Button("Confirmar", id="btn-save", variant="success")
+
+    def on_button_pressed(self, event: Button.Pressed):
+        if event.button.id == "btn-cancel":
+            self.dismiss(None)
+        elif event.button.id == "btn-save":
+            nome = self.query_one("#var-nome", Input).value.strip()
+            if not nome:
+                self.notify("Preencha o nome da variável!", severity="error")
+                return
+            try:
+                valor = int(self.query_one("#var-valor", Input).value)
+            except ValueError:
+                self.notify("O valor deve ser numérico!", severity="error")
+                return
+            operador = self.query_one("#var-operador", Select).value
+            if operador == Select.BLANK:
+                self.notify("Selecione um operador!", severity="error")
+                return
+            self.dismiss({"nome": nome, "operador": operador, "valor": valor})
 
 
 class AdicionarComandoScreen(ModalScreen[dict]):
@@ -1443,4 +1671,4 @@ class ArquivoCSVScreen(ModalScreen[str]):
             if not nome_arquivo.endswith(".csv"):
                 nome_arquivo += ".csv"
                 
-            self.dismiss(nome_arquivo)
+            self.dismiss(nome_arquivo)    
