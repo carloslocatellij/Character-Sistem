@@ -170,7 +170,7 @@ class MapManagerScreen(Screen):
 
     def compose(self) -> ComposeResult:
         # 1. Nossa Barra Superior (Removido o Header nativo para não haver conflitos)
-        with Horizontal(id="top-menu"):
+        with Horizontal(id="top-menu", ):
             yield Button("Menu", id="btn-menu")
             yield Button("Novo", id="btn-novo", variant="primary")
             yield Button("Salvar", id="btn-salvar", variant="success")
@@ -1103,9 +1103,10 @@ class PropriedadesEventoFormScreen(ModalScreen[dict]):
         self.query_one("#lista-variaveis", Static).update(texto_var)
         
         # --- Self Switch ---
-        self_sw = condicoes.get("self_switch")
+        self_sw = condicoes.get("self_switch", "nenhum")
         select_ssw = self.query_one("#evt-self-switch", Select)
-        select_ssw.value = self_sw if self_sw else "nenhum"
+        select_ssw.value = self_sw or "nenhhum"
+
         
         # --- Item Requerido ---
         item_req = condicoes.get("item_requerido") or ""

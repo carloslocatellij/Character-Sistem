@@ -258,6 +258,7 @@ class InventarySystem():
             return True
         return False
 
+
 class EventSystem:
     """Sistema processador de eventos universais."""
     
