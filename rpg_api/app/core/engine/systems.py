@@ -5,6 +5,7 @@ from app.core.engine.components import (
     PositionComponent, InteractableComponent, RenderComponent,
     StatsComponent, AIComponent, InventoryComponent
 )
+#from app.core.engine.event_bus import EventBus as event_bus
 from app.core.entities.emojis import CatalogoTiles
 bloqueantes = CatalogoTiles.TERRENOS_BLOQUEANTES
 import logging
@@ -262,10 +263,12 @@ class InventarySystem():
 class EventSystem:
     """Sistema processador de eventos universais."""
     
-    def __init__(self, inv_sys: InventarySystem, game_state, log_callback):
+    def __init__(self, inv_sys: InventarySystem, game_state, log_callback, event_bus):
         self.inv_sys = inv_sys
         self.game_state = game_state
         self.log_callback = log_callback
+        self.event_bus = event_bus
+        
 
     def processar_evento_interacao(self, payload: dict):
         try:
@@ -396,6 +399,17 @@ class EventSystem:
                     if opcoes and opcoes[0] in ramos:
                         self.log_callback(f"[dim]>>> Simulando escolha: {opcoes[0]}[/]")
                         self._processar_comandos_sequenciais(ramos[opcoes[0]], entidade_id)
+                
+                elif tipo == "teleporte":
+                    try:
+                        dados_teleporte = dados.get("teleporte")
+                    except Exception as e:
+                        logging.info(f"Erro ao obter dados: {e}")
+
+                    try:
+                        self.event_bus.publish("mudar_mapa", dados_teleporte)
+                    except Exception as e:
+                        logging.info(f"Erro ao publicar teleport: {e}")
                 
                 elif tipo == "efeito_sonoro":
                     arquivo = dados.get("arquivo")

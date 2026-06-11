@@ -38,7 +38,8 @@ class GamePlayScreen(Screen):
         self.interacao_sys = None
         self.render_sys = RenderSystem()
         self.invSys = InventarySystem()
-        self.event_sys = EventSystem(self.invSys, self.game_state, self.log_mensagem)
+        self.event_sys = EventSystem(
+            self.invSys, self.game_state, self.log_mensagem, self.loader.event_bus)
 
     BINDINGS = [("/", "focus_in_command_bar", "")]
 
@@ -102,6 +103,9 @@ class GamePlayScreen(Screen):
             
             self.ai_sys = AISystem(self.loader,
                                    self.movimento_sys, self.loader.event_bus)
+            
+            self.loader.event_bus.subscribe(
+                "mudar_mapa", self.ao_mudar_de_mapa, self.loader.event_bus)
 
             self.loader.event_bus.subscribe(
                 "INTERACTION_SUCCESS", self.on_evento_interacao)
@@ -124,6 +128,44 @@ class GamePlayScreen(Screen):
 
         except Exception as e:
             self.log_mensagem(f"[bold red]❌ Erro crítico: {e}[/]")
+            
+
+    def ao_mudar_de_mapa(self, dados_teleporte):
+        """
+        O ponteiro central de transição. 
+        Recebe: {'mapa_id': 3, 'pos_x': 15, 'pos_y': 15}
+        """
+        mapa_alvo = dados_teleporte["mapa_id"]
+        nova_pos_x = dados_teleporte["pos_x"]
+        nova_pos_y = dados_teleporte["pos_y"]
+
+        with SessionLocal() as db:
+            # 1. Recarrega a Engine do zero apontando para o novo mapa!
+            # Passamos o mapa_alvo como o default_mapa_id
+            self.engine_manager = self.loader.carregar_engine_do_banco(
+                db_session=db,
+                # usuario_id=self.personagem_id,
+                # cenario_id=1,
+                # slot_numero=1,
+                default_mapa_id=mapa_alvo
+            )
+
+        # 2. Re-instancia os sistemas para a nova Engine limpa
+        self.movimento_sys = MovementSystem(
+            self.engine_manager, self.mapa_matriz, ...)
+        self.interacao_sys = InteractionSystem(self.engine_manager, self.event_bus)
+        self.ai_sys = AISystem(self.engine_manager,
+                            self.movimento_sys, self.event_bus)
+        self.render_sys = RenderSystem(self.engine_manager)
+
+        # 3. Força o Jogador (ID 1) a posicionar-se na coordenada exata que o JSON mandou
+        pos_jogador = self.engine_manager.get_component(1, "PositionComponent")
+        if pos_jogador:
+            pos_jogador.x = nova_pos_x
+            pos_jogador.y = nova_pos_y
+
+        # 4. Atualiza a tela para o jogador ver o novo cenário imediatamente
+        self.atualizar_tudo()
             
     def log_mensagem(self, texto: str):
         """Injeta mensagens formatadas no painel lateral de logs."""
