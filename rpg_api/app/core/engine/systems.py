@@ -98,41 +98,6 @@ class MovementSystem:
         return True
     
     
-class InteractionSystem:
-    def __init__(self, event_bus=None):
-        self.event_bus = event_bus
-
-    def interagir(self, entidade_id: int, direcao_olhar: str) -> bool:
-        pos_origem = esper.component_for_entity(entidade_id, PositionComponent)
-        alvo_x, alvo_y = pos_origem.x, pos_origem.y
-
-        if direcao_olhar == "cima":
-            alvo_y -= 1
-        elif direcao_olhar == "baixo":
-            alvo_y += 1
-        elif direcao_olhar == "esquerda":
-            alvo_x -= 1
-        elif direcao_olhar == "direita":
-            alvo_x += 1
-
-        for entidade_alvo, (pos_alvo, interact) in esper.get_components(PositionComponent, InteractableComponent):
-            if pos_alvo.x == alvo_x and pos_alvo.y == alvo_y:
-                if interact.on_interact:
-                    interact.on_interact(entidade_id, interact.parametros)
-                    logging.info(
-                        f"foi por on_interact: id {entidade_id} - par: {interact.parametros}")
-
-                # SE TIVER EVENT BUS: Notifica a UI de forma desacoplada!
-                if self.event_bus:
-                    self.event_bus.publish("INTERACTION_SUCCESS", {
-                        "entidade_id": entidade_alvo,
-                        "tipo": interact.tipo_evento,
-                        "parametros": interact.parametros
-                    })
-                    logging.info(
-                        f"foi por event_bus: ent: {entidade_alvo} - par: {interact.parametros}")
-                return True
-        return False
 
 
 
@@ -260,6 +225,43 @@ class InventarySystem():
         return False
 
 
+class InteractionSystem:
+    def __init__(self, event_bus=None):
+        self.event_bus = event_bus
+
+    def interagir(self, entidade_id: int, direcao_olhar: str) -> bool:
+        pos_origem = esper.component_for_entity(entidade_id, PositionComponent)
+        alvo_x, alvo_y = pos_origem.x, pos_origem.y
+
+        if direcao_olhar == "cima":
+            alvo_y -= 1
+        elif direcao_olhar == "baixo":
+            alvo_y += 1
+        elif direcao_olhar == "esquerda":
+            alvo_x -= 1
+        elif direcao_olhar == "direita":
+            alvo_x += 1
+
+        for entidade_alvo, (pos_alvo, interact) in esper.get_components(PositionComponent, InteractableComponent):
+            if pos_alvo.x == alvo_x and pos_alvo.y == alvo_y:
+                if interact.on_interact:
+                    interact.on_interact(entidade_id, interact.parametros)
+                    logging.info(
+                        f"foi por on_interact: id {entidade_id} - par: {interact.parametros}")
+
+                # SE TIVER EVENT BUS: Notifica a UI de forma desacoplada!
+                if self.event_bus:
+                    self.event_bus.publish("INTERACTION_SUCCESS", {
+                        "entidade_id": entidade_alvo,
+                        "tipo": interact.tipo_evento,
+                        "parametros": interact.parametros
+                    })
+                    logging.info(
+                        f"foi por event_bus: ent: {entidade_alvo} - par: {interact.parametros}")
+                return True
+        return False
+    
+    
 class EventSystem:
     """Sistema processador de eventos universais."""
     
@@ -271,6 +273,7 @@ class EventSystem:
         
 
     def processar_evento_interacao(self, payload: dict):
+        logging.info(f" foi por processar_evento_interacao")
         try:
             params = payload.get("parametros", {})
             if "paginas" not in params:
@@ -283,17 +286,21 @@ class EventSystem:
                 return
                 
             gatilho = pagina_ativa.get("gatilho", "acao_jogador")
+            
             comandos = pagina_ativa.get("comandos", [])
+            
             self._processar_comandos_sequenciais(comandos, entidade_id)
         except Exception as e:
             logging.info(f"Erro em processar_evento_interacao: {e}")
 
     def _filtrar_pagina_valida(self, paginas: list, entidade_id: int) -> dict:
+        logging.info(f"Filtrando paginas")
         try:
             paginas_ordenadas = sorted(paginas, key=lambda p: p.get("id_pagina", 0), reverse=True)
             for pagina in paginas_ordenadas:
                 condicoes = pagina.get("condicoes", {})
                 if self._avaliar_condicoes(condicoes, entidade_id):
+                    logging.info(f"temos uma pagina")
                     return pagina
             return None
         except Exception as e:
@@ -304,13 +311,16 @@ class EventSystem:
         try:
             item_req = condicoes.get("item_requerido")
             if item_req:
+                logging.info(f"requer o item {item_req}")
                 inv = esper.component_for_entity(1, InventoryComponent)
                 if not inv or not self.inv_sys._inventory_has_item(inv, item_req):
+                    logging.info(f"mas não tem")
                     return False
                     
             switches = condicoes.get("switches", [])
             for sw in switches:
                 if self.game_state.get_switch(sw["nome"]) != sw.get("valor", True):
+                    logging.info(f"não tem switch {sw} ligada")
                     return False
                     
             variaveis = condicoes.get("variaveis", [])
@@ -322,22 +332,30 @@ class EventSystem:
                 if op == "menor_ou_igual" and not (atual <= val): return False
                 if op == "igual" and not (atual == val): return False
                 if op == "diferente" and not (atual != val): return False
+            
+            logging.info(f"verificou variaveis mas não tem problema")
 
             self_sw = condicoes.get("self_switch")
             if self_sw:
+                logging.info(f"requer a suto condição {self_sw}")
                 if not self.game_state.get_switch(f"evento_{entidade_id}_{self_sw}"):
+                    logging.info(f"masa condição [{self_sw}] é falsa")
                     return False
-                    
+            
+            logging.info(f"aparenta td certo até aqui")
             return True
         except Exception as e:
             logging.info(f"Erro em _avaliar_condicoes: {e}")
             return False
 
+
     def _processar_comandos_sequenciais(self, comandos: list, entidade_id: int):
         for comando in comandos:
+            logging.info(f"processando comando: {comando}")
             try:
                 tipo = comando.get("tipo")
                 dados = comando.get("dados", {})
+                logging.info(f"tipo: {tipo} - dados: {dados}")
                 
                 if tipo == "mensagem":
                     texto = dados.get("texto", "")
@@ -401,13 +419,11 @@ class EventSystem:
                         self._processar_comandos_sequenciais(ramos[opcoes[0]], entidade_id)
                 
                 elif tipo == "teleporte":
-                    try:
-                        dados_teleporte = dados.get("teleporte")
-                    except Exception as e:
-                        logging.info(f"Erro ao obter dados: {e}")
+                    logging.info(f" É um teleporte")
 
                     try:
-                        self.event_bus.publish("mudar_mapa", dados_teleporte)
+                        self.event_bus.publish("mudar_mapa", dados)
+                        
                     except Exception as e:
                         logging.info(f"Erro ao publicar teleport: {e}")
                 

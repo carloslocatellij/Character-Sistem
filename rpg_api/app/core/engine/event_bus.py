@@ -26,6 +26,7 @@ class EventBus:
         if tipo_evento in self._listeners and callback in self._listeners[tipo_evento]:
             self._listeners[tipo_evento].remove(callback)
 
+
     def publish(self, tipo_evento: str, payload: Any = None) -> None:
         """Dispara um evento para todos os subscritores registados naquele tópico."""
         if tipo_evento in self._listeners:
