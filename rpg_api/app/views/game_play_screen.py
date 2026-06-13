@@ -184,17 +184,16 @@ class GamePlayScreen(Screen):
         # 3. Força o Jogador (ID 1) a posicionar-se na coordenada exata que o JSON mandou
         
         try:
-            pos_jogador = self.engine_manager.get_component(
-                1, PositionComponent(x=9, y=9))
-            if pos_jogador:
-                pos_jogador.x = nova_pos_x
-                pos_jogador.y = nova_pos_y
+            pos = esper.component_for_entity(1, PositionComponent)
+            if pos:
+                pos.x = nova_pos_x
+                pos.y = nova_pos_y
                 
         except Exception as e:
             self.log_mensagem(f"Erro ao posicionar jogador: {e}")
 
             
-        self.log_mensagem(f"pos_jogador: {pos_jogador}")
+        self.log_mensagem(f"pos_jogador: {pos}")
 
 
         self.loader.event_bus.subscribe(

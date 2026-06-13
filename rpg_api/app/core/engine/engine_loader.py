@@ -130,7 +130,7 @@ class GameEngineLoader:
         # Cria rigidamente a entidade do jogador (ID 1) no Esper com todos os componentes acoplados
         esper.create_entity(
             PositionComponent(x=px, y=py),
-            RenderComponent(emoji="🦀"),
+            RenderComponent(emoji=p_db.raca.emoji or "🦀"),
             PlayerControlComponent(),
             stats_comp,
             InventoryComponent(itens=itens_iniciais),
