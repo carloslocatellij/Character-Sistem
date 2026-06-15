@@ -371,7 +371,6 @@ class EventSystem:
     def _processar_comandos_sequenciais(self, comandos: list, entidade_id: int):
         
         try:
-            logging.info(f"comandos: {comandos}")
             self.pilha_de_comandos = [list(comandos)]
             self.aguardando_escolha = False
             self.ramos_disponiveis = {}
@@ -391,7 +390,7 @@ class EventSystem:
                 self.pilha_de_comandos.pop()
                 continue
 
-            comando = bloco_atual.pop(0)
+            comando = bloco_atual.pop(0)           
             self._processar_comando_individual(comando)
 
             # Se o comando executado acima ativou um estado de pausa por pergunta, cede o controle para a TUI
@@ -405,6 +404,8 @@ class EventSystem:
         dados = comando.get("dados", {})        
         entidade_id = self.entidade_atual_id
         
+        logging.info(f"comando: {comando}")
+
         if tipo == "mensagem":
             texto = dados.get("texto", "")
             self.log_callback(f"[cyan]💬 {texto}[/]")
@@ -457,6 +458,7 @@ class EventSystem:
             valor = dados.get("valor")
             self.game_state.set_switch(f"evento_{entidade_id}_{letra}", valor)
             
+            
         elif tipo == "bifurcacao_condicional":
             pergunta = dados.get("pergunta", "Escolha uma opção:")
             opcoes = dados.get("opcoes", [])
@@ -467,7 +469,7 @@ class EventSystem:
             self.ramos_disponiveis = {}
 
             for idx, opcao in enumerate(opcoes, start=1):
-                self.log_callback(f"  [cyan]{idx} - {opcao}[/]")
+                
                 # Indexa tanto por número ("1") quanto por texto ("sim") para compatibilidade com chat ou botões
                 self.ramos_disponiveis[str(idx)] = ramos.get(opcao, [])
                 self.ramos_disponiveis[opcao.strip(
@@ -477,23 +479,14 @@ class EventSystem:
             self.aguardando_escolha = True
 
             # 🛰️ Opcional: Se for usar a ChoiceBox reativa no Textual, publishe o sinal aqui:
-            self.event_bus.publish("disparar_bifurcacao", {
-                                "pergunta": pergunta, "opcoes": opcoes})
+            try:
+                self.event_bus.publish("disparar_bifurcacao", {
+                                    "pergunta": pergunta, "opcoes": opcoes})
+            except Exception as e:
+                self.log_callback(f" [red] ERRO_: {e} [/] ")
+                
             return
 
-        # elif tipo == "bifurcacao_condicional":
-            
-        #     pergunta = dados.get("pergunta", "Escolha:")
-        #     opcoes = dados.get("opcoes", [])
-        #     ramos = dados.get("ramos", {})
-        #     self.log_callback(f"[yellow]❓ {pergunta} (Opções: {', '.join(opcoes)})[/]")
-        #     if opcoes and opcoes[0] in ramos:
-                
-        #         comandos_do_ramo = ramos.get(escolha, [])
-        #         self._processar_comandos_sequenciais(
-        #             comandos_do_ramo, entidade_id)
-        #         #self.log_callback(f"[dim]>>> Simulando escolha: {opcoes[0]}[/]")
-        #         #self._processar_comandos_sequenciais(ramos[opcoes[0]])
         
         elif tipo == "teleporte":
 

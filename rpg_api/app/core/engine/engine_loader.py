@@ -41,7 +41,8 @@ class GameEngineLoader:
         Limpa o contexto antigo do Esper, lê a BD e monta o novo estado em memória.
         """
         # 1. RESET CRUCIAL: Limpa todas as entidades antigas do mundo global do Esper
-        esper.switch_world(esper.list_worlds()[0])
+        
+        #esper.switch_world(esper.list_worlds()[0])
 
         mapa_db = db.query(MapaDB).filter(MapaDB.id == mapa_id).first()
         if not mapa_db:

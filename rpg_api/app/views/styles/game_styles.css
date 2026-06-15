@@ -82,32 +82,50 @@
     /* Prompt verde estilo hacker/terminal retro */
 }
 
+/* rpg_api/app/views/styles/game_styles.css */
+
 ChoiceBox {
     width: 100%;
+    overflow: auto;
     height: auto;
-    align: center middle;
-    margin: 1 0;
+    background: transparent;
+    margin: 0;
+    padding: 0;
 }
 
 #choice-box-card {
-    background: $surface-darken-3;
-    border: double $primary;
-    padding: 1 2;
-    width: 45;
+    background: $surface;
+    overflow: auto;
+    border: tall $primary;
+    padding: 0 1;
+    width: 100%;
     height: auto;
+    margin: 0;
 }
 
 #choice-label {
-    color: $text;
-    margin-bottom: 1;
+    color: $accent;
+    margin-top: 1;
+    margin-bottom: 0;
 }
 
 #choice-radioset {
     background: transparent;
     border: none;
+    padding: 0;
     margin-bottom: 1;
+    height: auto;
+}
+
+/* Deixa os botões de rádio mais compactos para caber na barra inferior */
+#choice-radioset RadioButton {
+    height: 1;
+    margin: 0;
+    padding: 0;
 }
 
 #choice-submit {
-    width: 100%;
+    dock: right;
+    width: 10%;
+    height: 3;
 }

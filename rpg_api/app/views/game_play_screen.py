@@ -153,9 +153,9 @@ class GamePlayScreen(Screen):
 
         
         # 2. Recarrega dados do mapa
+        self.mapa_id = self.loader.mapa_id
         self.mapa_matriz = self.loader.matriz_terrenos
         self.mapa_objetos = self.loader.camada_objetos
-        self.mapa_id = self.loader.mapa_id
 
         # 2.1 Re-instancia os sistemas para a nova Engine limpa
         try:
@@ -230,7 +230,6 @@ class GamePlayScreen(Screen):
     def on_evento_interacao(self, payload: dict):
         """Processador de Eventos Universal - Pipeline de 4 Etapas."""
         self.event_sys.processar_evento_interacao(payload)
-        #self.log_mensagem(f" {payload}")
         self.atualizar_tudo()
 
     def ao_levar_ataque(self, dados_ataque):
@@ -253,29 +252,52 @@ class GamePlayScreen(Screen):
         self.atualizar_paineis_status()
 
 
-    def disparar_bifurcacao_visual(self, pergunta: str, opcoes: list[str]):
+    def disparar_bifurcacao_visual(self, dados):
         """
         Chamado pelo interpretador de comandos quando atinge uma bifurcação.
         Instancia e exibe a caixa interativa na tela.
         """
+        pergunta = dados.get("pergunta", "Pergunta:")
+        opcoes = dados.get("opcoes", [])
         # Remove uma ChoiceBox antiga caso ainda exista por segurança
         self.remover_choice_box_ativa()
 
         # Cria a nova caixa dinâmica
-        caixa_escolha = ChoiceBox(
-            mensagem=pergunta, opcoes=opcoes, id="box-evento-ativo")
+        try:
+            caixa_escolha = ChoiceBox(
+                mensagem=pergunta, opcoes=opcoes, id="box-evento-ativo")
+        except Exception as e:
+            self.log_mensagem(f"Erro na caixa: {e}")
 
         # Monta o widget dentro do container de interações ou
         # painel lateral da sua UI
-        self.log_mensagem(f"[blue]>>> {opcoes}[/]")
-        self.query_one("#area-interacao-container").mount(caixa_escolha)
-        caixa_escolha.focus()
+        def executar_montagem_segura(): # Interrompe o scroll automático do Textual!
+            try:
+                container = self.query_one(
+                    "#area-interacao-container")
+            except Exception as e:
+                self.log_mensagem(f"[red]Erro ao montar a caixa:[/] {e}")
+
+            area_texto = self.query_one("#area-interacao")
+            area_texto.styles.height = "35%"
+            
+            input_chat = self.query_one("#terminal-prompt")
+            input_chat.display = False
+            container.mount(caixa_escolha)          
+            caixa_escolha.focus()
+            
+        self.call_next(executar_montagem_segura)
 
     def remover_choice_box_ativa(self):
         """Remove o widget da tela de forma limpa."""
         try:
             caixa = self.query_one("#box-evento-ativo", ChoiceBox)
             caixa.remove()
+            input_chat = self.query_one("#terminal-prompt")
+            area_texto = self.query_one("#area-interacao")
+            area_texto.styles.height = "85%"
+            input_chat.display = True
+            input_chat.focus()
         except Exception:
             pass
 
@@ -292,11 +314,12 @@ class GamePlayScreen(Screen):
         self.remover_choice_box_ativa()
         
         # Devolve o foco para o chat de comandos normais
-        self.query_one("#txt-chat").focus()
+        self.query_one("#terminal-prompt").focus()
 
         # 3. Alimenta o motor de estados com a escolha e retoma o loop assíncrono
         # (ramos_disponiveis foi mapeado previamente no processador usando strings ou índices)
-        self.processador_eventos.avancar_ramo_evento(opcao_escolhida)
+        self.event_sys.avancar_ramo_evento(
+            opcao_escolhida)
 
     # ==========================================
     # INTERPRETADOR DE COMANDOS DO TERMINAL (SUBMIT INPUT)
@@ -404,9 +427,10 @@ class GamePlayScreen(Screen):
     # ==========================================
     # INPUTS DE MOVIMENTAÇÃO (MANTÉM O FOCO FORA DO PROMPT AO USAR SETAS)
     # ==========================================
-    def on_key(self, event: Key) -> None:
+    def on_key(self, event: Key, ) -> None:
         key = event.key
         moveu = False
+        
         
         if event.key == '/' or event.key == "\\":
             self.action_focus_in_command_bar(event)

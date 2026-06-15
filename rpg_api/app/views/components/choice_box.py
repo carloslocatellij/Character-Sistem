@@ -1,7 +1,7 @@
 # app/views/components/choice_box.py
 from textual.widget import Widget
 from textual.widgets import Label, RadioSet, RadioButton, Button
-from textual.containers import Vertical
+from textual.containers import Vertical, Horizontal
 from textual.message import Message
 
 class ChoiceBox(Widget):
@@ -27,8 +27,8 @@ class ChoiceBox(Widget):
 
     def compose(self):
         """Monta a estrutura interna do widget."""
-        with Vertical(id="choice-box-card"):
-            yield Label(self.mensagem_texto, id="choice-label")
+        with Horizontal(id="choice-box-card"):
+            #yield Label(self.mensagem_texto, id="choice-label")
             
             with RadioSet(id="choice-radioset"):
                 for idx, opcao in enumerate(self.opcoes_lista):
