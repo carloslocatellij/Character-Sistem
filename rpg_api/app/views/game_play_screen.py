@@ -4,7 +4,7 @@ from textual.widgets import Static, RichLog, Label, Input
 from textual.containers import Container, ScrollableContainer
 from textual.events import Key
 from textual import on
-
+from app.views.components.choice_box import ChoiceBox
 from app.db.database import SessionLocal
 from app.core.engine.systems import (MovementSystem, InteractionSystem, AISystem,
                                      RenderSystem, InventarySystem, EventSystem)
@@ -38,8 +38,8 @@ class GamePlayScreen(Screen):
         self.interacao_sys = None
         self.render_sys = RenderSystem()
         self.invSys = InventarySystem()
-        self.event_sys = EventSystem(
-            self.invSys, self.game_state, self.log_mensagem, self.loader.event_bus)
+        
+        
 
     BINDINGS = [("/", "focus_in_command_bar", "")]
 
@@ -88,16 +88,11 @@ class GamePlayScreen(Screen):
             self.mapa_objetos = self.loader.camada_objetos
             self.mapa_id = self.loader.mapa_id
             
-            # TODO: teste pratico mostrou que o engine_load cria a entidade; limpar
-            if not esper.entity_exists(1):
-                esper.create_entity(
-                    PositionComponent(x=9, y=9),
-                    RenderComponent(emoji="🐱"),
-                    PlayerControlComponent()
-                )
-
+            # Inicia sistema de movimentação
             self.movimento_sys = MovementSystem(self.loader)
-            
+            # Inicia sistema de eventos
+            self.event_sys = EventSystem(
+                self.invSys, self.game_state, self.log_mensagem, self.loader.event_bus)
             # Interações com o Esper
             self.interacao_sys = InteractionSystem(self.loader.event_bus)
             
@@ -117,6 +112,9 @@ class GamePlayScreen(Screen):
 
             self.loader.event_bus.subscribe("ataque_monstro", self.ao_levar_ataque)
             
+            self.loader.event_bus.subscribe("disparar_bifurcacao",
+                                            self.disparar_bifurcacao_visual)
+            
             self.set_interval(1.0, self.game_tick)
             
             self.log_mensagem(
@@ -132,9 +130,6 @@ class GamePlayScreen(Screen):
         O ponteiro central de transição. 
         Recebe: {'mapa_id': 3, 'pos_x': 15, 'pos_y': 15}
         """
-        self.log_mensagem(f"o ao_mudar_de_mapa foi chamado")
-        self.log_mensagem(f"dados: {dados_teleporte}")
-
         
         mapa_alvo = dados_teleporte["mapa_id"]
         nova_pos_x = dados_teleporte["pos_x"]
@@ -161,22 +156,14 @@ class GamePlayScreen(Screen):
         self.mapa_matriz = self.loader.matriz_terrenos
         self.mapa_objetos = self.loader.camada_objetos
         self.mapa_id = self.loader.mapa_id
-        
-        self.log_mensagem(f"objetos: {self.mapa_objetos}")
-        self.log_mensagem(f"mapa_id: {self.mapa_id}")
 
         # 2.1 Re-instancia os sistemas para a nova Engine limpa
         try:
-            self.movimento_sys = MovementSystem(self.loader)
-            self.log_mensagem(f"Re-instancia: MovementSystem")
             # Interações com o Esper
+            self.movimento_sys = MovementSystem(self.loader)
             self.interacao_sys = InteractionSystem(self.loader.event_bus)
-            self.log_mensagem(f"Re-instancia: InteractionSystem")
-
             self.ai_sys = AISystem(self.loader,
                                    self.movimento_sys, self.loader.event_bus)
-            self.log_mensagem(f"Re-instancia: {self.ai_sys}")
-
             
         except Exception as e:
             self.log_mensagem(f"Erro ao Re-instaciar sistemas: {e}")
@@ -191,10 +178,6 @@ class GamePlayScreen(Screen):
                 
         except Exception as e:
             self.log_mensagem(f"Erro ao posicionar jogador: {e}")
-
-            
-        self.log_mensagem(f"pos_jogador: {pos}")
-
 
         self.loader.event_bus.subscribe(
             "INTERACTION_SUCCESS", self.on_evento_interacao)
@@ -247,7 +230,7 @@ class GamePlayScreen(Screen):
     def on_evento_interacao(self, payload: dict):
         """Processador de Eventos Universal - Pipeline de 4 Etapas."""
         self.event_sys.processar_evento_interacao(payload)
-        self.log_mensagem(f" {payload}")
+        #self.log_mensagem(f" {payload}")
         self.atualizar_tudo()
 
     def ao_levar_ataque(self, dados_ataque):
@@ -269,6 +252,51 @@ class GamePlayScreen(Screen):
         
         self.atualizar_paineis_status()
 
+
+    def disparar_bifurcacao_visual(self, pergunta: str, opcoes: list[str]):
+        """
+        Chamado pelo interpretador de comandos quando atinge uma bifurcação.
+        Instancia e exibe a caixa interativa na tela.
+        """
+        # Remove uma ChoiceBox antiga caso ainda exista por segurança
+        self.remover_choice_box_ativa()
+
+        # Cria a nova caixa dinâmica
+        caixa_escolha = ChoiceBox(
+            mensagem=pergunta, opcoes=opcoes, id="box-evento-ativo")
+
+        # Monta o widget dentro do container de interações ou
+        # painel lateral da sua UI
+        self.log_mensagem(f"[blue]>>> {opcoes}[/]")
+        self.query_one("#area-interacao-container").mount(caixa_escolha)
+        caixa_escolha.focus()
+
+    def remover_choice_box_ativa(self):
+        """Remove o widget da tela de forma limpa."""
+        try:
+            caixa = self.query_one("#box-evento-ativo", ChoiceBox)
+            caixa.remove()
+        except Exception:
+            pass
+
+    @on(ChoiceBox.Selected, "#box-evento-ativo")
+    def ao_selecionar_opcao_evento(self, event: ChoiceBox.Selected):
+        """
+        Nativo do Textual. Captura o sinal emitido pelo ChoiceBox 
+        assim que o jogador confirma a opção.
+        """
+        # 1. Guarda a resposta limpa escolhida (texto ou índice)
+        opcao_escolhida = event.text
+        
+        # 2. Desmolda o widget da interface para liberar espaço visual
+        self.remover_choice_box_ativa()
+        
+        # Devolve o foco para o chat de comandos normais
+        self.query_one("#txt-chat").focus()
+
+        # 3. Alimenta o motor de estados com a escolha e retoma o loop assíncrono
+        # (ramos_disponiveis foi mapeado previamente no processador usando strings ou índices)
+        self.processador_eventos.avancar_ramo_evento(opcao_escolhida)
 
     # ==========================================
     # INTERPRETADOR DE COMANDOS DO TERMINAL (SUBMIT INPUT)

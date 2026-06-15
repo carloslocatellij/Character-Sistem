@@ -226,10 +226,16 @@ class InventarySystem():
 
 
 class InteractionSystem:
+    
     def __init__(self, event_bus=None):
         self.event_bus = event_bus
 
     def interagir(self, entidade_id: int, direcao_olhar: str) -> bool:
+        """
+        Verifica se há um evento à frente do jogador (ID 1).
+        Se houver, publica as informações e parâmetros do evento para o EventBus,
+        delegando a responsabilidade de execução para o EventSystem.
+        """
         pos_origem = esper.component_for_entity(entidade_id, PositionComponent)
         alvo_x, alvo_y = pos_origem.x, pos_origem.y
 
@@ -271,11 +277,25 @@ class EventSystem:
         self.log_callback = log_callback
         self.event_bus = event_bus
         
+        self.pilha_de_comandos = []      # Armazena os blocos de comandos lineares
+        self.aguardando_escolha = False
+        self.entidade_atual_id = None
+        
+        
+
 
     def processar_evento_interacao(self, payload: dict):
+        """Callback disparado pelo EventBus assim que o jogador interage com um bloco."""
+
         logging.info(f" foi por processar_evento_interacao")
         try:
+            if self.aguardando_escolha:
+                return
+            
             params = payload.get("parametros", {})
+            self.entidade_atual_id = payload.get("entidade_id")
+            self.aguardando_escolha = False
+            
             if "paginas" not in params:
                 self._processar_evento_antigo(payload)
                 return
@@ -341,8 +361,7 @@ class EventSystem:
                 if not self.game_state.get_switch(f"evento_{entidade_id}_{self_sw}"):
                     logging.info(f"masa condição [{self_sw}] é falsa")
                     return False
-            
-            logging.info(f"aparenta td certo até aqui")
+                
             return True
         except Exception as e:
             logging.info(f"Erro em _avaliar_condicoes: {e}")
@@ -350,124 +369,404 @@ class EventSystem:
 
 
     def _processar_comandos_sequenciais(self, comandos: list, entidade_id: int):
-        for comando in comandos:
-            logging.info(f"processando comando: {comando}")
-            try:
-                tipo = comando.get("tipo")
-                dados = comando.get("dados", {})
-                logging.info(f"tipo: {tipo} - dados: {dados}")
-                
-                if tipo == "mensagem":
-                    texto = dados.get("texto", "")
-                    self.log_callback(f"[cyan]💬 {texto}[/]")
-                    
-                elif tipo == "mudar_inventario":
-                    item = dados.get("item")
-                    operacao = dados.get("operacao")
-                    qtd = dados.get("quantidade", 1)
-                    inv = esper.component_for_entity(1, InventoryComponent)
-                    if inv:
-                        if operacao == "add":
-                            self.inv_sys._inventory_add_item(inv, item, qtd)
-                            self.log_callback(f"[bold cyan]🎁 Obteve: [yellow]{item} x{qtd}[/yellow]![/]")
-                        elif operacao == "sub":
-                            self.inv_sys._inventory_remove_item(inv, item, qtd)
-                            self.log_callback(f"[bold red]❌ Perdeu: [yellow]{item} x{qtd}[/yellow]![/]")
-                            
-                elif tipo == "mudar_status_heroi":
-                    parametro = dados.get("parametro")
-                    operacao = dados.get("operacao")
-                    valor = dados.get("valor", 0)
-                    stats = esper.component_for_entity(1, StatsComponent)
-                    if stats and hasattr(stats, parametro):
-                        atual = getattr(stats, parametro, 0)
-                        if operacao == "add":
-                            setattr(stats, parametro, atual + valor)
-                        elif operacao == "sub":
-                            setattr(stats, parametro, max(0, atual - valor))
-                        self.log_callback(f"[white]⚡ {parametro.upper()} modificado ({operacao} {valor}).[/]")
-                        
-                elif tipo == "mudar_render":
-                    novo_emoji = dados.get("novo_emoji")
-                    alvo = dados.get("alvo", "proprio")
-                    id_alvo = entidade_id if alvo == "proprio" else 1
-                    try:
-                        render = esper.component_for_entity(id_alvo, RenderComponent)
-                        if render and novo_emoji:
-                            render.emoji = novo_emoji
-                    except KeyError:
-                        pass
-                        
-                elif tipo == "controle_switch":
-                    nome = dados.get("nome")
-                    valor = dados.get("valor")
-                    self.game_state.set_switch(nome, valor)
-                    
-                elif tipo == "controle_self_switch":
-                    letra = dados.get("letra")
-                    valor = dados.get("valor")
-                    self.game_state.set_switch(f"evento_{entidade_id}_{letra}", valor)
-                    
-                elif tipo == "bifurcacao_condicional":
-                    pergunta = dados.get("pergunta", "Escolha:")
-                    opcoes = dados.get("opcoes", [])
-                    ramos = dados.get("ramos", {})
-                    
-                    self.log_callback(f"[yellow]❓ {pergunta} (Opções: {', '.join(opcoes)})[/]")
-                    if opcoes and opcoes[0] in ramos:
-                        self.log_callback(f"[dim]>>> Simulando escolha: {opcoes[0]}[/]")
-                        self._processar_comandos_sequenciais(ramos[opcoes[0]], entidade_id)
-                
-                elif tipo == "teleporte":
-                    logging.info(f" É um teleporte")
-
-                    try:
-                        self.event_bus.publish("mudar_mapa", dados)
-                        
-                    except Exception as e:
-                        logging.info(f"Erro ao publicar teleport: {e}")
-                
-                elif tipo == "efeito_sonoro":
-                    arquivo = dados.get("arquivo")
-                    self.log_callback(f"[dim]🎵 Som tocando: {arquivo}[/]")
-                    
-                elif tipo == "mover_evento":
-                    self.log_callback(f"[dim]🏃 Movimento de evento acionado.[/]")
-            except Exception as e:
-                logging.info(f"Erro em _processar_comandos_sequenciais no comando '{comando.get('tipo', 'desconhecido')}': {e}")
-
-    def _processar_evento_antigo(self, payload: dict):
+        
         try:
-            tipo = payload.get("tipo", "evento")
-            params = payload.get("parametros", {})
-
-            if tipo == "bau":
-                self.ao_recolher_bau(payload)
-            elif tipo == "npc_dialogo":
-                self.log_callback(f"[cyan]💬 NPC: {params.get('texto', 'Olá!')}[/]")
-            else:
-                self.log_callback(f"[white]✨ Evento ativado: {tipo}[/]")
+            logging.info(f"comandos: {comandos}")
+            self.pilha_de_comandos = [list(comandos)]
+            self.aguardando_escolha = False
+            self.ramos_disponiveis = {}
+            
+            self.executar_proximos_comandos()
+            
         except Exception as e:
-            logging.info(f"Erro em _processar_evento_antigo: {e}")
+            logging.info(
+                f"Erro em _processar_comandos_sequenciais no comando '{comandos}':= {e}")
+        
+    def executar_proximos_comandos(self):
+        """Loop executor não-bloqueante que processa a pilha até o fim ou até uma interrupção."""
+        while self.pilha_de_comandos:
+            bloco_atual = self.pilha_de_comandos[-1]
 
-    def ao_recolher_bau(self, dados):
-        try:
-            params = dados.get("parametros", {})
-            estado_nome = params.get("estado_atual")
-            bloco = params.get("estados").get(
-                estado_nome) if estado_nome and estado_nome in params.get("estados") else params
-            
-            item_nome = bloco.get("item") or bloco.get("item_id") or bloco.get("nome") or "item desconhecido"
-            qtd = bloco.get("quantidade") or bloco.get("qtd") or 1
-            msg = bloco.get("mensagem") or bloco.get("msg") or "Você abriu um baú!"
-            
+            if not bloco_atual:
+                self.pilha_de_comandos.pop()
+                continue
+
+            comando = bloco_atual.pop(0)
+            self._processar_comando_individual(comando)
+
+            # Se o comando executado acima ativou um estado de pausa por pergunta, cede o controle para a TUI
+            if self.aguardando_escolha:
+                return            
+                
+                
+    def _processar_comando_individual(self, comando):
+        """Interpretador genérico e atômico de comandos estruturados do JSON."""
+        tipo = comando.get("tipo")
+        dados = comando.get("dados", {})        
+        entidade_id = self.entidade_atual_id
+        
+        if tipo == "mensagem":
+            texto = dados.get("texto", "")
+            self.log_callback(f"[cyan]💬 {texto}[/]")
+        
+        
+        elif tipo == "mudar_inventario":
+            item = dados.get("item")
+            operacao = dados.get("operacao")
+            qtd = dados.get("quantidade", 1)
             inv = esper.component_for_entity(1, InventoryComponent)
             if inv:
-                self.inv_sys._inventory_add_item(inv, item_nome, qtd)
+                if operacao == "add":
+                    self.inv_sys._inventory_add_item(inv, item, qtd)
+                    self.log_callback(f"[bold cyan]🎁 Obteve: [yellow]{item} x{qtd}[/yellow]![/]")
+                elif operacao == "sub":
+                    self.inv_sys._inventory_remove_item(inv, item, qtd)
+                    self.log_callback(f"[bold red]❌ Perdeu: [yellow]{item} x{qtd}[/yellow]![/]")
+                    
+        elif tipo == "mudar_status_heroi":
+            parametro = dados.get("parametro")
+            operacao = dados.get("operacao")
+            valor = dados.get("valor", 0)
+            stats = esper.component_for_entity(1, StatsComponent)
+            if stats and hasattr(stats, parametro):
+                atual = getattr(stats, parametro, 0)
+                if operacao == "add":
+                    setattr(stats, parametro, atual + valor)
+                elif operacao == "sub":
+                    setattr(stats, parametro, max(0, atual - valor))
+                self.log_callback(f"[white]⚡ {parametro.upper()} modificado ({operacao} {valor}).[/]")
+                
+        elif tipo == "mudar_render":
+            novo_emoji = dados.get("novo_emoji")
+            alvo = dados.get("alvo", "proprio")
+            id_alvo = entidade_id if alvo == "proprio" else 1
+            try:
+                render = esper.component_for_entity(id_alvo, RenderComponent)
+                if render and novo_emoji:
+                    render.emoji = novo_emoji
+            except KeyError:
+                pass
+                
+        elif tipo == "controle_switch":
+            nome = dados.get("nome")
+            valor = dados.get("valor")
+            self.game_state.set_switch(nome, valor)
+            
+        elif tipo == "controle_self_switch":
+            letra = dados.get("letra")
+            valor = dados.get("valor")
+            self.game_state.set_switch(f"evento_{entidade_id}_{letra}", valor)
+            
+        elif tipo == "bifurcacao_condicional":
+            pergunta = dados.get("pergunta", "Escolha uma opção:")
+            opcoes = dados.get("opcoes", [])
+            ramos = dados.get("ramos", {})
 
+            # Renderiza a pergunta e as opções listadas para a TUI capturar
+            self.log_callback(f"[bold yellow]❓ {pergunta}[/]")
+            self.ramos_disponiveis = {}
+
+            for idx, opcao in enumerate(opcoes, start=1):
+                self.log_callback(f"  [cyan]{idx} - {opcao}[/]")
+                # Indexa tanto por número ("1") quanto por texto ("sim") para compatibilidade com chat ou botões
+                self.ramos_disponiveis[str(idx)] = ramos.get(opcao, [])
+                self.ramos_disponiveis[opcao.strip(
+                ).lower()] = ramos.get(opcao, [])
+
+            # 🛑 PAUSA DE BIFURCAÇÃO: Interrompe a execução direta e aguarda a entrada externa
+            self.aguardando_escolha = True
+
+            # 🛰️ Opcional: Se for usar a ChoiceBox reativa no Textual, publishe o sinal aqui:
+            self.event_bus.publish("disparar_bifurcacao", {
+                                "pergunta": pergunta, "opcoes": opcoes})
+            return
+
+        # elif tipo == "bifurcacao_condicional":
+            
+        #     pergunta = dados.get("pergunta", "Escolha:")
+        #     opcoes = dados.get("opcoes", [])
+        #     ramos = dados.get("ramos", {})
+        #     self.log_callback(f"[yellow]❓ {pergunta} (Opções: {', '.join(opcoes)})[/]")
+        #     if opcoes and opcoes[0] in ramos:
+                
+        #         comandos_do_ramo = ramos.get(escolha, [])
+        #         self._processar_comandos_sequenciais(
+        #             comandos_do_ramo, entidade_id)
+        #         #self.log_callback(f"[dim]>>> Simulando escolha: {opcoes[0]}[/]")
+        #         #self._processar_comandos_sequenciais(ramos[opcoes[0]])
+        
+        elif tipo == "teleporte":
+
+            try:
+                self.event_bus.publish("mudar_mapa", dados)
+                
+            except Exception as e:
+                logging.info(f"Erro ao publicar teleport: {e}")
+        
+        elif tipo == "efeito_sonoro":
+            arquivo = dados.get("arquivo")
+            self.log_callback(f"[dim]🎵 Som tocando: {arquivo}[/]")
+            
+        elif tipo == "mover_evento":
+            self.log_callback(f"[dim]🏃 Movimento de evento acionado.[/]")
+
+    def avancar_ramo_evento(self, opcao_escolhida: str):
+        """Injetado externamente pela GamePlayScreen através do #txt-chat ou ChoiceBox."""
+        entrada_limpa = str(opcao_escolhida).strip().lower()
+
+        if entrada_limpa in self.ramos_disponiveis:
+            comandos_do_ramo = self.ramos_disponiveis[entrada_limpa]
+
+            # Limpa o travamento de estado
+            self.aguardando_escolha = False
+            self.ramos_disponiveis = {}
+
+            # Empilha o sub-bloco de comandos correspondente no topo da pilha
+            if comandos_do_ramo:    
+                self.pilha_de_comandos.append(list(comandos_do_ramo))
+
+            # Retoma o loop sequencial da máquina assíncrona
+            self.executar_proximos_comandos()
+        else:
             self.log_callback(
-                f"[bold cyan]🎁 {msg} e coletou: [yellow]{item_nome} x{qtd}[/yellow]! "
-                f"(Digite /equipar ou /usar no terminal para usufruir)[/]"
-            )
-        except Exception as e:
-            logging.info(f"Erro em ao_recolher_bau: {e}")
+                "[bold red]⚠️ Escolha inválida. Selecione uma opção válida.[/]")
+
+
+
+# class EventSystem:
+#     def __init__(self, inv_sys: InventarySystem, game_state, log_callback, event_bus):
+#         #self.engine = engine_manager
+#         self.log_callback = log_callback
+#         self.game_state = game_state
+#         self.inv_sys = inv_sys
+#         self.event_bus = event_bus
+
+#         # Infraestrutura de Pilha Assíncrona e Controle de Estados para Diálogos/Bifurcações
+#         self.pilha_de_comandos = []      # Armazena os blocos de comandos lineares
+#         # Flag que indica se o jogo está travado por uma pergunta
+#         self.aguardando_escolha = False
+#         self.ramos_disponiveis = {}       # Mapeia as opções válidas para o jogador escolher
+#         # Guarda o ID do evento que está rodando no momento
+#         self.entidade_atual_id = None
+
+#         # Se inscreve no canal do EventBus para escutar os chamados gerados pelo InteractionSystem
+#         self.event_bus.subscribe("INTERACTION_SUCCESS",
+#                                  self.processar_evento_interacao)
+
+#     def processar_evento_interacao(self, payload: dict):
+#         """Callback disparado pelo EventBus assim que o jogador interage com um bloco."""
+#         # Se já estiver processando um diálogo com escolha pendente, bloqueia novas concorrências
+#         if self.aguardando_escolha:
+#             return
+
+#         self.entidade_atual_id = payload.get("entidade_id")
+#         parametros = payload.get("parameters", {})
+
+#         # 🧠 NOVA ENGINE: Padrão RPG Maker com suporte a Páginas Condicionais
+#         if "paginas" in parametros:
+#             paginas = parametros["paginas"]
+#             # Lê de forma decrescente (da maior página para a menor)
+#             pagina_valida = None
+#             for pagina in sorted(paginas, key=lambda x: x.get("id_pagina", 0), reverse=True):
+#                 if self._validar_condicoes_pagina(pagina.get("condicoes", {})):
+#                     pagina_valida = pagina
+#                     break
+
+#             if pagina_valida:
+#                 comandos = pagina_valida.get("comandos", [])
+#                 self._processar_comandos_sequenciais(comandos)
+
+#         # ⏳ RETROCOMPATIBILIDADE: Trata os dicionários legados antigos (ex: Baú antigo ou NPC antigo)
+#         else:
+#             self._processar_evento_antigo(payload)
+
+#     def _validar_condicoes_pagina(self, condicoes: dict) -> bool:
+#         """Avaliador genérico de condições lógicas no GameStateManager."""
+#         if not condicoes:
+#             return True
+
+#         # 1. Verifica os Switches Globais
+#         for sw in condicoes.get("switches", []):
+#             if self.game_state.get_switch(sw["nome"]) != sw["valor"]:
+#                 return False
+
+#         # 2. Verifica as Variáveis Globais (Numéricas ou Textuais)
+#         for var in condicoes.get("variaveis", []):
+#             nome = var["nome"]
+#             operador = var["operador"]
+#             valor_esperado = var["valor"]
+#             valor_atual = self.game_state.get_variable(nome)
+
+#             if operador == "igual" and valor_atual != valor_esperado:
+#                 return False
+#             elif operador == "maior_ou_igual" and not (isinstance(valor_atual, (int, float)) and valor_atual >= valor_esperado):
+#                 return False
+#             elif operador == "menor_ou_igual" and not (isinstance(valor_atual, (int, float)) and valor_atual <= valor_esperado):
+#                 return False
+#             elif operador == "diferente" and valor_atual == valor_esperado:
+#                 return False
+
+#         # 3. Verifica Self Switch local do próprio evento
+#         if condicoes.get("self_switch"):
+#             letra = condicoes["self_switch"]
+#             chave_local = f"self_{self.entidade_atual_id}_{letra}"
+#             if not self.game_state.get_switch(chave_local):
+#                 return False
+
+#         # 4. Verifica se exige algum Item no Inventário do Herói (Entidade ID 1)
+#         if condicoes.get("item_requerido"):
+#             item_nome = condicoes["item_requerido"]
+#             inv = esper.component_for_entity(1, InventoryComponent)
+#             if not inv or inv.itens.get(item_nome, 0) <= 0:
+#                 return False
+
+#         return True
+
+#     def _processar_comandos_sequenciais(self, lista_comandos):
+#         """Inicializa a pilha de execução com o bloco principal de comandos da página ativa."""
+#         if not lista_comandos:
+#             return
+
+#         self.pilha_de_comandos = [list(lista_comandos)]
+#         self.aguardando_escolha = False
+#         self.ramos_disponiveis = {}
+
+#         self.executar_proximos_comandos()
+
+#     def executar_proximos_comandos(self):
+#         """Loop executor não-bloqueante que processa a pilha até o fim ou até uma interrupção."""
+#         while self.pilha_de_comandos:
+#             bloco_atual = self.pilha_de_comandos[-1]
+
+#             if not bloco_atual:
+#                 self.pilha_de_comandos.pop()
+#                 continue
+
+#             comando = bloco_atual.pop(0)
+#             self._processar_comando_individual(comando)
+
+#             # Se o comando executado acima ativou um estado de pausa por pergunta, cede o controle para a TUI
+#             if self.aguardando_escolha:
+#                 return
+
+#     def _processar_comando_individual(self, comando):
+#         """Interpretador genérico e atômico de comandos estruturados do JSON."""
+#         tipo = comando.get("tipo")
+#         dados = comando.get("dados", {})
+
+#         if tipo == "mensagem":
+#             self.log_callback(dados.get("texto", ""))
+
+#         elif tipo == "bifurcacao_condicional":
+#             pergunta = dados.get("pergunta", "Escolha uma opção:")
+#             opcoes = dados.get("opcoes", [])
+#             ramos = dados.get("ramos", {})
+
+#             # Renderiza a pergunta e as opções listadas para a TUI capturar
+#             self.log_callback(f"[bold yellow]❓ {pergunta}[/]")
+#             self.ramos_disponiveis = {}
+
+#             for idx, opcao in enumerate(opcoes, start=1):
+#                 self.log_callback(f"  [cyan]{idx} - {opcao}[/]")
+#                 # Indexa tanto por número ("1") quanto por texto ("sim") para compatibilidade com chat ou botões
+#                 self.ramos_disponiveis[str(idx)] = ramos.get(opcao, [])
+#                 self.ramos_disponiveis[opcao.strip(
+#                 ).lower()] = ramos.get(opcao, [])
+
+#             # 🛑 PAUSA DE BIFURCAÇÃO: Interrompe a execução direta e aguarda a entrada externa
+#             self.aguardando_escolha = True
+
+#             # 🛰️ Opcional: Se for usar a ChoiceBox reativa no Textual, emite o sinal aqui:
+#             self.event_bus.publish("abrir_choice_box", {
+#                 "pergunta": pergunta, "opcoes": opcoes})
+#             return
+
+#         elif tipo == "controle_switch":
+#             self.game_state.set_switch(
+#                 dados.get("nome"), dados.get("valor", False))
+
+#         elif tipo == "controle_self_switch":
+#             letra = dados.get("letra", "A")
+#             valor = dados.get("valor", False)
+#             # Salva o switch local vinculando dinamicamente ao ID do evento atual para evitar colisões
+#             chave_local = f"self_{self.entidade_atual_id}_{letra}"
+#             self.game_state.set_switch(chave_local, valor)
+
+#         elif tipo == "mudar_inventario":
+#             try:
+#                 item_nome = dados.get("item")
+#                 qtd = dados.get("quantidade") or dados.get("qtd") or 1
+#                 operacao = dados.get("operacao", "add")
+
+#                 inv = esper.component_for_entity(1, InventoryComponent)
+#                 if inv:
+#                     if operacao == "add":
+#                         self.inv_sys._inventory_add_item(inv, item_nome, qtd)
+#                         self.log_callback(
+#                             f"[yellow]+ {qtd}x {item_nome} adicionado ao inventário.[/]")
+#                     elif operacao == "sub":
+#                         atual = inv.itens.get(item_nome, 0)
+#                         inv.itens[item_nome] = max(0, atual - qtd)
+#                         self.log_callback(
+#                             f"[red]- {qtd}x {item_nome} removido do inventário.[/]")
+#             except Exception as e:
+#                 logging.info(
+#                     f"Erro ao mudar inventário no comando do EventSystem: {e}")
+
+#         elif tipo == "teleporte":
+#             # 🌌 Transmite o sinal de teleporte para a GamePlayScreen recarregar a engine do zero
+#             self.event_bus.publish("mudar_mapa", dados)
+
+#     def avancar_ramo_evento(self, opcao_escolhida: str):
+#         """Injetado externamente pela GamePlayScreen através do #txt-chat ou ChoiceBox."""
+#         entrada_limpa = str(opcao_escolhida).strip().lower()
+
+#         if entrada_limpa in self.ramos_disponiveis:
+#             comandos_do_ramo = self.ramos_disponiveis[entrada_limpa]
+
+#             # Limpa o travamento de estado
+#             self.aguardando_escolha = False
+#             self.ramos_disponiveis = {}
+
+#             # Empilha o sub-bloco de comandos correspondente no topo da pilha
+#             if comandos_do_ramo:
+#                 self.pilha_de_comandos.append(list(comandos_do_ramo))
+
+#             # Retoma o loop sequencial da máquina assíncrona
+#             self.executar_proximos_comandos()
+#         else:
+#             self.log_callback(
+#                 "[bold red]⚠️ Escolha inválida. Selecione uma opção válida.[/]")
+
+#     def _processar_evento_antigo(self, payload):
+#         """Preserva e trata a retrocompatibilidade com dicionários herdados do modelo antigo."""
+#         try:
+#             tipo = payload.get("event_type", "evento")
+#             params = payload.get("parameters", {})
+
+#             if tipo == "bau":
+#                 estado_nome = params.get("estado_atual", "nunca aberto")
+#                 bloco = params.get("estados", {}).get(estado_nome, params)
+
+#                 item_nome = bloco.get("item") or "item desconhecido"
+#                 qtd = bloco.get("qtd") or 1
+#                 msg = bloco.get("msg") or "Você abriu um baú!"
+
+#                 inv = esper.component_for_entity(1, InventoryComponent)
+#                 if inv:
+#                     self.inv_sys._inventory_add_item(inv, item_nome, qtd)
+#                 self.log_callback(
+#                     f"[bold cyan]🎁 {msg} e coletou: [yellow]{item_nome} x{qtd}[/]")
+
+#                 # Atualiza o estado para aberto no dicionário antigo
+#                 if "mudar_proprio_estado" in bloco:
+#                     params["estado_atual"] = bloco["mudar_proprio_estado"]
+
+#             elif tipo == "npc_dialogo":
+#                 estado_nome = params.get("estado_atual", "desconhecido")
+#                 bloco = params.get("estados", {}).get(estado_nome, params)
+#                 self.log_callback(
+#                     f"[cyan]💬 NPC: {bloco.get('texto', 'Olá!')}[/]")
+#         except Exception as e:
+#             logging.info(
+#                 f"Erro em _processar_evento_antigo no EventSystem: {e}")

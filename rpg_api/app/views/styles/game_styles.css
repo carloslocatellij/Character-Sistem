@@ -81,3 +81,33 @@
     color: green;
     /* Prompt verde estilo hacker/terminal retro */
 }
+
+ChoiceBox {
+    width: 100%;
+    height: auto;
+    align: center middle;
+    margin: 1 0;
+}
+
+#choice-box-card {
+    background: $surface-darken-3;
+    border: double $primary;
+    padding: 1 2;
+    width: 45;
+    height: auto;
+}
+
+#choice-label {
+    color: $text;
+    margin-bottom: 1;
+}
+
+#choice-radioset {
+    background: transparent;
+    border: none;
+    margin-bottom: 1;
+}
+
+#choice-submit {
+    width: 100%;
+}
