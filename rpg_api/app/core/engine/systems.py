@@ -1,3 +1,4 @@
+import unicodedata
 import esper
 import random
 from rich.text import Text
@@ -470,10 +471,15 @@ class EventSystem:
 
             for idx, opcao in enumerate(opcoes, start=1):
                 
+                id_op = opcao.replace(' ', '_').replace(
+                    ',', '-').replace('.', '')
+                id_op = unicodedata.normalize("NFD", id_op)
+                id_op = id_op.encode("ASCII", "ignore").decode("ASCII")
+                
                 # Indexa tanto por número ("1") quanto por texto ("sim") para compatibilidade com chat ou botões
-                self.ramos_disponiveis[str(idx)] = ramos.get(opcao, [])
-                self.ramos_disponiveis[opcao.strip(
-                ).lower()] = ramos.get(opcao, [])
+                self.ramos_disponiveis[str(idx)] = ramos.get(id_op, [])
+                self.ramos_disponiveis[id_op.strip(
+                ).lower()] = ramos.get(id_op, [])
 
             # 🛑 PAUSA DE BIFURCAÇÃO: Interrompe a execução direta e aguarda a entrada externa
             self.aguardando_escolha = True
@@ -507,6 +513,11 @@ class EventSystem:
         """Injetado externamente pela GamePlayScreen através do #txt-chat ou ChoiceBox."""
         entrada_limpa = str(opcao_escolhida).strip().lower()
 
+        entrada_limpa = entrada_limpa.replace(
+            ' ', '_').replace(',', '-').replace('.', '')
+        entrada_limpa = unicodedata.normalize("NFD", entrada_limpa)
+        entrada_limpa = entrada_limpa.encode("ASCII", "ignore").decode("ASCII")
+        
         if entrada_limpa in self.ramos_disponiveis:
             comandos_do_ramo = self.ramos_disponiveis[entrada_limpa]
 

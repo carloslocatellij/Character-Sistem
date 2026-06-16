@@ -1492,12 +1492,16 @@ class AcoesComandoScreen(ModalScreen[str]):
         self.comando = comando
         
     def compose(self):
+        import unicodedata
         with Vertical(id="acoes-cmd-caixa"):
             yield Label(f"Ações: {self.comando['tipo']}", classes="titulo-secao")
             yield Button("Editar Comando", id="btn-editar", variant="success")
             if self.comando["tipo"] == "bifurcacao_condicional":
                 for op in self.comando["dados"].get("opcoes", []):
-                    yield Button(f"Editar Ramo: '{op}'", id=f"ramo_{op}", variant="primary")
+                    id_op = op.replace(' ', '_').replace(',', '-').replace('.', '')
+                    id_op = unicodedata.normalize("NFD", id_op)
+                    id_op = id_op.encode("ASCII", "ignore").decode("ASCII")
+                    yield Button(f"Editar Ramo: '{op}'", id=f"ramo_{id_op}", variant="primary")
             yield Button("Excluir Comando", id="btn-excluir", variant="error")
             yield Button("Voltar", id="btn-cancelar")
 

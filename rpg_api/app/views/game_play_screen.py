@@ -326,7 +326,12 @@ class GamePlayScreen(Screen):
     # ==========================================
     @on(Input.Submitted, "#terminal-prompt")
     def processar_comando_terminal(self, event: Input.Submitted):
-        texto = event.value.strip().lower()
+        
+        if event.value.startswith('/>'):
+            texto = event.value.strip()
+        else:
+            texto = event.value.strip().lower()
+            
         log = self.query_one("#area-interacao", RichLog)
         prompt = self.query_one("#terminal-prompt", Input)
         
@@ -434,8 +439,15 @@ class GamePlayScreen(Screen):
         
         if event.key == '/' or event.key == "\\":
             self.action_focus_in_command_bar(event)
-            
-        if key in ("up", "down", "left", "right", "w", "s", "a", "d", "/"):
+        
+        if hasattr(self, "event_sys") and self.event_sys.aguardando_escolha:
+            if key in ("d", "/", "m"):
+                event.prevent_default()  # Interrompe o scroll automático do Textual!
+                event.stop()
+            return
+        
+        
+        if key in ("up", "down", "left", "right", "w", "s", "a", "d", "/", "m"):
             event.prevent_default()  # Interrompe o scroll automático do Textual!
             event.stop()
 

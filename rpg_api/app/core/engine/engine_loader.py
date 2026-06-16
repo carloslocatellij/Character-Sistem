@@ -43,6 +43,8 @@ class GameEngineLoader:
         # 1. RESET CRUCIAL: Limpa todas as entidades antigas do mundo global do Esper
         
         #esper.switch_world(esper.list_worlds()[0])
+        
+        esper.clear_database()
 
         mapa_db = db.query(MapaDB).filter(MapaDB.id == mapa_id).first()
         if not mapa_db:
@@ -123,7 +125,7 @@ class GameEngineLoader:
         itens_iniciais = [
             {"id": 101, "nome": "poção",
                 "tipo": "consumivel", "bonus": 50},
-            {"id": 201, "nome": "espada Longa", "tipo": "arma", "bonus_atk": 8},
+            {"id": 201, "nome": "espada longa", "tipo": "arma", "bonus_atk": 8},
             {"id": 301, "nome": "armadura de couro",
                 "tipo": "armadura", "bonus_def": 4}
         ]
