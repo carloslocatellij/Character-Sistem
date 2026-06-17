@@ -6,7 +6,7 @@ class CatalogoTiles:
     
     # Listas para construir as abas
     TERRENOS = ["  ", "⬛", "🔲", "⬜", "🟫", "🟩", "🟦", "🟧", "🈸", "🈴", "🔯" ]
-    TERRENOS_BLOQUEANTES = ["🔳", "🧱", "🔲", "🟦", "🟧"]
+    TERRENOS_BLOQUEANTES = ["⬛", "🔳", "🧱", "🔲", "🟦", "🟧"]
     
     OBJETOS = [ "🌲", "🌳", "🌴", "🌵", "🎄","🍄",
                 "🌻", "🌹", "🌷","🌾" ,"🔮", "🌋", 
@@ -50,7 +50,7 @@ dict_item_emoji = {
               "arco longo": "🏹", "arco curto": "🏹", "picareta": "⛏️",
               },
     "armaduras": {"armadura": "🦺", "armadura de placas": "🧥", "cota de malha": "🥼", "couro batido": "🦺",
-                  "capa": "🧥", "luvas": "🧤", "elmo": "🪖", "botas": "👢", "cap": "🧢",},
+                  "capa": "🧥", "luvas": "🧤", "elmo": "🧢", "botas": "👢", "cap": "🧢",},
     "escudos": {"escudo": "🛡️",  "escudo de ferro": "🛡️", "escudo de madeira": "🛡️",},
     "outros": {
             "bau": "💼", 
@@ -86,11 +86,11 @@ dict_emoji_efeito = {
 
 dict_emoji_racas = {
         "humano": "👨‍🦱", 
-        "orc": "🧌",
+        "orc": "🐷",
         "goblin": "👾",
         "elfo": "🧝",
         "anão": "🧔🏽",
-        "troll": "🧟",
+        "troll": "🤢",
         "zumbi": "🧟‍♂️",
         "vampiro": "🧛",
         "golem": "🤖",

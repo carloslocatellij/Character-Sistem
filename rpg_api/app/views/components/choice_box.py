@@ -33,7 +33,7 @@ class ChoiceBox(Widget):
             with RadioSet(id="choice-radioset"):
                 for idx, opcao in enumerate(self.opcoes_lista):
                     # Define a primeira opção como selecionada por padrão
-                    yield RadioButton(opcao, value=(idx == 0))
+                    yield RadioButton(opcao, value=(idx == 0), id=f"rd_{idx}")
             
             yield Button("Confirmar Escolha", variant="primary", id="choice-submit")
 

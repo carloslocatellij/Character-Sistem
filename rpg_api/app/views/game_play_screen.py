@@ -283,9 +283,12 @@ class GamePlayScreen(Screen):
             
             self.query_one("#terminal-prompt").add_class("hidden")
 
-            container.mount(caixa_escolha)          
-            caixa_escolha.focus()
-            
+            container.mount(caixa_escolha)
+            sub_caixa_element = caixa_escolha.get_child_by_id('choice-box-card')
+            caixa_element = sub_caixa_element.get_child_by_id('choice-radioset')
+            caixa_element.focus()
+            sub_caixa_element.trap_focus()
+
         self.call_next(executar_montagem_segura)
 
     def remover_choice_box_ativa(self):
