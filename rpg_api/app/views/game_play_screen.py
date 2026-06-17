@@ -279,10 +279,10 @@ class GamePlayScreen(Screen):
                 self.log_mensagem(f"[red]Erro ao montar a caixa:[/] {e}")
 
             area_texto = self.query_one("#area-interacao")
-            area_texto.styles.height = "35%"
+            area_texto.styles.height = "60%"
             
-            input_chat = self.query_one("#terminal-prompt")
-            input_chat.display = False
+            self.query_one("#terminal-prompt").add_class("hidden")
+
             container.mount(caixa_escolha)          
             caixa_escolha.focus()
             
@@ -296,7 +296,7 @@ class GamePlayScreen(Screen):
             input_chat = self.query_one("#terminal-prompt")
             area_texto = self.query_one("#area-interacao")
             area_texto.styles.height = "85%"
-            input_chat.display = True
+            self.query_one("#terminal-prompt").remove_class("hidden")
             input_chat.focus()
         except Exception:
             pass
