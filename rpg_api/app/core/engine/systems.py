@@ -103,7 +103,7 @@ class MovementSystem:
 
 
 class AISystem:
-    def __init__(self, engine_manager, movement_system, event_bus):
+    def __init__(self, engine_manager, movement_system, event_bus=None):
         self.engine = engine_manager
         self.movement_system = movement_system
         self.event_bus = event_bus
@@ -142,11 +142,12 @@ class AISystem:
 
                     # Se a colisão foi com o herói, emite evento de ataque
                     if pos_heroi.x == alvo_x and pos_heroi.y == alvo_y:
-                        if self.event_bus:
-                            self.event_bus.publish("ataque_monstro", {
-                                "parametros": ai_comp.action_on_touch
-                            })
-                            
+                        # if self.event_bus:
+                        #     self.event_bus.publish("ataque_monstro", {
+                        #         "parametros": ai_comp.action_on_touch
+                        #     })
+                        esper.dispatch_event("ataque_monstro", {
+                            "parametros": ai_comp.action_on_touch})
                             
 class InventarySystem():
     """ Gerencia estoques de baús e o inventário do personagem. 
@@ -251,20 +252,11 @@ class InteractionSystem:
 
         for entidade_alvo, (pos_alvo, interact) in esper.get_components(PositionComponent, InteractableComponent):
             if pos_alvo.x == alvo_x and pos_alvo.y == alvo_y:
-                if interact.on_interact:
-                    interact.on_interact(entidade_id, interact.parametros)
-                    logging.info(
-                        f"foi por on_interact: id {entidade_id} - par: {interact.parametros}")
-
-                # SE TIVER EVENT BUS: Notifica a UI de forma desacoplada!
-                if self.event_bus:
-                    self.event_bus.publish("INTERACTION_SUCCESS", {
-                        "entidade_id": entidade_alvo,
-                        "tipo": interact.tipo_evento,
-                        "parametros": interact.parametros
-                    })
-                    logging.info(
-                        f"foi por event_bus: ent: {entidade_alvo} - par: {interact.parametros}")
+                payload = {
+                    "entidade_id": entidade_alvo,
+                    "parametros": getattr(interact, "parametros", {})
+                }
+                esper.dispatch_event("INTERACTION_SUCCESS", payload)
                 return True
         return False
     
@@ -272,7 +264,7 @@ class InteractionSystem:
 class EventSystem:
     """Sistema processador de eventos universais."""
     
-    def __init__(self, inv_sys: InventarySystem, game_state, log_callback, event_bus):
+    def __init__(self, inv_sys: InventarySystem, game_state, log_callback, event_bus=None):
         self.inv_sys = inv_sys
         self.game_state = game_state
         self.log_callback = log_callback
@@ -486,21 +478,22 @@ class EventSystem:
 
             # 🛰️ Opcional: Se for usar a ChoiceBox reativa no Textual, publishe o sinal aqui:
             try:
-                self.event_bus.publish("disparar_bifurcacao", {
-                                    "pergunta": pergunta, "opcoes": opcoes})
+                esper.dispatch_event("disparar_bifurcacao", {
+                    "pergunta": pergunta,
+                    "opcoes": opcoes
+                })
             except Exception as e:
-                self.log_callback(f" [red] ERRO_: {e} [/] ")
+                self.log_callback(f"[red] ERRO_: {e}[/]")
                 
             return
 
         
         elif tipo == "teleporte":
-
             try:
-                self.event_bus.publish("mudar_mapa", dados)
-                
+                esper.dispatch_event("mudar_mapa", dados)
             except Exception as e:
-                logging.info(f"Erro ao publicar teleport: {e}")
+                logging.info(f"Erro ao dispatchar teleport: {e}")
+        
         
         elif tipo == "efeito_sonoro":
             arquivo = dados.get("arquivo")

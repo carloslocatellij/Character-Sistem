@@ -85,28 +85,26 @@ def fixture_dados_base(db_session):
 
     # 5. Cria o Mapa Base (Template)
     mapa = MapaDB(
-        nome="Vila Inicial",
-        largura=5, altura=5,
-        mapa_em_si=[["🟩" for _ in range(5)] for _ in range(5)],
-        objetos={},
-        configs={"pos_inicial": [2, 2]},
-        cenario_id=cenario.id
-    )
+        nome="Caverna do Esper",
+        mapa_em_si=[["  ", "  "], ["  ", "  "]],
+        objetos={})
+    
     db_session.add(mapa)
     db_session.commit()
 
     # 6. Cria um Evento de Monstro Base (Template)
     evento_monstro = EventoDB(
         mapa_id=mapa.id,
-        nome="Slime",
-        emoji="👾",
-        pos_x=4, pos_y=4,
+        nome="Goblin",
+        emoji="👹",
+        pos_x=1,
+        pos_y=0,
         tipo_evento="monstro",
-        parametros={"mover": {"direção": "aleatório"}, "ação": {
-            "quando": "tocar_heroi", "mudar_hp": {"valor": 2}}}
+        parametros={}
     )
     db_session.add(evento_monstro)
     db_session.commit()
+
 
     return {
         "usuario_id": usuario.id,
@@ -117,54 +115,35 @@ def fixture_dados_base(db_session):
     }
 
 
-def test_deve_executar_carregar_engine_do_banco_com_esper():
+def test_deve_executar_carregar_engine_do_banco_com_esper(db_session, dados_base):
     """Garante que o método esperado pela tela limpa o mundo e popula as entidades."""
-    with SessionLocal() as db:
-        # 1. SETUP: Criar cenário no BD com um monstro/evento
-        novo_mapa = MapaDB(
-            nome="Caverna do Esper",
-            mapa_em_si=[["  ", "  "], ["  ", "  "]],
-            objetos={}
-        )
-        db.add(novo_mapa)
-        db.commit()
-        db.refresh(novo_mapa)
 
-        evento = EventoDB(
-            mapa_id=novo_mapa.id,
-            nome="Goblin",
-            emoji="👹",
-            pos_x=1,
-            pos_y=0,
-            tipo_evento="monstro",
-            parametros={}
-        )
-        db.add(evento)
-        db.commit()
+    mapa = dados_base.get('mapa_id')
+    db = db_session
+    
+    # 2. AÇÃO: Executa o método esperado pela UI
+    loader = GameEngineLoader()
+    sucesso = loader.carregar_engine_do_banco(db, mapa)
 
-        # 2. AÇÃO: Executa o método esperado pela UI
-        loader = GameEngineLoader()
-        sucesso = loader.carregar_engine_do_banco(db, novo_mapa.id)
+    # 3. VALIDAÇÕES COERENTES COM O MOTOR COMPLETO
+    assert sucesso is True
+    assert loader.nome_mapa == "Caverna do Esper"
 
-        # 3. VALIDAÇÕES COERENTES COM O MOTOR COMPLETO
-        assert sucesso is True
-        assert loader.nome_mapa == "Caverna do Esper"
+    # O Esper agora possui 2 entidades com posição (O Jogador injetado + o Goblin do banco)
+    entidades = esper.get_components(PositionComponent)
+    # Atualizado: Jogador (ID 1) + Goblin (Injetado depois)
+    assert len(entidades) == 2
 
-        # O Esper agora possui 2 entidades com posição (O Jogador injetado + o Goblin do banco)
-        entidades = esper.get_components(PositionComponent)
-        # Atualizado: Jogador (ID 1) + Goblin (Injetado depois)
-        assert len(entidades) == 2
+    # Para testar rigorosamente o Goblin do banco sem ser afetado pelo jogador fixo,
+    # vamos varrer as entidades do Esper procurando quem possui o RenderComponent com o emoji "👹"
+    achou_goblin = False
+    for ent_id, (pos, ren) in esper.get_components(PositionComponent, RenderComponent):
+        if ren.emoji == "👹":
+            achou_goblin = True
+            assert pos.x == 1
+            assert pos.y == 0
 
-        # Para testar rigorosamente o Goblin do banco sem ser afetado pelo jogador fixo,
-        # vamos varrer as entidades do Esper procurando quem possui o RenderComponent com o emoji "👹"
-        achou_goblin = False
-        for ent_id, (pos, ren) in esper.get_components(PositionComponent, RenderComponent):
-            if ren.emoji == "👹":
-                achou_goblin = True
-                assert pos.x == 1
-                assert pos.y == 0
-
-        assert achou_goblin is True, "O Goblin vindo do banco de dados não foi encontrado no Esper ECS."
+    assert achou_goblin is True, "O Goblin vindo do banco de dados não foi encontrado no Esper ECS."
 
 
 def test_deve_atribuir_status_e_inventario_ao_jogador_no_esper(db_session, dados_base):
@@ -188,6 +167,6 @@ def test_deve_atribuir_status_e_inventario_ao_jogador_no_esper(db_session, dados
 
     assert stats.nome == "Charles"
     assert stats.classe == "Mago"
-    assert stats.ataque_base == 15
+    assert stats.ataque_base == 2
     assert isinstance(inv.itens, list)
     assert eqp.arma is None

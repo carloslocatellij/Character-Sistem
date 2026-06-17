@@ -88,32 +88,46 @@ class GamePlayScreen(Screen):
             self.mapa_objetos = self.loader.camada_objetos
             self.mapa_id = self.loader.mapa_id
             
-            # Inicia sistema de movimentação
+            # Inicia SISTEMAS:
+            # # Inicia sistema de eventos
+            # self.event_sys = EventSystem(
+            #     self.invSys, self.game_state, self.log_mensagem, self.loader.event_bus)
+            # # Interações com o Esper
+            # self.interacao_sys = InteractionSystem(self.loader.event_bus)
             self.movimento_sys = MovementSystem(self.loader)
-            # Inicia sistema de eventos
+            
             self.event_sys = EventSystem(
-                self.invSys, self.game_state, self.log_mensagem, self.loader.event_bus)
-            # Interações com o Esper
-            self.interacao_sys = InteractionSystem(self.loader.event_bus)
+                self.invSys, self.game_state, self.log_mensagem)
+            self.interacao_sys = InteractionSystem()
+            self.ai_sys = AISystem(self.loader, self.movimento_sys)
+            
             
             self.ai_sys = AISystem(self.loader,
                                    self.movimento_sys, self.loader.event_bus)
             
             
-            self.loader.event_bus.subscribe(
-                "mudar_mapa", self.ao_mudar_de_mapa)
+            # self.loader.event_bus.subscribe(
+            #     "mudar_mapa", self.ao_mudar_de_mapa)
 
-            self.loader.event_bus.subscribe(
-                "INTERACTION_SUCCESS", self.on_evento_interacao)
+            # self.loader.event_bus.subscribe(
+            #     "INTERACTION_SUCCESS", self.on_evento_interacao)
 
-            self.log_mensagem(
-                f"[green]Mapa '[bold]{self.loader.nome_mapa}[/]' carregado com sucesso![/]")
-            self.atualizar_tudo()
+            # self.log_mensagem(
+            #     f"[green]Mapa '[bold]{self.loader.nome_mapa}[/]' carregado com sucesso![/]")
+            # self.atualizar_tudo()
 
-            self.loader.event_bus.subscribe("ataque_monstro", self.ao_levar_ataque)
+            # self.loader.event_bus.subscribe("ataque_monstro", self.ao_levar_ataque)
             
-            self.loader.event_bus.subscribe("disparar_bifurcacao",
-                                            self.disparar_bifurcacao_visual)
+            # self.loader.event_bus.subscribe("disparar_bifurcacao",
+            #                                 self.disparar_bifurcacao_visual)
+            
+            esper.remove_handler("mudar_mapa", self.ao_mudar_de_mapa)
+            esper.remove_handler("INTERACTION_SUCCESS", self.on_evento_interacao)
+            esper.remove_handler("disparar_bifurcacao", self.disparar_bifurcacao_visual)
+
+            esper.set_handler("mudar_mapa", self.ao_mudar_de_mapa)
+            esper.set_handler("INTERACTION_SUCCESS", self.on_evento_interacao)
+            esper.set_handler("disparar_bifurcacao", self.disparar_bifurcacao_visual)
             
             self.set_interval(1.0, self.game_tick)
             
@@ -160,10 +174,12 @@ class GamePlayScreen(Screen):
         # 2.1 Re-instancia os sistemas para a nova Engine limpa
         try:
             # Interações com o Esper
+            # self.interacao_sys = InteractionSystem(self.loader.event_bus)
+            # self.ai_sys = AISystem(self.loader,
+            #                        self.movimento_sys, self.loader.event_bus)
             self.movimento_sys = MovementSystem(self.loader)
-            self.interacao_sys = InteractionSystem(self.loader.event_bus)
-            self.ai_sys = AISystem(self.loader,
-                                   self.movimento_sys, self.loader.event_bus)
+            self.interacao_sys = InteractionSystem()
+            self.ai_sys = AISystem(self.loader, self.movimento_sys)
             
         except Exception as e:
             self.log_mensagem(f"Erro ao Re-instaciar sistemas: {e}")
@@ -179,18 +195,28 @@ class GamePlayScreen(Screen):
         except Exception as e:
             self.log_mensagem(f"Erro ao posicionar jogador: {e}")
 
-        self.loader.event_bus.subscribe(
-            "INTERACTION_SUCCESS", self.on_evento_interacao)
-        
-        self.loader.event_bus.subscribe(
-            "mudar_mapa", self.ao_mudar_de_mapa)
+        # self.loader.event_bus.subscribe(
+        #     "INTERACTION_SUCCESS", self.on_evento_interacao)
+        # self.loader.event_bus.subscribe(
+        #     "mudar_mapa", self.ao_mudar_de_mapa)
+        esper.remove_handler("mudar_mapa", self.ao_mudar_de_mapa)
+        esper.remove_handler("INTERACTION_SUCCESS", self.on_evento_interacao)
+        esper.remove_handler("disparar_bifurcacao", self.disparar_bifurcacao_visual)
+
+        esper.set_handler("mudar_mapa", self.ao_mudar_de_mapa)
+        esper.set_handler("INTERACTION_SUCCESS", self.on_evento_interacao)
+        esper.set_handler("disparar_bifurcacao", self.disparar_bifurcacao_visual)
+
 
         self.log_mensagem(
             f"[green]Mapa '[bold]{self.loader.nome_mapa}[/]' carregado com sucesso![/]")
         self.atualizar_tudo()
-
-        self.loader.event_bus.subscribe(
+        
+        esper.set_handler(
             "ataque_monstro", self.ao_levar_ataque)
+
+        # self.loader.event_bus.subscribe(
+        #     "ataque_monstro", self.ao_levar_ataque)
 
         self.set_interval(1.0, self.game_tick)
 
