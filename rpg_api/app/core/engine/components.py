@@ -41,10 +41,10 @@ class StatsComponent:
     """Guarda os atributos de combate e informações vitais do personagem."""
     nome: str
     classe: str
-    hp: int
-    max_hp: int
-    mp: int
-    max_mp: int
+    pv: int
+    pv_max: int
+    pm: int
+    pm_max: int
     ataque_base: int
     defesa_base: int
     

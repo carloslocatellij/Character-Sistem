@@ -77,11 +77,11 @@ class GamePlayScreen(Screen):
                 # Carregamento autêntico sem simulações!
                 
                 self.engine_manager = self.loader.carregar_engine_do_banco(
-                        #usuario_id=self.personagem_id, # ID do jogador ativo
-                        #cenario_id=1,                  # ID do jogo/campanha escolhida
-                        #slot_numero=1                  # Slot selecionado
                         db,
-                        mapa_id=1
+                        usuario_id=1, # ID do jogador ativo
+                        cenario_id=1,                  # ID do jogo/campanha escolhida
+                        slot_numero=1,                  # Slot selecionado
+                        default_mapa_id=1
                                             )
                 
             self.mapa_matriz = self.loader.matriz_terrenos
@@ -156,14 +156,14 @@ class GamePlayScreen(Screen):
             try:
                 self.engine_manager = self.loader.carregar_engine_do_banco(
                     db=db,
-                    # usuario_id=self.personagem_id,
-                    # cenario_id=1,
-                    # slot_numero=1,
-                    mapa_id=mapa_alvo
+                    usuario_id=1,
+                    cenario_id=1,
+                    slot_numero=1,
+                    default_mapa_id=mapa_alvo
                 )
             except Exception as e:
                 self.log_mensagem(f"Erro: {e}")
-                self.log_mensagem(f"engine_manager: {self.engine_manager}")
+                self.log_mensagem(f"engine_manager: {self.engine_manager}") 
 
         
         # 2. Recarrega dados do mapa
@@ -267,11 +267,11 @@ class GamePlayScreen(Screen):
         if stats:
             # Desconta o dano mitigado pela defesa real do personagem
             dano_real = max(0, dano - (stats.defesa_base // 3))
-            stats.hp = max(0, stats.hp - dano_real)
+            stats.pv = max(0, stats.pv - dano_real)
             self.log_mensagem(
                 f"[bold red]⚔️ O monstro atacou você! Sofreu {dano_real} de dano real (Defesa mitigou o resto).[/]")
             
-            if stats.hp <= 0:
+            if stats.pv <= 0:
                 self.log_mensagem(
                     "[bold background red]💀 VOCÊ MORREU! Fim de Jogo.[/]")
         
@@ -386,7 +386,7 @@ class GamePlayScreen(Screen):
             if inv and self.invSys._inventory_has_item(inv, argumento):
                 if argumento in ("poção", "potion"):
                     if self.invSys._inventory_remove_item(inv, argumento, 1):
-                        stats.hp = min(stats.max_hp, stats.hp + 20)
+                        stats.pv = min(stats.pv_max, stats.pv + 20)
                         self.log_mensagem(
                             f"[bold green]✨ Você tomou uma poção. Recuperou 20 PV![/]")
                     else:
@@ -585,8 +585,8 @@ class GamePlayScreen(Screen):
 
         # Atualiza Painel de Status
         self.query_one("#lbl-nome", Label).update(f"Nome: [bold green]{stats.nome}[/]")
-        self.query_one("#lbl-pv", Label).update(f"PV: [bold red]{stats.hp} / {stats.max_hp}[/]")
-        self.query_one("#lbl-pm", Label).update(f"PM: [bold blue]{stats.mp} / {stats.max_mp}[/]")
+        self.query_one("#lbl-pv", Label).update(f"PV: [bold red]{stats.pv} / {stats.pv_max}[/]")
+        self.query_one("#lbl-pm", Label).update(f"PM: [bold blue]{stats.pm} / {stats.pm_max}[/]")
         self.query_one("#lbl-combate", Label).update(f"ATK: [yellow]{atk_total}[/] | DEF: [cyan]{def_total}[/]")
 
         # Atualiza Painel de Itens (Inventário)
