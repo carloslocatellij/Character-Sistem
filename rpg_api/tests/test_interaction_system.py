@@ -104,7 +104,7 @@ def test_deve_interagir_com_bau_na_frente_do_jogador():
     bau = esper.create_entity(
         PositionComponent(x=2, y=1),
         InteractableComponent(
-            tipo_evento="bau",
+            event_type="bau",
             parametros={"item": "Poção de Vida"},
             on_interact=mock_script_bau
         )
@@ -167,7 +167,7 @@ def test_deve_retornar_false_se_nao_houver_nada_para_interagir():
 #                 2: {
 #                     "PositionComponent": PositionComponent(x=2, y=1),
 #                     "InteractableComponent": InteractableComponent(
-#                         tipo_evento="bau", 
+#                         event_type="bau", 
 #                         parametros={"item": "Espada de Fogo"}
 #                     ), "CollisionComponent": CollisionComponent(solido=True)
 #                 }

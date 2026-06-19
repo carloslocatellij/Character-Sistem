@@ -58,9 +58,9 @@ class Personagem:
         self.equipamentos: List[Item] = [] 
         self.efeitos_ativos: List[Dict] = []
         
-        self.pv_max = 0
+        self.max_hp = 0
         self.pv_atual = 0
-        self.pm_max = 0
+        self.max_mp = 0
         self.pm_atual = 0
         self.mod_atq_corpo = 0
         self.mod_atq_distancia = 0
@@ -78,7 +78,7 @@ class Personagem:
         str_representante = f"""
         {self.nome} {self.raca} | 
         |Nv: {self.nivel} |{self.classe.nome}
-        |💚: {self.pv_atual}/{self.pv_max} |🔮: {self.pm_atual}/{self.pm_max}
+        |💚: {self.pv_atual}/{self.max_hp} |🔮: {self.pm_atual}/{self.max_mp}
         |{self.mao_direita or "👊"}: {self.mod_atq_corpo} |🏹: {self.mod_atq_distancia} 
         |{self.armadura or "🦵"}: {self.armadura.defesa if self.armadura else 0} |{self.mao_esquerda or "🤜"}: 
         {self.mao_esquerda.defesa_extra if isinstance(self.mao_esquerda, Escudo) else 0}
@@ -117,13 +117,13 @@ class Personagem:
         forca = self.atributos_totais["forca"]
         agi = self.atributos_totais["agilidade"]
 
-        self.pv_max =  int(7+ (ceil(self.nivel * ceil((res+2) / 2) + ceil((self.nivel + res) *3)))) #int((((self.nivel + 4) / 4) * (res + 1.5)) ** 2)
-        self.pm_max =  int((ceil((self.nivel + 5) / 4) * ceil((perc + exub + 1) / 2)) * 3) #int((((self.nivel + 5) / 5) * ((perc + exub + 0.5) / 1.5)) ** 2)
+        self.max_hp =  int(7+ (ceil(self.nivel * ceil((res+2) / 2) + ceil((self.nivel + res) *3)))) #int((((self.nivel + 4) / 4) * (res + 1.5)) ** 2)
+        self.max_mp =  int((ceil((self.nivel + 5) / 4) * ceil((perc + exub + 1) / 2)) * 3) #int((((self.nivel + 5) / 5) * ((perc + exub + 0.5) / 1.5)) ** 2)
         self.mod_atq_corpo = int(self.nivel * ceil(forca + (agi / 2))) #int((((self.nivel + 5) / 5) * (forca + (agi / 2))) ** 2)
         self.mod_atq_distancia = int(self.nivel * ceil(agi + (forca / 2))) #int((((self.nivel + 5) / 5) * (agi + (forca / 2))) ** 2)
         
-        # self.pv_max =  int((((self.nivel + 4) / 4) * (res + 1.5)) ** 2)
-        # self.pm_max =  int((((self.nivel + 5) / 5) * ((perc + exub + 0.5) / 1.5)) ** 2)
+        # self.max_hp =  int((((self.nivel + 4) / 4) * (res + 1.5)) ** 2)
+        # self.max_mp =  int((((self.nivel + 5) / 5) * ((perc + exub + 0.5) / 1.5)) ** 2)
         # self.mod_atq_corpo = int((((self.nivel + 5) / 5) * (forca + (agi / 2))) ** 2)
         # self.mod_atq_distancia = int((((self.nivel + 5) / 5) * (agi + (forca / 2))) ** 2)
         
@@ -131,8 +131,8 @@ class Personagem:
         self.reset_status()
 
     def reset_status(self):
-        self.pv_atual = self.pv_max
-        self.pm_atual = self.pm_max
+        self.pv_atual = self.max_hp
+        self.pm_atual = self.max_mp
 
     # ==========================================
     # MECÂNICAS DE COMBATE E SISTEMA

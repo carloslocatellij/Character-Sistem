@@ -66,7 +66,7 @@ def test_salvar_e_recuperar_evento_no_mapa():
             emoji="📦",
             pos_x=5,
             pos_y=5,
-            tipo_evento="bau",
+            event_type="bau",
             # No engine, estes parâmetros vão alimentar o InteractableComponent
             parametros={"item_id": 1, "quantidade": 1, "mensagem": "Você encontrou uma Poção!"} 
         )
@@ -79,5 +79,5 @@ def test_salvar_e_recuperar_evento_no_mapa():
         # 4. Asserções (Validações)
         assert evento_salvo is not None
         assert evento_salvo.mapa_id == novo_mapa.id
-        assert evento_salvo.tipo_evento == "bau"
+        assert evento_salvo.event_type == "bau"
         assert evento_salvo.parametros["item_id"] == 1

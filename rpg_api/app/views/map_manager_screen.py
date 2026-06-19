@@ -121,12 +121,12 @@ class MapManagerScreen(Screen):
     # ==========================================
     # MANIPULAÇÃO E SERIALIZAÇÃO DE EVENTOS
     # ==========================================
-    def adicionar_evento_memoria(self, linha: int, coluna: int, nome: str, emoji: str, tipo_evento: str, parametros: dict, evento_id: int = None):
+    def adicionar_evento_memoria(self, linha: int, coluna: int, nome: str, emoji: str, event_type: str, parametros: dict, evento_id: int = None):
         """Regista ou atualiza um evento numa coordenada específica."""
         dados_evento = {
             "nome": nome,
             "emoji": emoji,
-            "tipo_evento": tipo_evento,
+            "event_type": event_type,
             "parametros": parametros
         }
         # Só adicionamos o ID se ele vier do banco de dados (para fins de UPDATE futuro)
@@ -163,7 +163,7 @@ class MapManagerScreen(Screen):
                 coluna=coluna,
                 nome=evento["nome"],
                 emoji=evento["emoji"],
-                tipo_evento=evento["tipo_evento"],
+                event_type=evento["event_type"],
                 parametros=evento["parametros"],
                 evento_id=evento.get("id")
             )
@@ -318,7 +318,7 @@ class MapManagerScreen(Screen):
                     "emoji": evt.emoji,
                     "pos_y": evt.pos_y,
                     "pos_x": evt.pos_x,
-                    "tipo_evento": evt.tipo_evento,
+                    "event_type": evt.event_type,
                     "parametros": evt.parametros if evt.parametros else {}
                 })
             
@@ -538,7 +538,7 @@ class MapManagerScreen(Screen):
             coluna=coluna,
             nome=dados_evento["nome"],
             emoji=dados_evento["emoji"],
-            tipo_evento=dados_evento["tipo_evento"],
+            event_type=dados_evento["event_type"],
             parametros=dados_evento["parametros"],
             evento_id=dados_evento.get("id")
         )
@@ -662,7 +662,7 @@ class MapManagerScreen(Screen):
                         emoji=dados_evt["emoji"],
                         pos_y=dados_evt["pos_y"],
                         pos_x=dados_evt["pos_x"],
-                        tipo_evento=dados_evt["tipo_evento"],
+                        event_type=dados_evt["event_type"],
                         parametros=dados_evt.get("parametros", {})
                     )
                     db.add(novo_evento_db)
@@ -1201,7 +1201,7 @@ class PropriedadesEventoFormScreen(ModalScreen[dict]):
             dados_retorno = {
                 "nome": nome,
                 "emoji": emoji,
-                "tipo_evento": "evento_custom", 
+                "event_type": "evento_custom", 
                 "parametros": parametros
             }
             if "id" in self.dados_existentes:

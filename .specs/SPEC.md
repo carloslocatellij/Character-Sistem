@@ -48,7 +48,7 @@ Entidade geradora do jogo. Utiliza composição para agregar Raça e Classe.
 
     Atributos Base vs Totais: Armazena os atributos puros (0 a 5: Força, Agilidade, Resistência, Percepção, Exuberância) e calcula os "Atributos Totais" somando os bônus da Raça e Classe.
 
-    Status Derivados: Calcula automaticamente (e recalcula quando sofre alterações) os Pontos de Vida (PV), Pontos de Mana (PM) e Modificadores de Ataque utilizando fórmulas matemáticas pré-definidas.
+    Status Derivados: Calcula automaticamente (e recalcula quando sofre alterações) os Pontos de Vida (hp), Pontos de Mana (mp) e Modificadores de Ataque utilizando fórmulas matemáticas pré-definidas.
 
     Inventário e Slots: Possui campos específicos para equipamentos equipados: mao_direita, mao_esquerda e armadura, além de listas para inventário geral.
 
@@ -79,7 +79,7 @@ O módulo de simulação é estritamente isolado e aceita duas equipes (listas d
 
     Simulador Estatístico (Múltiplas Batalhas): Recebe o número N de batalhas (Padrão: 100). Executa simulações silenciosas.
 
-    Mecânica de Isolamento: O simulador deve usar deepcopy nos personagens originais antes de cada rodada para garantir que eles entrem na arena com PV e PM máximos, evitando o acúmulo irreal de ferimentos entre simulações independentes.
+    Mecânica de Isolamento: O simulador deve usar deepcopy nos personagens originais antes de cada rodada para garantir que eles entrem na arena com hp e mp máximos, evitando o acúmulo irreal de ferimentos entre simulações independentes.
 
     Relatório: Agrupa estatísticas por personagem (Tentativas, Acertos, Dano Causado, Abates e Taxa de Sobrevivência).
 

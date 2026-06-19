@@ -19,7 +19,7 @@ SisCharlesRpg is a Python RPG simulator focused on character creation, battle si
 
 - `rpg_api/app/core/personagens.py`
   - domain model for `Raca`, `ClasseRPG`, and `Personagem`
-  - implements attribute totals, PV/PM formulas, attack/damage mechanics, and effect handling
+  - implements attribute totals, hp/mp formulas, attack/damage mechanics, and effect handling
   - preserves separation between core rules and CLI persistence
 
 - `rpg_api/app/core/` other modules

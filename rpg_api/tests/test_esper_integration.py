@@ -99,7 +99,7 @@ def fixture_dados_base(db_session):
         emoji="👹",
         pos_x=1,
         pos_y=0,
-        tipo_evento="monstro",
+        event_type="monstro",
         parametros={}
     )
     db_session.add(evento_monstro)

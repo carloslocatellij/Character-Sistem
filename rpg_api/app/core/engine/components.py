@@ -19,7 +19,7 @@ class RenderComponent:
 
 @dataclass
 class InteractableComponent:
-    tipo_evento: str  # 'bau', 'porta', 'npc_dialogo', etc.
+    event_type: str  # 'bau', 'porta', 'npc_dialogo', etc.
     parametros: Dict[str, Any] = field(default_factory=dict)
     seguravel: bool = False
     # Callback opcional que a Engine executará passando a entidade que interagiu e os parâmetros
@@ -41,10 +41,10 @@ class StatsComponent:
     """Guarda os atributos de combate e informações vitais do personagem."""
     nome: str
     classe: str
-    pv: int
-    pv_max: int
-    pm: int
-    pm_max: int
+    hp: int
+    max_hp: int
+    mp: int
+    max_mp: int
     ataque_base: int
     defesa_base: int
     

@@ -53,8 +53,8 @@ class GamePlayScreen(Screen):
             with Container(id="tela-status"):
                 yield Label("🧙‍♂️ Status", classes="titulo-secao")
                 yield Label("Nome: [bold]...[/]", id="lbl-nome")
-                yield Label("PV: -- / --", id="lbl-pv")
-                yield Label("PM: -- / --", id="lbl-pm")
+                yield Label("hp: -- / --", id="lbl-hp")
+                yield Label("mp: -- / --", id="lbl-mp")
                 yield Label("ATK: -- | DEF: --", id="lbl-combate")
                 
             # Tela de Itens Dinâmica (Lê do Inventário engine)
@@ -73,11 +73,11 @@ class GamePlayScreen(Screen):
             "[bold yellow]>>> Inicializando sistemas de campanha...[/]")
         
         try:
-            with SessionLocal() as db:
+            with SessionLocal() as db_session:
                 # Carregamento autêntico sem simulações!
                 
                 self.engine_manager = self.loader.carregar_engine_do_banco(
-                        db,
+                    db_session,
                         usuario_id=1, # ID do jogador ativo
                         cenario_id=1,                  # ID do jogo/campanha escolhida
                         slot_numero=1,                  # Slot selecionado
@@ -103,7 +103,7 @@ class GamePlayScreen(Screen):
             
             
             self.ai_sys = AISystem(self.loader,
-                                   self.movimento_sys, self.loader.event_bus)
+                                   self.movimento_sys)
             
             
             # self.loader.event_bus.subscribe(
@@ -149,13 +149,13 @@ class GamePlayScreen(Screen):
         nova_pos_x = dados_teleporte["pos_x"]
         nova_pos_y = dados_teleporte["pos_y"]
 
-        with SessionLocal() as db:
+        with SessionLocal() as db_session:
             # 1. Recarrega a Engine do zero apontando para o novo mapa!
             # Passamos o mapa_alvo como o default_mapa_id
             
             try:
                 self.engine_manager = self.loader.carregar_engine_do_banco(
-                    db=db,
+                    db_session=db_session,
                     usuario_id=1,
                     cenario_id=1,
                     slot_numero=1,
@@ -267,11 +267,11 @@ class GamePlayScreen(Screen):
         if stats:
             # Desconta o dano mitigado pela defesa real do personagem
             dano_real = max(0, dano - (stats.defesa_base // 3))
-            stats.pv = max(0, stats.pv - dano_real)
+            stats.hp = max(0, stats.hp - dano_real)
             self.log_mensagem(
                 f"[bold red]⚔️ O monstro atacou você! Sofreu {dano_real} de dano real (Defesa mitigou o resto).[/]")
             
-            if stats.pv <= 0:
+            if stats.hp <= 0:
                 self.log_mensagem(
                     "[bold background red]💀 VOCÊ MORREU! Fim de Jogo.[/]")
         
@@ -386,9 +386,9 @@ class GamePlayScreen(Screen):
             if inv and self.invSys._inventory_has_item(inv, argumento):
                 if argumento in ("poção", "potion"):
                     if self.invSys._inventory_remove_item(inv, argumento, 1):
-                        stats.pv = min(stats.pv_max, stats.pv + 20)
+                        stats.hp = min(stats.max_hp, stats.hp + 20)
                         self.log_mensagem(
-                            f"[bold green]✨ Você tomou uma poção. Recuperou 20 PV![/]")
+                            f"[bold green]✨ Você tomou uma poção. Recuperou 20 hp![/]")
                     else:
                         self.log_mensagem(
                             f"[red]Erro ao usar '{argumento}'.[/]")
@@ -570,9 +570,14 @@ class GamePlayScreen(Screen):
 
 
     def atualizar_paineis_status(self):
-        stats = esper.component_for_entity(1, StatsComponent)
-        inv = esper.component_for_entity(1, InventoryComponent)
-        eqp = esper.component_for_entity(1, EquipmentComponent)
+       # 🚀 BLINDAGEM CONTRA KEYERROR EM TRANSIÇÕES / FECHAMENTO:
+        try:
+            stats = esper.component_for_entity(1, StatsComponent)
+            inv = esper.component_for_entity(1, InventoryComponent)
+            eqp = esper.component_for_entity(1, EquipmentComponent)
+        except KeyError:
+            # Se o herói não foi instanciado no frame de encerramento do app, aborta o redesenho suavemente
+            return
 
         if not stats: return
 
@@ -585,8 +590,8 @@ class GamePlayScreen(Screen):
 
         # Atualiza Painel de Status
         self.query_one("#lbl-nome", Label).update(f"Nome: [bold green]{stats.nome}[/]")
-        self.query_one("#lbl-pv", Label).update(f"PV: [bold red]{stats.pv} / {stats.pv_max}[/]")
-        self.query_one("#lbl-pm", Label).update(f"PM: [bold blue]{stats.pm} / {stats.pm_max}[/]")
+        self.query_one("#lbl-hp", Label).update(f"hp: [bold red]{stats.hp} / {stats.max_hp}[/]")
+        self.query_one("#lbl-mp", Label).update(f"mp: [bold blue]{stats.mp} / {stats.max_mp}[/]")
         self.query_one("#lbl-combate", Label).update(f"ATK: [yellow]{atk_total}[/] | DEF: [cyan]{def_total}[/]")
 
         # Atualiza Painel de Itens (Inventário)

@@ -13,7 +13,7 @@ def test_adicionar_evento_na_memoria(editor_vazio):
         coluna=10, 
         nome="monstro_1", 
         emoji="👾", 
-        tipo_evento="monstro", 
+        event_type="monstro", 
         parametros={"movimento": "aleatorio", "diminuir_hp": 1}
     )
     
@@ -24,14 +24,14 @@ def test_adicionar_evento_na_memoria(editor_vazio):
     evento = editor_vazio.mapa_atual_eventos[(5, 10)]
     assert evento["nome"] == "monstro_1"
     assert evento["emoji"] == "👾"
-    assert evento["tipo_evento"] == "monstro"
+    assert evento["event_type"] == "monstro"
     assert evento["parametros"]["diminuir_hp"] == 1
 
 def test_empacotar_eventos_para_banco(editor_vazio):
     """Garante que o dicionário de memória é convertido para uma lista de registos para o BD."""
     editor_vazio.adicionar_evento_memoria(
         linha=2, coluna=3, nome="bau_magico", emoji="📦", 
-        tipo_evento="bau", parametros={"item": "pocao"}
+        event_type="bau", parametros={"item": "pocao"}
     )
     
     lista_db = editor_vazio._empacotar_eventos_para_banco()
@@ -51,7 +51,7 @@ def test_desempacotar_eventos_do_banco(editor_vazio):
     dados_do_banco = [
         {
             "id": 1, "mapa_id": 1, "nome": "guarda", "emoji": "💂", 
-            "pos_y": 7, "pos_x": 8, "tipo_evento": "npc", "parametros": {}
+            "pos_y": 7, "pos_x": 8, "event_type": "npc", "parametros": {}
         }
     ]
     

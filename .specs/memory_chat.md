@@ -51,7 +51,7 @@ rpg_api/
 
     Entidade Personagem: * Composição pura: Recebe objetos de Raca e ClasseRPG.
 
-        Cálculo automático de PV, PM e Modificadores baseados nas fórmulas do MANUAL.md.
+        Cálculo automático de hp, mp e Modificadores baseados nas fórmulas do MANUAL.md.
 
         Métodos de combate (atacar, receber_dano, lancar_magia) desenvolvidos com Design Orientado a Eventos (retornam dicionários com os resultados em vez de imprimir na tela).
 

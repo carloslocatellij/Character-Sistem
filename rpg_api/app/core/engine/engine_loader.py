@@ -1,3 +1,5 @@
+# # app/core/engine/engine_loader.py
+# app/core/engine/engine_loader.py
 import esper
 import logging
 from sqlalchemy.orm import Session
@@ -13,10 +15,11 @@ from app.core.engine.components import (
 
 logging.basicConfig(level=logging.INFO, filename="log.log", filemode="a")
 
+
 class GameEngineLoader:
     """
-    Gerencia o ciclo de vida do motor ECS utilizando contextos isolados de mundos (esper.new_context()).
-    Integra o carregamento atômico entre Estados Iniciais (Base) e Estados Salvos (Delta).
+    Gerencia o ciclo de vida do motor ECS utilizando contextos isolados de mundos (esper.WorldContext).
+    Sincroniza snapshots em RAM, persistência de SaveDB e unifica o barramento de eventos do Esper.
     """
 
     def __init__(self):
@@ -27,272 +30,276 @@ class GameEngineLoader:
         self.altura = 0
         self.largura = 0
 
-        # 🆕 INFRAESTRUTURA DE CENAS ISOLADAS (MUNDOS ESPER):
-        self.mundos_carregados = {}          # { mapa_id: objeto_esper_World }
-        # Snapshot dos componentes do Herói (ID 1)
+        # Dicionários de persistência e transição de Cenas lógicas em RAM
+        self.mundos_carregados = {}          # { mapa_id: objeto_esper_WorldContext }
+        # Snapshot dos componentes nômades do Herói (ID 1)
         self.dados_salvaguarda_jogador = {}
-        
-    def carregar_player(db_session):
-        db = db_session
-        p_db = GameController.obter_personagem_por_id(db, 1)
-        if p_db:
-            try:
-                p_logic = GameController.converter_para_dominio(p_db)
-                defesa_base = None
-                if p_logic.mao_esquerda:
-                    defesa_base = p_logic.mao_esquerda.defesa_extra
-                stats_comp = StatsComponent(
-                    nome=p_logic.nome,
-                    classe=p_logic.classe.nome,
-                    pv=p_logic.pv_atual,
-                    pv_max=p_logic.pv_max,
-                    pm=p_logic.pm_atual,
-                    pm_max=p_logic.pm_max,
-                    ataque_base=p_logic.mod_atq_corpo or 0,
-                    defesa_base=defesa_base or 0
-                )
-            except Exception as e_conv:
-                logging.info(
-                    f"erro ao converter para personagem lógico, usando fallback parcial do BD: {e_conv} - {p_db}")
-                
-                
-                
+
+        # Unificação mestre do barramento nativo do Esper
+        self.master_event_registry = getattr(esper, "event_registry", {})
 
     def carregar_engine_do_banco(self, db_session: Session, usuario_id: int, cenario_id: int, slot_numero: int = 1, default_mapa_id: int = None) -> tuple[bool, list[list[str]], dict, int]:
         """
-        Alterna ou inicializa o mundo do mapa alvo, respeitando snapshots em RAM e persistência de SaveDB.
-        Retorna uma tupla: (sucesso_bool, matriz_terrenos, camada_objetos, mapa_atual_id)
+        Orquestrador central de mudança de cena. Resolve o mapa alvo, gerencia snapshots,
+        restaura da RAM ou constrói um novo ecossistema do zero de forma atômica.
         """
-        # ==========================================
-        # STEP 1: RESOLUÇÃO DO MAPA ATUAL (BASE VS DELTA)
-        # ==========================================
-        save_db = db_session.query(SaveDB).filter(
-            SaveDB.usuario_id == usuario_id,
-            SaveDB.cenario_id == cenario_id,
-            SaveDB.slot_numero == slot_numero
-        ).first()
-
-        has_save = save_db is not None
-
-        # Define qual mapa abrir
-        if default_mapa_id is not None:
-            target_mapa_id = default_mapa_id
-        elif has_save:
-            target_mapa_id = save_db.dados_sessao.get("mapa_atual_id")
-        else:
-            # Caso limite: Se não houver save nem ID default, busca o primeiro mapa do cenário
-            primeiro_mapa = db_session.query(MapaDB).filter(
-                MapaDB.cenario_id == cenario_id).first()
-            target_mapa_id = primeiro_mapa.id if primeiro_mapa else None
+        # 1. Resolve o ID do mapa de destino com base no contexto (Save, Porta ou Padrão)
+        save_db = self._obter_dados_save(
+            db_session, usuario_id, cenario_id, slot_numero)
+        target_mapa_id = self._resolver_id_mapa_alvo(
+            db_session, save_db, cenario_id, default_mapa_id)
 
         if not target_mapa_id:
             logging.error(
                 "Falha fatal: Nenhum mapa_id pôde ser resolvido para o carregamento.")
             return False, [], {}, None
 
-        # ==========================================
-        # STEP 2: SALVAGUARDA DO JOGADOR NO MUNDO ANTERIOR
-        # ==========================================
+        # 2. Fotografa e remove o jogador temporariamente do mapa atual para migração
         if self.mapa_id is not None and self.mapa_id != target_mapa_id:
             self._salvar_snapshot_jogador()
 
         self.mapa_id = target_mapa_id
 
-        # ==========================================
-        # STEP 3: SELEÇÃO E TRANSIÇÃO DE MUNDO (RAM PRIORITÁRIA)
-        # ==========================================
+        # 3. ROTA DE CARREGAMENTO A: O mapa já existe congelado na RAM
         if target_mapa_id in self.mundos_carregados:
-            # O mundo já foi inicializado nesta sessão. Alterna o contexto e re-injeta o jogador
-            esper.switch_world(self.mundos_carregados[target_mapa_id])
-            self._restaurar_snapshot_jogador()
+            return self._restaurar_mundo_da_ram(db_session, target_mapa_id)
 
-            # Recarrega dados estáticos da matriz local na memória do loader
-            mapa_db = db_session.query(MapaDB).filter(
-                MapaDB.id == target_mapa_id).first()
-            if mapa_db:
-                self.matriz_terrenos = mapa_db.mapa_em_si
-                self.camada_objetos = mapa_db.objetos if mapa_db.objetos else {}
-                self.altura = len(self.matriz_terrenos)
-                self.largura = len(
-                    self.matriz_terrenos[0]) if self.altura > 0 else 0
-                self.nome_mapa = mapa_db.nome
-            return True, self.matriz_terrenos, self.camada_objetos, self.mapa_id
+        # 4. ROTA DE CARREGAMENTO B: O mapa é inédito. Inicializa um novo ecossistema
+        return self._inicializar_novo_mundo(db_session, save_db, usuario_id, target_mapa_id)
 
-        # Cria um mundo Esper isolado inédito para este mapa e assume o contexto
-        novo_mundo = esper.current_world
+    # =========================================================================
+    # SUB-MÉTODOS PRIVADOS DE SUPORTE (RESPONSABILIDADE ÚNICA - SRP)
+    # =========================================================================
+
+    def _obter_dados_save(self, db_session: Session, usuario_id: int, cenario_id: int, slot_numero: int) -> SaveDB:
+        """Busca os dados de persistência salvos no banco relacional."""
+        return db_session.query(SaveDB).filter(
+            SaveDB.usuario_id == usuario_id,
+            SaveDB.cenario_id == cenario_id,
+            SaveDB.slot_numero == slot_numero
+        ).first()
+
+    def _resolver_id_mapa_alvo(self, db_session: Session, save_db: SaveDB, cenario_id: int, default_mapa_id: int) -> int:
+        """Aplica a ordem de prioridades para descobrir qual mapa deve ser aberto."""
+        if default_mapa_id is not None:
+            return default_mapa_id
+        if save_db:
+            return save_db.dados_sessao.get("mapa_atual_id")
+
+        primeiro_mapa = db_session.query(MapaDB).filter(
+            MapaDB.cenario_id == cenario_id).first()
+        return primeiro_mapa.id if primeiro_mapa else None
+
+    def _sincronizar_dados_estaticos_mapa(self, mapa_db: MapaDB):
+        """Atualiza todas as variáveis estruturais e dimensões de leitura da TUI."""
+        self.matriz_terrenos = mapa_db.mapa_em_si
+        self.altura = len(self.matriz_terrenos)
+        self.largura = len(self.matriz_terrenos[0]) if self.altura > 0 else 0
+        self.nome_mapa = mapa_db.nome
+        self._processar_camada_objetos(mapa_db)
+
+    def _restaurar_mundo_da_ram(self, db_session: Session, target_mapa_id: int) -> tuple[bool, list[list[str]], dict, int]:
+        """Reativa o contexto do Esper congelado em memória sem corromper as entidades existentes."""
+        esper.switch_world(self.mundos_carregados[target_mapa_id])
+
+        if hasattr(esper, "event_registry"):
+            esper.event_registry = self.master_event_registry
+
+        self._restaurar_snapshot_jogador()
+
+        mapa_db = db_session.query(MapaDB).filter(
+            MapaDB.id == target_mapa_id).first()
+        if mapa_db:
+            self._sincronizar_dados_estaticos_mapa(mapa_db)
+
+        return True, self.matriz_terrenos, self.camada_objetos, self.mapa_id
+
+    def _inicializar_novo_mundo(self, db_session: Session, save_db: SaveDB, usuario_id: int, target_mapa_id: int) -> tuple[bool, list[list[str]], dict, int]:
+        """Orquestra a criação e o povoamento inicial de uma cena completamente inédita."""
+        #novo_mundo = esper.new_context()
+        novo_mundo = esper.switch_world(self.mapa_id)
         self.mundos_carregados[target_mapa_id] = novo_mundo
-        esper.switch_world(novo_mundo)
 
-        # Carrega dados do template estrutural do mapa
+        if hasattr(esper, "event_registry"):
+            esper.event_registry = self.master_event_registry
+
         mapa_db = db_session.query(MapaDB).filter(
             MapaDB.id == target_mapa_id).first()
         if not mapa_db:
             return False, [], {}, None
 
-        self.nome_mapa = mapa_db.nome
-        self.matriz_terrenos = mapa_db.mapa_em_si
-        self.camada_objetos = mapa_db.objetos if mapa_db.objetos else {}
-        self.altura = len(self.matriz_terrenos)
-        self.largura = len(self.matriz_terrenos[0]) if self.altura > 0 else 0
+        self._sincronizar_dados_estaticos_mapa(mapa_db)
 
-        # ==========================================
-        # STEP 4: REIDRATAÇÃO OU NASCIMENTO DO JOGADOR (ID 1)
-        # ==========================================
-        player_id = esper.create_entity()  # No mundo limpo recém-criado, garante o ID 1
-
-        if self.dados_salvaguarda_jogador:
-            # Se o jogador já existia cruzando portas em tempo de execução, restaura-o intacto
-            self._restaurar_snapshot_jogador()
-
-        elif has_save:
-            # 💾 REIDRATAÇÃO VIA DELTA (SAVE): Resgata o snapshot JSON do banco de dados
-            snapshot_entidades = save_db.dados_sessao.get("entidades", {})
-            player_data = snapshot_entidades.get("1", {})
-
-            if player_data:
-                pos_d = player_data.get("PositionComponent", {
-                                        "x": 2, "y": 2, "direcao_olhar": "baixo"})
-                stats_d = player_data.get("StatsComponent", {})
-                inv_d = player_data.get("InventoryComponent", {"itens": {}})
-                eqp_d = player_data.get("EquipmentComponent", {
-                                        "arma": {}, "armadura": {}})
-
-                esper.add_component(player_id, PositionComponent(
-                    x=pos_d["x"], y=pos_d["y"], direcao_olhar=pos_d["direcao_olhar"]))
-                esper.add_component(player_id, RenderComponent(emoji="🧙"))
-                esper.add_component(player_id, InventoryComponent(
-                    itens=inv_d.get("itens", {})))
-
-                # Reconstrói os equipamentos acoplados
-                comp_eqp = EquipmentComponent()
-                comp_eqp.arma = eqp_d.get("arma")
-                comp_eqp.armadura = eqp_d.get("armadura")
-                esper.add_component(player_id, comp_eqp)
-
-                if stats_d:
-                    esper.add_component(player_id, StatsComponent(
-                        nome=stats_d.get("nome", "Herói"),
-                        pv=stats_d.get("pv_atual", 50),
-                        pv_max=stats_d.get("pv_max", 50),
-                        pm=stats_d.get("pm_atual", 10),
-                        pm_max=stats_d.get("pm_max", 10),
-                        ataque_base=stats_d.get("ataque_base", 10),
-                        defesa_base=stats_d.get("defesa_base", 5)
-                    ))
-        else:
-            # 📜 REIDRATAÇÃO VIA TEMPLATE DOMÍNIO (NEW GAME): Primeiro carregamento da história
-            #controller = GameController()
-            #p_db = GameController.obter_personagem_por_id(db, 1)
-            #personagem_logico = controller.obter_personagem(usuario_id=usuario_id)
-            personagem_logico = GameController.obter_personagem_por_id(
-                db_session, 1)
-            personagem_logico = GameController.converter_para_dominio(
-                personagem_logico)
-            
-            # Define coordenadas iniciais seguras extraídas das configurações do mapa
-            pos_inicial = mapa_db.configs.get(
-                "pos_inicial", [2, 2]) if mapa_db.configs else [2, 2]
-
-            esper.add_component(player_id, PositionComponent(
-                x=pos_inicial[0], y=pos_inicial[1], direcao_olhar="baixo"))
-            esper.add_component(player_id, RenderComponent(
-                emoji=str(personagem_logico.raca)))
-            esper.add_component(player_id, InventoryComponent(itens={}))
-            esper.add_component(player_id, EquipmentComponent())
-            if personagem_logico.armadura:
-                defesa = personagem_logico.armadura.defesa
-            else:
-                defesa = 0
-            esper.add_component(player_id, StatsComponent(
-                nome=personagem_logico.nome,
-                classe="mago",
-                pv=int(personagem_logico.pv_atual),
-                pv_max=int(personagem_logico.pv_max),
-                pm=int(personagem_logico.pm_atual),
-                pm_max=int(personagem_logico.pm_max),
-                ataque_base=int(
-                    personagem_logico.mod_atq_corpo),
-                defesa_base=int(defesa or 0)
-            ))
-
-
-        # ==========================================
-        # STEP 5: RECONSTRUÇÃO DOS EVENTOS DO MAPA (BASE VS DELTA)
-        # ==========================================
-        eventos_db = db_session.query(EventoDB).filter(
-            EventoDB.mapa_id == target_mapa_id).all()
-        snapshot_entidades = save_db.dados_sessao.get(
-            "entidades", {}) if has_save else {}
-
-        for evt in eventos_db:
-            # 💡 TRUQUE DO OFFSET: Mantém IDs de cenário altos (banco_id + 10000)
-            # para casar perfeitamente com o GameStateManager e evitar colisões com o ID 1
-            entidade_id = evt.id + 10000
-            esper.create_entity()  # Reserva e avança o ponteiro interno de assinaturas do Esper
-
-            parametros_base = evt.parametros if evt.parametros else {}
-
-            # Se houver delta salvo para este monstro/baú específico, extrai dele; senão usa o template original
-            evt_salvo = snapshot_entidades.get(str(entidade_id), {})
-
-            if evt_salvo:
-                pos_d = evt_salvo.get("PositionComponent", {
-                                      "x": evt.pos_x, "y": evt.pos_y})
-                interact_d = evt_salvo.get(
-                    "InteractableComponent", {"is_active": True})
-                stats_d = evt_salvo.get("StatsComponent", {})
-
-                esper.add_component(entidade_id, PositionComponent(
-                    x=pos_d["x"], y=pos_d["y"]))
-                esper.add_component(
-                    entidade_id, RenderComponent(emoji=evt.emoji))
-                esper.add_component(entidade_id, InteractableComponent(
-                    event_type=evt.tipo_evento,
-                    parameters=parametros_base,
-                    is_active=interact_d.get("is_active", True)
-                ))
-
-                if stats_d:
-                    esper.add_component(entidade_id, StatsComponent(
-                        nome=stats_d.get("nome", evt.nome),
-                        pv=stats_d.get("pv_atual", 10),
-                        pv_max=stats_d.get("pv_max", 10),
-                        pm=stats_d.get("pm_atual", 0),
-                        pm_max=stats_d.get("pm_max", 0),
-                        ataque_base=stats_d.get("ataque_base", 2),
-                        defesa_base=stats_d.get("defesa_base", 2)
-                    ))
-            else:
-                # Inicialização padrão pura (Template do Banco)
-                esper.add_component(
-                    entidade_id, PositionComponent(x=evt.pos_x, y=evt.pos_y))
-                esper.add_component(
-                    entidade_id, RenderComponent(emoji=evt.emoji))
-                esper.add_component(entidade_id, InteractableComponent(
-                    event_type=evt.tipo_evento,
-                    parameters=parametros_base,
-                    is_active=True
-                ))
-
-                if evt.tipo_evento == "monstro":
-                    val_dano = parametros_base.get("ação", {}).get(
-                        "mudar_pv", {}).get("valor", 2)
-                    esper.add_component(entidade_id, StatsComponent(
-                        nome=evt.nome, pv=10, pv_max=10, pm=0, pm_max=0, ataque_base=val_dano, defense_base=2
-                    ))
-
-            # Injeta IA se mapeado no JSON de comportamento
-            if "mover" in parametros_base:
-                esper.add_component(entidade_id, AIComponent(
-                    movement_type=parametros_base["mover"].get(
-                        "direção", "aleatório"),
-                    action_on_touch=parametros_base.get("ação", {})
-                ))
+        # Hidratação do Herói (ID 1 Fixo) e Eventos Locais (Monstros/Baús)
+        self._hidratar_jogador(db_session, save_db, usuario_id, mapa_db)
+        self._hidratar_eventos_cenario(db_session, save_db, target_mapa_id)
 
         return True, self.matriz_terrenos, self.camada_objetos, self.mapa_id
 
+    def _hidratar_jogador(self, db_session: Session, save_db: SaveDB, usuario_id: int, mapa_db: MapaDB):
+        """Decide se o herói nasce de um snapshot nômade, de um SaveDB delta ou de um New Game."""
+        if self.dados_salvaguarda_jogador:
+            self._restaurar_snapshot_jogador()
+            return
+
+        try:
+            esper.components_for_entity(1)
+        except KeyError:
+            esper.create_entity()
+
+        if save_db:
+            self._hidratar_jogador_via_save(save_db)
+        else:
+            self._hidratar_jogador_via_dominio(db_session, usuario_id, mapa_db)
+
+    def _hidratar_jogador_via_save(self, save_db: SaveDB):
+        """Reconstrói o herói a partir do snapshot JSON contido no SaveDB."""
+        snapshot_entidades = save_db.dados_sessao.get("entidades", {})
+        player_data = snapshot_entidades.get("1", {})
+
+        if player_data:
+            pos_d = player_data.get("PositionComponent", {
+                                    "x": 2, "y": 2, "direcao_olhar": "baixo"})
+            stats_d = player_data.get("StatsComponent", {})
+            inv_d = player_data.get("InventoryComponent", {"itens": {}})
+            eqp_d = player_data.get("EquipmentComponent", {
+                                    "arma": {}, "armadura": {}})
+
+            esper.add_component(1, PositionComponent(
+                x=pos_d["x"], y=pos_d["y"], direcao_olhar=pos_d["direcao_olhar"]))
+            esper.add_component(1, RenderComponent(emoji="🧙"))
+            esper.add_component(1, InventoryComponent(
+                itens=inv_d.get("itens", {})))
+
+            comp_eqp = EquipmentComponent()
+            comp_eqp.arma = eqp_d.get("arma")
+            comp_eqp.armadura = eqp_d.get("armadura")
+            esper.add_component(1, comp_eqp)
+
+            if stats_d:
+                esper.add_component(1, StatsComponent(
+                    nome=stats_d.get("nome", "Herói"),
+                    hp=stats_d.get("hp", 50),
+                    max_hp=stats_d.get("max_hp", 50),
+                    mp=stats_d.get("mp", 10),
+                    max_mp=stats_d.get("max_mp", 10),
+                    ataque_base=stats_d.get("ataque_base", 10),
+                    defesa_base=stats_d.get("defesa_base", 5)
+                ))
+
+    def _hidratar_jogador_via_dominio(self, db_session: Session, usuario_id: int, mapa_db: MapaDB):
+        """Gera os atributos lógicos base calculados para o início de uma nova campanha."""
+        p_db = GameController.obter_personagem_por_id(db_session, usuario_id)
+        if p_db:
+            p_logic = GameController.converter_para_dominio(p_db)
+            defesa_extra = getattr(p_logic.mao_esquerda, "defesa_extra", 0) if hasattr(
+                p_logic, "mao_esquerda") and p_logic.mao_esquerda else 0
+            pos_inicial = mapa_db.configs.get(
+                "pos_inicial", [2, 2]) if mapa_db.configs else [2, 2]
+
+            esper.add_component(1, PositionComponent(
+                x=pos_inicial[0], y=pos_inicial[1], direcao_olhar="baixo"))
+            esper.add_component(1, RenderComponent(
+                emoji=str(p_logic.raca if hasattr(p_logic, 'raca') else "🧙")))
+            esper.add_component(1, InventoryComponent(itens={}))
+            esper.add_component(1, EquipmentComponent())
+            esper.add_component(1, StatsComponent(
+                nome=p_logic.nome,
+                classe='mago',
+                hp=int(p_logic.pv_atual),
+                max_hp=int(p_logic.max_hp),
+                mp=int(p_logic.pm_atual),
+                max_mp=int(p_logic.max_mp),
+                ataque_base=int(p_logic.mod_atq_corpo or 0),
+                defesa_base=int(defesa_extra)
+            ))
+
+    def _hidratar_eventos_cenario(self, db_session: Session, save_db: SaveDB, target_mapa_id: int):
+        """Varre as tabelas ou o delta delta para injetar os monstros e baús do novo mapa."""
+        eventos_db = db_session.query(EventoDB).filter(
+            EventoDB.mapa_id == target_mapa_id).all()
+        snapshot_entidades = save_db.dados_sessao.get(
+            "entidades", {}) if save_db else {}
+
+        for evt in eventos_db:
+            entidade_ecs_id = esper.create_entity()
+            id_virtual_do_banco = evt.id + 10000
+
+            parametros_base = evt.parametros if evt.parametros else {}
+            parametros_base["id_virtual_evento"] = id_virtual_do_banco
+
+            evt_salvo = snapshot_entidades.get(str(id_virtual_do_banco), {})
+
+            if evt_salvo:
+                self._construir_evento_via_save(
+                    entidade_ecs_id, evt, parametros_base, evt_salvo)
+            else:
+                self._construir_evento_via_template(
+                    entidade_ecs_id, evt, parametros_base)
+
+    def _construir_evento_via_save(self, ecs_id: int, evt: EventoDB, params: dict, salvo: dict):
+        """Injeta componentes em um monstro/baú recuperando seu estado dinâmico do Save."""
+        pos_d = salvo.get("PositionComponent", {
+                          "x": evt.pos_x, "y": evt.pos_y})
+        interact_d = salvo.get("InteractableComponent", {"is_active": True})
+        stats_d = salvo.get("StatsComponent", {})
+
+        esper.add_component(ecs_id, PositionComponent(
+            x=pos_d["x"], y=pos_d["y"]))
+        esper.add_component(ecs_id, RenderComponent(emoji=evt.emoji))
+        esper.add_component(ecs_id, InteractableComponent(
+            event_type=evt.event_type, parameters=params, is_active=interact_d.get(
+                "is_active", True)
+        ))
+
+        if stats_d:
+            esper.add_component(ecs_id, StatsComponent(
+                nome=stats_d.get("nome", evt.nome), classe='', hp=stats_d.get("hp", 10), max_hp=stats_d.get("max_hp", 10),
+                mp=stats_d.get("mp", 0), max_mp=stats_d.get("max_mp", 0), ataque_base=stats_d.get("ataque_base", 2), defesa_base=stats_d.get("defesa_base", 2)
+            ))
+        self._adicionar_ia_se_necessario(ecs_id, params)
+
+    def _construir_evento_via_template(self, ecs_id: int, evt: EventoDB, params: dict):
+        """Injeta componentes em um monstro/baú usando as definições estruturais brutas do banco."""
+        esper.add_component(
+            ecs_id, PositionComponent(x=evt.pos_x, y=evt.pos_y))
+        esper.add_component(ecs_id, RenderComponent(emoji=evt.emoji))
+        esper.add_component(ecs_id, InteractableComponent(
+            event_type=evt.event_type, parameters=params, is_active=True
+        ))
+
+        if evt.event_type == "monstro":
+            val_dano = params.get("ação", {}).get(
+                "mudar_hp", {}).get("valor", 2)
+            esper.add_component(ecs_id, StatsComponent(
+                nome=evt.nome, classe='', hp=10, max_hp=10, mp=0, max_mp=0, ataque_base=val_dano, defesa_base=2
+            ))
+        self._adicionar_ia_se_necessario(ecs_id, params)
+
+    def _adicionar_ia_se_necessario(self, ecs_id: int, params: dict):
+        """Anexa o componente de inteligência artificial se mapeado nas configurações do evento."""
+        if "mover" in params:
+            esper.add_component(ecs_id, AIComponent(
+                movement_type=params["mover"].get("direção", "aleatório"),
+                action_on_touch=params.get("ação", {})
+            ))
+
+    def _processar_camada_objetos(self, mapa_db: MapaDB):
+        """Traduz as chaves de string 'y,x' da tabela para tuplas lógicas inteiras (y, x)."""
+        objetos_convertidos = {}
+        if mapa_db and mapa_db.objetos:
+            obj_raw = mapa_db.objetos if isinstance(
+                mapa_db.objetos, dict) else {}
+            for coord_str, emoji in obj_raw.items():
+                try:
+                    y_str, x_str = coord_str.split(",")
+                    objetos_convertidos[(int(y_str), int(x_str))] = emoji
+                except Exception:
+                    pass
+        self.camada_objetos = objetos_convertidos
+
     def _salvar_snapshot_jogador(self):
-        """Fotografa os componentes da entidade 1 e os remove do mundo antes da troca de mapa."""
+        """Registra as informações dinâmicas do herói antes da transição."""
         try:
             self.dados_salvaguarda_jogador = {
                 "PositionComponent": esper.component_for_entity(1, PositionComponent),
@@ -301,39 +308,45 @@ class GameEngineLoader:
                 "EquipmentComponent": esper.component_for_entity(1, EquipmentComponent),
                 "RenderComponent": esper.component_for_entity(1, RenderComponent)
             }
-            # Remove o herói do mundo atual para que ele não fique "duplicado" congelado na cena velha
-            esper.delete_entity(1)
         except KeyError:
             pass
 
     def _restaurar_snapshot_jogador(self):
-        """Injeta as instâncias salvas de volta na assinatura de entidade 1 no mundo ativo."""
-        # Força o Esper a criar/reservar a assinatura primária 1 no início do laço do novo mundo
-        player_id = esper.create_entity()
+        """Sincroniza o snapshot do herói no ID 1 do mundo ativo atual eliminando dados órfãos."""
+        try:
+            componentes_antigos = list(esper.components_for_entity(1))
+            for comp_instance in componentes_antigos:
+                esper.remove_component(1, comp_instance.__class__)
+        except KeyError:
+            esper.create_entity()
 
         for comp_instance in self.dados_salvaguarda_jogador.values():
             if comp_instance:
-                esper.add_component(player_id, comp_instance)
+                esper.add_component(1, comp_instance)
 
+# import esper
+# import logging
+# from sqlalchemy.orm import Session
+
+# from app.models.mapas_db import MapaDB
+# from app.models.eventos_db import EventoDB
+# from app.models.plataforma_db import SaveDB
+# from app.controllers.game_controller import GameController
+# from app.core.engine.components import (
+#     PositionComponent, InteractableComponent, RenderComponent,
+#     StatsComponent, AIComponent, EquipmentComponent, InventoryComponent
+# )
+
+# logging.basicConfig(level=logging.INFO, filename="log.log", filemode="a")
 
 
 # class GameEngineLoader:
 #     """
-#     Gerencia carregamento, componentização e tradução de dados para entidades.
-#     Args:
-#         envent_bus = EventBus()
-#         mapa_id = None
-#         nome_mapa = ""
-#         matriz_terrenos = []
-#         camada_objetos = {}
-#         altura = 0
-#         largura = 0
-#     Methods:
-#         carregar_engine_do_banco(Session, mapa_id) -> bool
+#     Gerencia o ciclo de vida do motor ECS utilizando contextos isolados de mundos (esper.WorldContext).
+#     Integra o carregamento atômico entre Estados Iniciais (Base) e Estados Salvos (Delta).
 #     """
-    
+
 #     def __init__(self):
-#         #self.event_bus = EventBus()
 #         self.mapa_id = None
 #         self.nome_mapa = ""
 #         self.matriz_terrenos = []
@@ -341,350 +354,288 @@ class GameEngineLoader:
 #         self.altura = 0
 #         self.largura = 0
 
-#     def carregar_engine_do_banco(self, db: Session, mapa_id: int) -> bool:
-#         """
-#         Método assinado pela GamePlayScreen.
-#         Limpa o contexto antigo do Esper, lê a BD e monta o novo estado em memória.
-#         """
-#         # 1. RESET CRUCIAL: Limpa todas as entidades antigas do mundo global do Esper
-        
-#         #esper.switch_world(esper.list_worlds()[0])
-        
-#         esper.clear_database()
+#         # Infraestrutura de Cenas Isoladas (Mundos Esper)
+#         self.mundos_carregados = {}          # { mapa_id: objeto_esper_WorldContext }
+#         # Snapshot temporário para travessia de mapas
+#         self.dados_salvaguarda_jogador = {}
 
-#         mapa_db = db.query(MapaDB).filter(MapaDB.id == mapa_id).first()
+#         self.master_event_registry = getattr(esper, "event_registry", {})
+
+#     def carregar_engine_do_banco(self, db_session: Session, usuario_id: int, cenario_id: int, slot_numero: int = 1, default_mapa_id: int = None) -> tuple[bool, list[list[str]], dict, int]:
+#         """
+#         Alterna ou inicializa o mundo do mapa alvo, sincronizando snapshots em RAM e persistência de SaveDB.
+#         """
+#         # ==========================================
+#         # STEP 1: RESOLUÇÃO DO ID DO MAPA ALVO
+#         # ==========================================
+#         save_db = db_session.query(SaveDB).filter(
+#             SaveDB.usuario_id == usuario_id,
+#             SaveDB.cenario_id == cenario_id,
+#             SaveDB.slot_numero == slot_numero
+#         ).first()
+
+#         has_save = save_db is not None
+
+#         if default_mapa_id is not None:
+#             target_mapa_id = default_mapa_id
+#         elif has_save:
+#             target_mapa_id = save_db.dados_sessao.get("mapa_atual_id")
+#         else:
+#             primeiro_mapa = db_session.query(MapaDB).filter(
+#                 MapaDB.cenario_id == cenario_id).first()
+#             target_mapa_id = primeiro_mapa.id if primeiro_mapa else None
+
+#         if not target_mapa_id:
+#             logging.error(
+#                 "Falha fatal: Nenhum mapa_id pôde ser resolvido para o carregamento.")
+#             return False, [], {}, None
+
+#         # ==========================================
+#         # STEP 2: SNAPSHOT DO JOGADOR (SE JÁ HOUVER UMA CENA ATIVA)
+#         # ==========================================
+#         if self.mapa_id is not None and self.mapa_id != target_mapa_id:
+#             self._salvar_snapshot_jogador()
+
+#         self.mapa_id = target_mapa_id
+
+#         # ==========================================
+#         # STEP 3: TRANSIÇÃO DE CONTEXTO (MUNDO JÁ EXISTE EM RAM)
+#         # ==========================================
+#         if target_mapa_id in self.mundos_carregados:
+#             # 🔄 Restaura o contexto do mundo antigo congelado
+#             esper.switch_world(self.mundos_carregados[target_mapa_id])
+            
+#             if hasattr(esper, "event_registry"):
+#                 esper.event_registry = self.master_event_registry
+
+#             # 🧙 Transita o snapshot do jogador para a Entidade 1 deste mundo reativado
+#             self._restaurar_snapshot_jogador()
+
+#             # 🗺️ Recarrega as informações estruturais necessárias para a GamePlayScreen renderizar
+#             mapa_db = db_session.query(MapaDB).filter(MapaDB.id == target_mapa_id).first()
+#             if mapa_db:
+#                 self.matriz_terrenos = mapa_db.mapa_em_si
+#                 self.altura = len(self.matriz_terrenos)
+#                 self.largura = len(self.matriz_terrenos[0]) if self.altura > 0 else 0
+#                 self.nome_mapa = mapa_db.nome
+                
+#                 # Traduz as chaves dos objetos estáticos para tuplas de inteiros
+#                 self._processar_camada_objetos(mapa_db)
+
+#             # 🛑 PARADA ATÔMICA: Evita que o código continue descendo e recrie ou limpe os eventos da RAM!
+#             return True, self.matriz_terrenos, self.camada_objetos, self.mapa_id
+
+#         # ==========================================
+#         # STEP 4: INSTANCIAÇÃO DE UM MUNDO INÉDITO EM RAM
+#         # ==========================================
+#         # novo_mundo = esper.new_context()
+
+#         novo_mundo = esper.switch_world(self.mapa_id)
+#         self.mundos_carregados[target_mapa_id] = novo_mundo
+
+#         # 🌟 ADICIONE ESTAS LINHAS: Força o novo mundo a aceitar as escutas da tela
+#         if hasattr(esper, "event_registry"):
+#             esper.event_registry = self.master_event_registry
+
+#         mapa_db = db_session.query(MapaDB).filter(
+#             MapaDB.id == target_mapa_id).first()
 #         if not mapa_db:
-#             return False
+#             return False, [], {}, None
 
-#         self.mapa_id = mapa_id
 #         self.nome_mapa = mapa_db.nome
 #         self.matriz_terrenos = mapa_db.mapa_em_si
 #         self.altura = len(self.matriz_terrenos)
 #         self.largura = len(self.matriz_terrenos[0]) if self.altura > 0 else 0
 
-#         objetos_json = mapa_db.objetos or getattr(mapa_db, 'objetos', {}) or {}
-#         self.camada_objetos = {}
-#         for k, v in objetos_json.items():
+#         # 🌟 ESTA LINHA: Usa o conversor de string para tuplas inteiras (y, x)
+#         self._processar_camada_objetos(mapa_db)
+
+#         # ==========================================
+#         # STEP 5: REIDRATAÇÃO DA ENTIDADE JOGADOR (ID 1 FIXO)
+#         # ==========================================
+#         if self.dados_salvaguarda_jogador:
+#             self._restaurar_snapshot_jogador()
+#         else:
+#             # Primeiro mapa da sessão (New Game ou Carregando Save)
+#             # Garante que a fenda da Entidade 1 exista e esteja registrada neste mundo novo
 #             try:
-#                 partes = k.split(',')
-#                 self.camada_objetos[(int(partes[0]), int(partes[1]))] = v
-#             except Exception:
-#                 continue
+#                 esper.components_for_entity(1)
+#             except KeyError:
+#                 esper.create_entity()
 
-#         # 1. CARREGAR OS DADOS DO JOGADOR PRINCIPAL (ID 1) DO BANCO DE DADOS
-        
-#         stats_comp = StatsComponent(
-#             nome="Charles",
-#             classe="Mago",
-#             pv=15,
-#             pv_max=15,
-#             pm=50,
-#             pm_max=50,
-#             ataque_base=15,
-#             defesa_base=10
-#         )
+#             if has_save:
+#                 snapshot_entidades = save_db.dados_sessao.get("entidades", {})
+#                 player_data = snapshot_entidades.get("1", {})
 
-#         #controller = GameController()
+#                 if player_data:
+#                     pos_d = player_data.get("PositionComponent", {
+#                                             "x": 2, "y": 2, "direcao_olhar": "baixo"})
+#                     stats_d = player_data.get("StatsComponent", {})
+#                     inv_d = player_data.get(
+#                         "InventoryComponent", {"itens": {}})
+#                     eqp_d = player_data.get("EquipmentComponent", {
+#                                             "arma": {}, "armadura": {}})
+
+#                     esper.add_component(1, PositionComponent(
+#                         x=pos_d["x"], y=pos_d["y"], direcao_olhar=pos_d["direcao_olhar"]))
+#                     esper.add_component(1, RenderComponent(emoji="🧙"))
+#                     esper.add_component(1, InventoryComponent(
+#                         itens=inv_d.get("itens", {})))
+
+#                     comp_eqp = EquipmentComponent()
+#                     comp_eqp.arma = eqp_d.get("arma")
+#                     comp_eqp.armadura = eqp_d.get("armadura")
+#                     esper.add_component(1, comp_eqp)
+
+#                     if stats_d:
+#                         esper.add_component(1, StatsComponent(
+#                             nome=stats_d.get("nome", "Herói"),
+#                             classe='mago',
+#                             hp=stats_d.get("hp", 50),
+#                             max_hp=stats_d.get("max_hp", 50),
+#                             mp=stats_d.get("mp", 10),
+#                             max_mp=stats_d.get("max_mp", 10),
+#                             ataque_base=stats_d.get("ataque_base", 10),
+#                             defesa_base=stats_d.get("defesa_base", 5)
+#                         ))
+#             else:
+#                 p_db = GameController.obter_personagem_por_id(db_session, usuario_id)
+
+#                 if p_db:
+#                     p_logic = GameController.converter_para_dominio(p_db)
+#                     defesa_extra_calculada = 0
+#                     if hasattr(p_logic, "mao_esquerda") and p_logic.mao_esquerda:
+#                         defesa_extra_calculada = getattr(
+#                             p_logic.mao_esquerda.defesa, "defesa_extra", 0)
+
+#                     pos_inicial = mapa_db.configs.get(
+#                         "pos_inicial", [42, 42]) if mapa_db.configs else [42, 42]
+
+#                     esper.add_component(1, PositionComponent(
+#                         x=pos_inicial[0], y=pos_inicial[1], direcao_olhar="baixo"))
+#                     esper.add_component(1, RenderComponent(
+#                         emoji=str(p_logic.raca if hasattr(p_logic, 'raca') else "🧙")))
+#                     esper.add_component(1, InventoryComponent(itens={}))
+#                     esper.add_component(1, EquipmentComponent())
+#                     esper.add_component(1, StatsComponent(
+#                         nome=p_logic.nome,
+#                         classe='mago',
+#                         hp=int(p_logic.pv_atual),
+#                         max_hp=int(p_logic.max_hp),
+#                         mp=int(p_logic.pm_atual),
+#                         max_mp=int(p_logic.max_mp),
+#                         ataque_base=int(p_logic.mod_atq_corpo or 0),
+#                         defesa_base=int(defesa_extra_calculada)
+#                     ))
+
+#         # ==========================================
+#         # STEP 6: HIDRATAÇÃO DOS EVENTOS DO CENÁRIO
+#         # ==========================================
+#         eventos_db = db_session.query(EventoDB).filter(
+#             EventoDB.mapa_id == target_mapa_id).all()
+#         snapshot_entidades = save_db.dados_sessao.get(
+#             "entidades", {}) if has_save else {}
+
+#         for evt in eventos_db:
+#             entidade_ecs_id = esper.create_entity()
+#             id_virtual_do_banco = evt.id + 10000
+#             parametros_base = evt.parametros if evt.parametros else {}
+#             parametros_base["id_virtual_evento"] = id_virtual_do_banco
+
+#             evt_salvo = snapshot_entidades.get(str(id_virtual_do_banco), {})
+
+#             if evt_salvo:
+#                 pos_d = evt_salvo.get("PositionComponent", {
+#                                       "x": evt.pos_x, "y": evt.pos_y})
+#                 interact_d = evt_salvo.get(
+#                     "InteractableComponent", {"is_active": True})
+#                 stats_d = evt_salvo.get("StatsComponent", {})
+
+#                 esper.add_component(entidade_ecs_id, PositionComponent(
+#                     x=pos_d["x"], y=pos_d["y"]))
+#                 esper.add_component(
+#                     entidade_ecs_id, RenderComponent(emoji=evt.emoji))
+#                 esper.add_component(entidade_ecs_id, InteractableComponent(
+#                     event_type=evt.event_type,
+#                     parametros=parametros_base,
+#                 ))
+
+#                 if stats_d:
+#                     esper.add_component(entidade_ecs_id, StatsComponent(
+#                         nome=stats_d.get("nome", evt.nome),
+#                         classe='',
+#                         hp=stats_d.get("hp", 10),
+#                         max_hp=stats_d.get("max_hp", 10),
+#                         mp=stats_d.get("mp", 0),
+#                         max_mp=stats_d.get("max_mp", 0),
+#                         ataque_base=stats_d.get("ataque_base", 2),
+#                         defesa_base=stats_d.get("defesa_base", 2)
+#                     ))
+#             else:
+#                 esper.add_component(
+#                     entidade_ecs_id, PositionComponent(x=evt.pos_x, y=evt.pos_y))
+#                 esper.add_component(
+#                     entidade_ecs_id, RenderComponent(emoji=evt.emoji))
+#                 esper.add_component(entidade_ecs_id, InteractableComponent(
+#                     event_type=evt.event_type,
+#                     parametros=parametros_base
+#                 ))
+
+#                 if evt.event_type == "monstro":
+#                     val_dano = parametros_base.get("ação", {}).get(
+#                         "mudar_hp", {}).get("valor", 2)
+#                     esper.add_component(entidade_ecs_id, StatsComponent(
+#                         nome=evt.nome, classe='', hp=10, max_hp=10, mp=0, max_mp=0, ataque_base=val_dano, defesa_base=2
+#                     ))
+
+#             if "mover" in parametros_base:
+#                 esper.add_component(entidade_ecs_id, AIComponent(
+#                     movement_type=parametros_base["mover"].get(
+#                         "direção", "aleatório"),
+#                     action_on_touch=parametros_base.get("ação", {})
+#                 ))
+
+#         return True, self.matriz_terrenos, self.camada_objetos, self.mapa_id
+
+#     def _salvar_snapshot_jogador(self):
+#         """Fotografa os componentes da entidade 1."""
 #         try:
-        #     # db.query(PersonagemDB).filter(PersonagemDB.id == 1).first()
-        #     p_db = GameController.obter_personagem_por_id(db, 1)
-        #     if p_db:
-        #         # ⚔️ Tenta converter usando o GameController tradutor
-        #         try:
-        #             p_logic = GameController.converter_para_dominio(p_db)
-        #             defesa_base = None
-        #             if p_logic.mao_esquerda:
-        #                 defesa_base = p_logic.mao_esquerda.defesa_extra
-        #             stats_comp = StatsComponent(
-        #                 nome=p_logic.nome,
-        #                 classe=p_logic.classe.nome,
-        #                 pv=p_logic.pv_atual,
-        #                 pv_max=p_logic.pv_max,
-        #                 pm=p_logic.pm_atual,
-        #                 pm_max=p_logic.pm_max,
-        #                 ataque_base=p_logic.mod_atq_corpo or 0,
-        #                 defesa_base=defesa_base or 0
-        #             )
-        #         except Exception as e_conv:
-        #             logging.info(
-        #                 f"erro ao converter para personagem lógico, usando fallback parcial do BD: {e_conv} - {p_db}")
-        #             # Caso a conversão falhe por falta de raça/classe populada no mock, usa os dados crus do BD
-        #             stats_comp = StatsComponent(
-        #                 nome=getattr(p_db, 'nome', "Charles"),
-        #                 classe="Mago",
-        #                 pv=getattr(p_db, 'pv', 100),
-        #                 pv_max=getattr(p_db, 'pv_max', 100),
-        #                 pm=getattr(p_db, 'mp', 50),
-        #                 pm_max=getattr(p_db, 'pm_max', 50),
-        #                 ataque_base=getattr(p_db, 'ataque', 15),
-        #                 defesa_base=getattr(p_db, 'defesa', 10)
-        #             )
-        # except Exception as e_bd:
-        #     logging.info(f"erro ao acessar ou alimentar comp status: {e_bd}")
+#             self.dados_salvaguarda_jogador = {
+#                 "PositionComponent": esper.component_for_entity(1, PositionComponent),
+#                 "StatsComponent": esper.component_for_entity(1, StatsComponent),
+#                 "InventoryComponent": esper.component_for_entity(1, InventoryComponent),
+#                 "EquipmentComponent": esper.component_for_entity(1, EquipmentComponent),
+#                 "RenderComponent": esper.component_for_entity(1, RenderComponent)
+#             }
+#         except KeyError:
+#             pass
 
-#         # Tenta obter posição inicial das configs do mapa ou usa fallback seguro
-#         configs = getattr(mapa_db, 'configs', {}) or {}
-#         pos_inicial = configs.get("pos_inicial", [45, 45])
-#         px, py = pos_inicial[0], pos_inicial[1]
+#     def _restaurar_snapshot_jogador(self):
+#         """Garante que a entidade 1 do mundo atual herde as estatísticas nômades do herói de forma blindada."""
+#         try:
+#             # Se a entidade 1 já existe no mundo carregado, limpa componentes velhos para evitar lixo
+#             componentes_antigos = list(esper.components_for_entity(1))
+#             for comp_instance in componentes_antigos:
+#                 esper.remove_component(1, comp_instance.__class__)
+#         except KeyError:
+#             # Se a entidade 1 ainda não existia neste contexto, inicializa o slot dela
+#             esper.create_entity()
 
-#         # Itens iniciais para garantir o funcionamento dos comandos do Chat (/inventario, /equipar)
-#         itens_iniciais = [
-#             {"id": 101, "nome": "poção",
-#                 "tipo": "consumivel", "bonus": 50},
-#             {"id": 201, "nome": "espada longa", "tipo": "arma", "bonus_atk": 8},
-#             {"id": 301, "nome": "armadura de couro",
-#                 "tipo": "armadura", "bonus_def": 4}
-#         ]
-
-#         # Cria rigidamente a entidade do jogador (ID 1) no Esper com todos os componentes acoplados
-#         esper.create_entity(
-#             PositionComponent(x=px, y=py),
-#             RenderComponent(emoji=p_db.raca.emoji or "🦀"),
-#             PlayerControlComponent(),
-#             stats_comp,
-#             InventoryComponent(itens=itens_iniciais),
-#             EquipmentComponent()
-#         )
-
-
-#         # 2. Carrega o resto das entidades do mapa (Monstros/Baús)
-#         eventos_bd = getattr(mapa_db, 'eventos', [])
-#         for evento_db in eventos_bd:
-#             entidade = esper.create_entity()
-#             esper.add_component(entidade, PositionComponent(
-#                 x=evento_db.pos_x, y=evento_db.pos_y))
-#             esper.add_component(
-#                 entidade, RenderComponent(emoji=evento_db.emoji))
-
-#             # Interpreta os parâmetros para determinar se é um monstro com IA
-#             parametros = evento_db.parametros or {}
-#             if "mover" in parametros:
-#                 direcao = parametros["mover"].get("direção", "aleatório")
-#                 esper.add_component(entidade, AIComponent(
-#                     tipo_movimento=direcao,
-#                     action_on_touch={
-#                         "quando": "tocar_heroi",
-#                         "tipo": "ataque",
-#                         "dano": parametros.get("ataque", {}).get("dano", 1)
-#                     }
-#                 ))
-
-#             # Todos os eventos continuam com InteractableComponent para triggers adicionais
-#             esper.add_component(entidade, InteractableComponent(
-#                 tipo_evento=evento_db.tipo_evento, parametros=parametros
-#             ))
-
-#         return True
-
-
-
-
-# from app.core.engine.manager import EngineManager
-# from app.core.engine.components import (
-#     PositionComponent, CollisionComponent, InteractableComponent, 
-#     RenderComponent, StatsComponent, InventoryComponent, EquipmentComponent, AIComponent
-# )
-# from app.models.mapas_db import MapaDB
-# from app.models.eventos_db import EventoDB
-# from app.models.plataforma_db import SaveDB
-# from app.controllers.game_controller import GameController
-
-
-
-# def carregar_engine_do_banco(
-#     db_session, 
-    # usuario_id: int, 
-    # cenario_id: int, 
-    # slot_numero: int = 1, 
-#     default_mapa_id: int = None
-# ) -> tuple[EngineManager, list[list[str]], dict, int]:
-#     """
-#     Carrega a infraestrutura do jogo interpretando o estado atual (Base + Delta).
-#     Isolado por Usuário, Cenário e Slot de Salvamento.
-    
-#     Retorna: (engine_manager, mapa_em_si, objetos_cenario, mapa_atual_id)
-#     """
-#     engine = EngineManager()
-
-#     # ==========================================
-#     # STEP 1: CONFERIR SE EXISTE JOGO SALVO (DELTA)
-#     # ==========================================
-#     save_db = db_session.query(SaveDB).filter(
-#         SaveDB.usuario_id == usuario_id,
-#         SaveDB.cenario_id == cenario_id,
-#         SaveDB.slot_numero == slot_numero
-#     ).first()
-
-#     has_save = save_db is not None
-#     dados_sessao = save_db.dados_sessao if has_save else {}
-
-#     # Define qual mapa carregar (O salvo ou o padrão do cenário)
-#     if has_save:
-#         mapa_id = dados_sessao.get("mapa_atual_id")
-#     else:
-#         # Se for um novo jogo e não passamos mapa padrão, pegamos o primeiro mapa cadastrado do cenário
-#         if default_mapa_id:
-#             mapa_id = default_mapa_id
-#         else:
-#             primeiro_mapa = db_session.query(MapaDB).filter(MapaDB.cenario_id == cenario_id).first()
-#             if not primeiro_mapa:
-#                 raise ValueError(f"Erro: O Cenário {cenario_id} não possui nenhum mapa cadastrado no editor.")
-#             mapa_id = primeiro_mapa.id
-
-#     # ==========================================
-#     # STEP 2: CARREGAR OS DADOS BASE DO CENÁRIO (TEMPLATES)
-#     # ==========================================
-#     mapa_db = db_session.query(MapaDB).filter(MapaDB.id == mapa_id, MapaDB.cenario_id == cenario_id).first()
-#     if not mapa_db:
-#         raise ValueError(f"Erro Crítico: Mapa {mapa_id} não pertence ao Cenário {cenario_id}.")
-
-#     eventos_db = db_session.query(EventoDB).filter(EventoDB.mapa_id == mapa_id).all()
-
-#     # ==========================================
-#     # STEP 3: RECONSTRUÇÃO DO JOGADOR (ID 1)
-#     # ==========================================
-#     # ISSO ESTÁ ERRADO MAS PARA FUNCIONAR POR ENQUANTO - ESTÁ PASSANDO O ID DO USUÁRIO PARA PEGAR O PERSONAGEM (Mesmo id só por agora)
-#     # TODO - AJUSTAR PARA PASSAR O ID DO PERSONAGEM SELECIONADO PELO USUÁRIO (Isso ainda necessita de uma forma de acontecer).
-#     player_id = 1 # Garantimos fixo na arquitetura do motor
-#     engine.entities[player_id] = {} # Força a criação da assinatura da entidade principal
-
-#     # Puxamos o orquestrador para calcular a vida matemática base do herói
-    
-    
-#     controller = GameController(db_session)
-#     conversor = GameController.converter_para_dominio 
-     
-#     personagem_logico = controller.obter_personagem_por_id(player_id) # Vinculado ao ID do usuário jogador
-#     personagem_logico = conversor(personagem_logico) if personagem_logico else None
-
-#     if not personagem_logico:
-#         raise ValueError(f"Nenhum personagem ativo encontrado para o Usuário {usuario_id}.")
-
-#     if not has_save:
-#         # 🆕 NOVO JOGO: Posição inicial vem das configs do editor de mapas
-#         configs = mapa_db.configs if mapa_db.configs else {}
-#         pos_inicial = configs.get("pos_inicial", [40, 40])
-        
-#         engine.add_component(player_id, PositionComponent(x=pos_inicial[0], y=pos_inicial[1], direcao_olhar="baixo"))
-        
-#         engine.add_component(player_id, StatsComponent(
-#                 nome=personagem_logico.nome,    
-#                 pv=personagem_logico.pv_atual,
-#                 pv_max=personagem_logico.pv_max,
-#                 pm=personagem_logico.pm_atual,
-#                 pm_max=personagem_logico.pm_max,
-#                 ataque_base=int(personagem_logico.mod_atq_corpo), # Garante tipo numérico inteiro
-#                 #defesa_base= int(personagem_logico.armadura.defesa) if hasattr(personagem_logico, 'armadura') else 0
-#                 defesa_base= 0
+#         # Alimenta os componentes atualizados por cima da assinatura 1 fixada
+#         for comp_instance in self.dados_salvaguarda_jogador.values():
+#             if comp_instance:
+#                 esper.add_component(1, comp_instance)
                 
-#         ))
-        
-#         engine.add_component(player_id, InventoryComponent(itens={'espada longa': 1}))
-#         engine.add_component(player_id, EquipmentComponent())
-        
-#     else:
-#         # 💾 CARREGAR JOGO (DELTA): Restaura exatamente o snapshot do arquivo de save
-#         save_player = dados_sessao["entidades"].get(str(player_id), {})
-        
-#         engine.add_component(player_id, PositionComponent(
-#             x=save_player["pos_x"], 
-#             y=save_player["pos_y"], 
-#             direcao_olhar=save_player.get("direcao", "baixo")
-#         ))
-        
-#         saved_stats = save_player.get("stats", {})
-        
-#         engine.add_component(player_id, StatsComponent(
-#             nome=saved_stats.get("nome", personagem_logico.nome),
-#             pv=saved_stats.get("pv_atual", personagem_logico.pv_atual),
-#             pv_max=saved_stats.get("pv_max", personagem_logico.pv_max),
-#             pm=saved_stats.get("pm_atual", personagem_logico.pm_atual),
-#             pm_max=saved_stats.get("pm_max", personagem_logico.pm_max),
-#             ataque_base=saved_stats.get("ataque_base", int(personagem_logico.ataque)),
-#             defesa_base=saved_stats.get("defesa_base", int(personagem_logico.defesa))
-#         ))
-        
-#         engine.add_component(player_id, InventoryComponent(itens=save_player.get("inventario", {})))
-        
-#         saved_eqp = save_player.get("equipamento", {})
-#         engine.add_component(player_id, EquipmentComponent(
-#             arma=saved_eqp.get("arma"),
-#             armadura=saved_eqp.get("armadura")
-#         ))
-
-#     engine.add_component(player_id, CollisionComponent(solido=True))
-#     engine.add_component(player_id, RenderComponent(emoji=save_player.get("render_emoji", "🧙‍♂️") if has_save else "🧙‍♂️"))
-
-#     # ==========================================
-#     # STEP 4: RECONSTRUÇÃO DOS EVENTOS (MONSTROS / BAÚS)
-#     # ==========================================
-#     # Usamos o ID do banco do evento como ID no ECS para um mapeamento Delta indestrutível!
-#     for evt in eventos_db:
-#         entidade_id = evt.id + 100000
-#         engine.entities[entidade_id] = {} # Cria assinatura lúdica
-
-#         parametros_base = evt.parametros if evt.parametros else {}
-        
-#         # Se existe um save, conferimos se este monstro/baú tem dados guardados da sua última posição
-#         save_entidade = dados_sessao.get("entidades", {}).get(str(entidade_id)) if has_save else None
-
-#         if save_entidade:
-#             # 💾 DELTA: O monstro andou ou sofreu dano! Carrega o estado alterado do Save
-#             engine.add_component(entidade_id, PositionComponent(
-#                 x=save_entidade["pos_x"], 
-#                 y=save_entidade["pos_y"], 
-#                 direcao_olhar=save_entidade.get("direcao", "baixo")
-#             ))
-#             engine.add_component(entidade_id, RenderComponent(emoji=save_entidade.get("render_emoji", evt.emoji)))
-            
-#             is_active_atual = save_entidade.get("is_active", True)
-            
-#             if "stats" in save_entidade:
-#                 s_stats = save_entidade["stats"]
-#                 engine.add_component(entidade_id, StatsComponent(
-#                     nome=s_stats["nome"], pv=s_stats["pv_atual"], pv_max=s_stats["pv_max"],
-#                     pm=s_stats["pm_atual"], pm_max=s_stats["pm_max"], 
-#                     ataque_base=s_stats["ataque_base"], defesa_base=s_stats["defesa_base"]
-#                 ))
-#         else:
-#             # 🆕 BASE: Sem modificações salvas para este evento. Carrega o padrão do editor
-#             engine.add_component(entidade_id, PositionComponent(x=evt.pos_x, y=evt.pos_y))
-#             engine.add_component(entidade_id, RenderComponent(emoji=evt.emoji))
-#             is_active_atual = True
-            
-#             # Se for um monstro com atributos base definidos no JSON de parâmetros
-#             if "ação" in parametros_base and "mudar_pv" in parametros_base["ação"]:
-#                 val_dano = parametros_base["ação"]["mudar_pv"].get("valor", 2)
-#                 engine.add_component(entidade_id, StatsComponent(
-#                     nome="Monstro", pv=10, pv_max=10, pm=0, pm_max=0, ataque_base=val_dano, defesa_base=2
-#                 ))
-
-#         # Componentes de infraestrutura mecânica (mantêm a inteligência do JSON)
-#         solido = parametros_base.get("atravessavel", True)
-#         engine.add_component(entidade_id, CollisionComponent(solido=solido))
-#         engine.add_component(entidade_id, InteractableComponent(
-#             tipo_evento=evt.tipo_evento,
-#             parametros=parametros_base,
-#             is_active=is_active_atual
-#         ))
-
-#         if "mover" in parametros_base:
-#             engine.add_component(entidade_id, AIComponent(
-#                 tipo_movimento=parametros_base["mover"].get("direção", "aleatório"),
-#                 action_on_touch=parametros_base.get("ação", {})
-#             ))
-
-#     # ==========================================
-#     # STEP 5: OBJETOS ESTÁTICOS DO CENÁRIO
-#     # ==========================================
-#     objetos_cenario = {}
-#     if mapa_db.objetos:
-#         obj_dict = mapa_db.objetos if isinstance(mapa_db.objetos, dict) else {}
-#         for coordenada_str, emoji in obj_dict.items():
-#             try:
-#                 y_str, x_str = coordenada_str.split(",")
-#                 objetos_cenario[(int(y_str), int(x_str))] = emoji
-#             except ValueError:
-#                 continue
-
-#     return engine, mapa_db.mapa_em_si, objetos_cenario, mapa_id
+#     def _processar_camada_objetos(self, mapa_db):
+#         """🌟 Traduz o dicionário de objetos com chaves string 'y,x' para tuplas de inteiros (y, x)."""
+#         objetos_convertidos = {}
+#         if mapa_db and mapa_db.objetos:
+#             obj_raw = mapa_db.objetos if isinstance(
+#                 mapa_db.objetos, dict) else {}
+#             for coord_str, emoji in obj_raw.items():
+#                 try:
+#                     y_str, x_str = coord_str.split(",")
+#                     objetos_convertidos[(int(y_str), int(x_str))] = emoji
+#                 except Exception:
+#                     pass
+#         self.camada_objetos = objetos_convertidos

@@ -68,7 +68,7 @@ class GameStateManager:
                         "ataque_base": stats.ataque_base, "defesa_base": stats.defesa_base
                     } if stats else None,
                     "InteractableComponent": {
-                        "tipo_evento": interact.tipo_evento,
+                        "event_type": interact.event_type,
                         "parametros": interact.parametros
                     } if interact else None
                 }
