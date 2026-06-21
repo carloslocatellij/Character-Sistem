@@ -35,6 +35,7 @@ propcache==0.5.2
 pycparser==3.0
 pydantic==2.13.0
 pydantic_core==2.46.0
+pyfiglet==1.0.4
 Pygments==2.20.0
 pytest==8.0.0
 python-dotenv==1.2.2

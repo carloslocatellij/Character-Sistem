@@ -103,16 +103,14 @@ class MovementSystem:
 
 
 class AISystem:
-    def __init__(self, engine_manager, movement_system, event_bus=None):
-        self.engine = engine_manager
+    def __init__(self, movement_system):
         self.movement_system = movement_system
-        self.event_bus = event_bus
 
     def update(self):
         """Processa movimento autônomo de monstros/NPCs a cada tick."""
         for ent_id, (pos_comp, ai_comp) in esper.get_components(PositionComponent, AIComponent):
             # Só processa monstros com movimento aleatório por enquanto
-            if ai_comp.tipo_movimento != "aleatório":
+            if ai_comp.movement_type != "aleatório":
                 continue
 
             # Escolhe uma direção aleatória (4 direções + ficar parado)
@@ -152,8 +150,6 @@ class AISystem:
 class InventarySystem():
     """ Gerencia estoques de baús e o inventário do personagem. 
     """
-       
-
 
     def _get_inventory_mapping(self, inv):
         itens = getattr(inv, "itens", None)

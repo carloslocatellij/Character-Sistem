@@ -39,6 +39,7 @@ class GameStateManager:
             elif operacao == "-":
                 self.variables[nome] = atual - valor
 
+
     # ==========================================
     # PERSISTÊNCIA ATÔMICA DO MUNDO (ESPER ECS ➡️ BD)
     # ==========================================

@@ -99,11 +99,7 @@ class GamePlayScreen(Screen):
             self.event_sys = EventSystem(
                 self.invSys, self.game_state, self.log_mensagem)
             self.interacao_sys = InteractionSystem()
-            self.ai_sys = AISystem(self.loader, self.movimento_sys)
-            
-            
-            self.ai_sys = AISystem(self.loader,
-                                   self.movimento_sys)
+            self.ai_sys = AISystem(self.movimento_sys)
             
             
             # self.loader.event_bus.subscribe(
@@ -179,7 +175,7 @@ class GamePlayScreen(Screen):
             #                        self.movimento_sys, self.loader.event_bus)
             self.movimento_sys = MovementSystem(self.loader)
             self.interacao_sys = InteractionSystem()
-            self.ai_sys = AISystem(self.loader, self.movimento_sys)
+            self.ai_sys = AISystem(self.movimento_sys)
             
         except Exception as e:
             self.log_mensagem(f"Erro ao Re-instaciar sistemas: {e}")
