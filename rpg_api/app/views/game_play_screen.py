@@ -14,6 +14,7 @@ from app.core.engine.components import (PositionComponent, RenderComponent,
                                         InventoryComponent, EquipmentComponent                                       
 )
 from app.core.engine.game_state import GameStateManager
+from app.packages.stylewriter import ChatLog
 import logging
 logging.basicConfig(level=logging.INFO, filename="log.log", filemode="a")
 
@@ -64,13 +65,15 @@ class GamePlayScreen(Screen):
                 
             # Área de Interação Combinada: Histórico (Log) + Entrada de Texto (Terminal Input)
             with Container(id="area-interacao-container"):
-                yield RichLog(id="area-interacao", markup=True)
+                yield ChatLog(id="area-interacao") #markup=True)
                 yield Input(placeholder="Digite um comando... (ex: /usar poção, /equipar espada_fogo)", id="terminal-prompt")
 
     
     def on_mount(self):
         self.log_mensagem(
-            "[bold yellow]>>> Inicializando sistemas de campanha...[/]")
+            "[bold blue] Nome do meu Mundo![/]",
+            estilo='slant'
+            )
         
         try:
             with SessionLocal() as db_session:
@@ -219,14 +222,15 @@ class GamePlayScreen(Screen):
         # 4. Atualiza a tela para o jogador ver o novo cenário imediatamente
         self.atualizar_tudo()
             
-    def log_mensagem(self, texto: str):
+    def log_mensagem(self, texto: str, estilo=None):
         """Injeta mensagens formatadas no painel lateral de logs."""
         try:
-            self.query_one("#log-eventos", RichLog).write(texto)
+            self.query_one("#log-eventos", ChatLog).escrever(texto, estilo=estilo)
         except Exception:
             pass
         try:
-            self.query_one("#area-interacao", RichLog).write(texto)
+            self.query_one("#area-interacao", ChatLog).escrever(texto, estilo=estilo)
+            self.query_one("#area-interacao").scroll_end()
         except Exception:
             pass
 
@@ -255,9 +259,8 @@ class GamePlayScreen(Screen):
         self.atualizar_tudo()
 
     def ao_levar_ataque(self, dados_ataque):
-        log = self.query_one("#area-interacao", RichLog)
+        log = self.query_one("#area-interacao", ChatLog)
         dano = dados_ataque.get("mudar_hp", {}).get("valor", 1)
-        self.log_mensagem(f'dano: {dano} - dados ataque: {dados_ataque}')
         
         stats = esper.component_for_entity(1, StatsComponent)
         if stats:
@@ -357,7 +360,7 @@ class GamePlayScreen(Screen):
         else:
             texto = event.value.strip().lower()
             
-        log = self.query_one("#area-interacao", RichLog)
+        log = self.query_one("#area-interacao", ChatLog)
         prompt = self.query_one("#terminal-prompt", Input)
         
         # Limpa o input para o próximo comando

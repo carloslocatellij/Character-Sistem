@@ -282,6 +282,7 @@ class EventSystem:
                 return
             
             params = payload.get("parametros", {})
+            self.parms = params
             self.entidade_atual_id = payload.get("entidade_id")
             self.aguardando_escolha = False
             
@@ -294,7 +295,7 @@ class EventSystem:
             if not pagina_ativa:
                 return
                 
-            gatilho = pagina_ativa.get("gatilho", "acao_jogador")
+            gatilho = pagina_ativa.get("gatilho", "acao_jogador") #não usado?
             
             comandos = pagina_ativa.get("comandos", [])
             
@@ -375,6 +376,7 @@ class EventSystem:
         while self.pilha_de_comandos:
             bloco_atual = self.pilha_de_comandos[-1]
 
+            
             if not bloco_atual:
                 self.pilha_de_comandos.pop()
                 continue
@@ -392,12 +394,13 @@ class EventSystem:
         tipo = comando.get("tipo")
         dados = comando.get("dados", {})        
         entidade_id = self.entidade_atual_id
+        emoji = self.parms.get('paginas')[0].get('configuracao_visual', {}).get('emoji', '💬') if self.parms.get('paginas') else '💬'
         
         logging.info(f"comando: {comando}")
 
         if tipo == "mensagem":
             texto = dados.get("texto", "")
-            self.log_callback(f"[cyan]💬 {texto}[/]")
+            self.log_callback(f"[cyan]{emoji} {texto}[/]")
         
         
         elif tipo == "mudar_inventario":
@@ -408,10 +411,10 @@ class EventSystem:
             if inv:
                 if operacao == "add":
                     self.inv_sys._inventory_add_item(inv, item, qtd)
-                    self.log_callback(f"[bold cyan]🎁 Obteve: [yellow]{item} x{qtd}[/yellow]![/]")
+                    self.log_callback(f"[bold cyan]🎁 Obteve: [yellow]{item} x{qtd}[/]![/]")
                 elif operacao == "sub":
                     self.inv_sys._inventory_remove_item(inv, item, qtd)
-                    self.log_callback(f"[bold red]❌ Perdeu: [yellow]{item} x{qtd}[/yellow]![/]")
+                    self.log_callback(f"[bold red]❌ Perdeu: [yellow]{item} x{qtd}[/]![/]")
                     
         elif tipo == "mudar_status_heroi":
             parametro = dados.get("parametro")
