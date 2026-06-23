@@ -224,27 +224,13 @@ class GamePlayScreen(Screen):
             
     def log_mensagem(self, texto: str, estilo=None, velocidade: float = 0.05, notif=False):
         """Injeta mensagens formatadas no painel lateral de logs."""
-        
-        def escreve_msg_por_vez():
+        if notif:
+            self.notify(texto, title="Noticia", severity="information")
+        else:
             try:
                 self.query_one("#area-interacao", ChatLog).escrever(texto, estilo=estilo, velocidade=velocidade)
-                self.query_one("#area-interacao").scroll_end()
-            except Exception:
-                logging.error(f"Erro ao escrever mensagem no log.: {texto}")
-                
-        esper.set_handler('escreve', escreve_msg_por_vez)
-        numero_de_mensagens_no_handler = len(esper.event_registry.get('escreve', []))
-        
-        if not notif:
-            while numero_de_mensagens_no_handler >= 0:
-                if numero_de_mensagens_no_handler == 1:
-                    self.set_interval(velocidade * len(texto)*2,
-                                    esper.dispatch_event('escreve'), repeat=1)
-                    
-                    esper.remove_handler('escreve', escreve_msg_por_vez)
-                numero_de_mensagens_no_handler -= 1
-        else:
-            self.notify(texto, title="Noticia", severity="information")
+            except Exception as e:
+                logging.error(f"Erro ao escrever mensagem no log: {e}")
             
 
     def game_tick(self):

@@ -23,6 +23,7 @@ class MensagemAnimada(Static):
         self.linhas_figlet = []
         self.max_colunas = 0
         self.passo_atual = 0
+
     def on_mount(self) -> None:
         # 1. Processa o texto inicial (Pyfiglet ou Puro)
         if self.estilo_figlet:
@@ -51,6 +52,8 @@ class MensagemAnimada(Static):
                 self.velocidade, self.avancar_animacao)
         else:
             self.update(self.texto_final)
+            if self.parent and hasattr(self.parent, "on_mensagem_terminada"):
+                self.parent.on_mensagem_terminada()
             
     def avancar_animacao(self) -> None:
         """Avança um frame da animação a cada tique do timer."""
@@ -59,6 +62,8 @@ class MensagemAnimada(Static):
         # Condição de parada: a animação chegou ao fim
         if self.passo_atual > self.max_colunas:
             self.timer_animacao.stop()
+            if self.parent and hasattr(self.parent, "on_mensagem_terminada"):
+                self.parent.on_mensagem_terminada()
             return self.timer_animacao
 
         if not self.linhas_figlet:
@@ -71,8 +76,8 @@ class MensagemAnimada(Static):
             self.update("\n".join(frame_atual))
 
         # Força o chat a rolar para baixo enquanto o texto cresce
-        # self.app.query_one(
-        #     self._id, ChatLog).scroll_end()
+        if self.parent:
+            self.parent.scroll_end()
 
 
 class ChatLog(VerticalScroll):
@@ -89,10 +94,20 @@ class ChatLog(VerticalScroll):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self._id = kwargs.get("id", "area-interacao")
+        self.fila_mensagens = []
+        self.mensagem_ativa = None
 
     def escrever(self, texto: str, estilo: str | None = None, velocidade: float = 0.01) -> None:
-        """Adiciona uma nova mensagem ao log e inicia o efeito de máquina de escrever."""
-        
+        """Adiciona uma nova mensagem à fila e inicia a reprodução se ocioso."""
+        self.fila_mensagens.append((texto, estilo, velocidade))
+        self.processar_fila()
+
+    def processar_fila(self) -> None:
+        """Processa a próxima mensagem da fila."""
+        if self.mensagem_ativa is not None or not self.fila_mensagens:
+            return
+
+        texto, estilo, velocidade = self.fila_mensagens.pop(0)
         try:
             nova_mensagem = MensagemAnimada(
                 texto=texto,
@@ -105,9 +120,17 @@ class ChatLog(VerticalScroll):
             logging.error(f"Erro ao criar MensagemAnimada: {e}")
             nova_mensagem = Static(texto)  # Fallback simples sem animação
 
-        # Monta o widget dentro do scroll de histórico
+        self.mensagem_ativa = nova_mensagem
         self.mount(nova_mensagem)
-        return nova_mensagem
+
+        if not hasattr(nova_mensagem, "max_colunas") or nova_mensagem.max_colunas <= 0:
+            self.on_mensagem_terminada()
+
+    def on_mensagem_terminada(self) -> None:
+        """Notificado quando uma mensagem termina de ser impressa."""
+        self.mensagem_ativa = None
+        self.scroll_end()
+        self.processar_fila()
 
 
 #Daqui para baixo é só para testes.
