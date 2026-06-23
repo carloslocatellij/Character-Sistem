@@ -71,7 +71,7 @@ class GamePlayScreen(Screen):
     
     def on_mount(self):
         self.log_mensagem(
-            "[bold blue] Nome do meu Mundo![/]",
+            "Olá",
             estilo='slant'
             )
         
@@ -222,17 +222,32 @@ class GamePlayScreen(Screen):
         # 4. Atualiza a tela para o jogador ver o novo cenário imediatamente
         self.atualizar_tudo()
             
-    def log_mensagem(self, texto: str, estilo=None):
+    def log_mensagem(self, texto: str, estilo=None, velocidade: float = 0.05):
         """Injeta mensagens formatadas no painel lateral de logs."""
-        try:
-            self.query_one("#log-eventos", ChatLog).escrever(texto, estilo=estilo)
-        except Exception:
-            pass
-        try:
-            self.query_one("#area-interacao", ChatLog).escrever(texto, estilo=estilo)
-            self.query_one("#area-interacao").scroll_end()
-        except Exception:
-            pass
+        import time
+        def escreve_msg_por_vez():
+            try:
+                escrevendo = self.query_one("#area-interacao", ChatLog).escrever(texto, estilo=estilo, velocidade=velocidade)
+                self.query_one("#area-interacao").scroll_end()
+            except Exception:
+                logging.error(f"Erro ao escrever mensagem no log.: {texto}")
+                
+        esper.set_handler('escreve', escreve_msg_por_vez)
+        
+        numero_de_mensagens_no_handler = len(esper.event_registry.get('escreve', []))
+ 
+        
+        while numero_de_mensagens_no_handler >= 0:
+            
+            if numero_de_mensagens_no_handler == 1:
+        
+                self.set_interval(velocidade * len(texto),
+                                esper.dispatch_event('escreve'), repeat=1)
+                
+                esper.remove_handler('escreve', escreve_msg_por_vez)
+            numero_de_mensagens_no_handler -= 1
+        
+            
 
     def game_tick(self):
         if self.ai_sys:

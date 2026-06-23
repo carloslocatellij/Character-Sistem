@@ -3,6 +3,7 @@ from pyfiglet import figlet_format, FontNotFound
 from textual.app import App, ComposeResult
 from textual.containers import VerticalScroll
 from textual.widgets import Header, Footer, Input, Static
+import esper
 import logging
 logging.basicConfig(level=logging.INFO, filename="log.log", filemode="a")
 
@@ -58,7 +59,7 @@ class MensagemAnimada(Static):
         # Condição de parada: a animação chegou ao fim
         if self.passo_atual > self.max_colunas:
             self.timer_animacao.stop()
-            return
+            return self.timer_animacao
 
         if not self.linhas_figlet:
             # Renderiza texto puro progressivamente
@@ -80,11 +81,8 @@ class ChatLog(VerticalScroll):
     DEFAULT_CSS = """
     ChatLog {
         background: $surface;
-        border: tall $primary;
-        padding: 1 2;
     }
     MensagemAnimada {
-        margin-bottom: 1;
         height: auto;
     }
     """
@@ -94,6 +92,7 @@ class ChatLog(VerticalScroll):
 
     def escrever(self, texto: str, estilo: str | None = None, velocidade: float = 0.01) -> None:
         """Adiciona uma nova mensagem ao log e inicia o efeito de máquina de escrever."""
+        
         try:
             nova_mensagem = MensagemAnimada(
                 texto=texto,
@@ -108,7 +107,7 @@ class ChatLog(VerticalScroll):
 
         # Monta o widget dentro do scroll de histórico
         self.mount(nova_mensagem)
-
+        return nova_mensagem
 
 
 #Daqui para baixo é só para testes.
