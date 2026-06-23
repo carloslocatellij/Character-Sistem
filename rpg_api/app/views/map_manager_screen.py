@@ -14,7 +14,8 @@ from app.core.entities.mapas import GestorDeMapas
 from app.db.database import SessionLocal
 from app.models.mapas_db import MapaDB
 from app.models.eventos_db import EventoDB
-from app.core.entities.emojis import CatalogoTiles, padronizar_largura_tile
+from app.models.equipamentos_db import ItemDB
+from app.core.entities.emojis import CatalogoTiles, padronizar_largura_tile, dict_item_emoji, dict_emoji_efeito, dict_emoji_racas
 from rich.text import Text
 
 import rich.cells
@@ -359,33 +360,7 @@ class MapManagerScreen(Screen):
         self.historico_desfazer.append(snapshot)
         self.historico_refazer.clear()
 
-    # @on(MapaInterativo.Pintar)
-    # def processar_pintura(self, event: MapaInterativo.Pintar):
-    #     if self.mapa_atual_matriz is None: return 
-            
-    #     linha, coluna = event.linha, event.coluna
-        
-    #     if 0 <= linha < len(self.mapa_atual_matriz) and 0 <= coluna < len(self.mapa_atual_matriz[0]):
-            
-    #         if event.inicio_de_traco:
-    #             self.salvar_estado_historico()
 
-    #         tipo_pincel = CatalogoTiles.obter_tipo(self.tile_selecionado)
-            
-    #         if self.tile_selecionado == "❌":
-    #             # MODO BORRACHA: Apaga o objeto daquela coordenada (se existir)
-    #             if (linha, coluna) in self.mapa_atual_objetos:
-    #                 del self.mapa_atual_objetos[(linha, coluna)]
-    #         elif tipo_pincel == "terreno":
-    #             # MODO TERRENO: Atualiza apenas a matriz base
-    #             if self.mapa_atual_matriz[linha][coluna] != self.tile_selecionado:
-    #                 self.mapa_atual_matriz[linha][coluna] = self.tile_selecionado
-    #         elif tipo_pincel == "objeto":
-    #             # MODO OBJETO: Adiciona/Atualiza no dicionário de entidades
-    #             self.mapa_atual_objetos[(linha, coluna)] = self.tile_selecionado
-
-    #         self.tem_alteracoes = True
-    #         self.exibir_mapa_na_tela()
     @on(MapaInterativo.Pintar)
     def processar_pintura(self, event: MapaInterativo.Pintar):
         if self.mapa_atual_matriz is None: return 
@@ -983,6 +958,11 @@ class PropriedadesEventoFormScreen(ModalScreen[dict]):
         self.pagina_atual_idx = 0
 
     def compose(self):
+        itens_set = set([  v for sub_dict in dict_item_emoji.values() for k, v in sub_dict.items()])
+        racas_set = set([v for _,v in dict_emoji_racas.items()])
+        efeitos_set = set([v for _,v in dict_emoji_efeito.items()])
+        coletanea_emoji = list([*itens_set, *racas_set, *efeitos_set, *CatalogoTiles.OBJETOS])
+        
         with Vertical(id="evt-caixa-full"):
             titulo = f"⚙️ Evento em [{self.linha},{self.coluna}]"
             yield Label(titulo, classes="titulo-secao")
@@ -991,7 +971,8 @@ class PropriedadesEventoFormScreen(ModalScreen[dict]):
                 yield Label("Nome:", classes="campo-rotulo")
                 yield Input(value=self.dados_existentes.get("nome", f"ev_{self.linha}_{self.coluna}"), id="evt-nome")
                 yield Label("Emoji:", classes="campo-rotulo")
-                yield Input(value=self.emoji, id="evt-emoji")
+                
+                yield Select([(v, v) for v in coletanea_emoji] +  [(self.emoji, self.emoji)]                             , value=self.emoji, id="evt-emoji")
             
             with Horizontal(classes="linha-dupla"):
                 yield Label("Página:", classes="campo-rotulo")
@@ -1036,8 +1017,10 @@ class PropriedadesEventoFormScreen(ModalScreen[dict]):
                     ], value="nenhum", id="evt-self-switch")
                 
                 # --- Item Requerido ---
+                
                 with Horizontal(classes="linha-dupla"):
                     yield Label("Item Requerido:", classes="campo-rotulo")
+                    
                     yield Input(placeholder="(vazio = sem requisito)", id="evt-item-requerido", value="")
             
             yield Label("Comandos da Página:", classes="campo-rotulo")
@@ -1079,7 +1062,7 @@ class PropriedadesEventoFormScreen(ModalScreen[dict]):
         if switches:
             linhas_sw = []
             for i, sw in enumerate(switches):
-                val_str = "✅" if sw.get("valor", True) else "❌"
+                val_str = "✅ True" if sw.get("valor", True) else "❌ False"
                 linhas_sw.append(f"  [{i}] {sw['nome']} = {val_str}")
             texto_sw = "\n".join(linhas_sw) + "\n  (Clique num switch na lista de comandos para remover)"
         else:
@@ -1376,11 +1359,13 @@ class AdicionarComandoScreen(ModalScreen[dict]):
         with Vertical(id="add-cmd-caixa"):
             yield Label("Escolha o tipo de Comando", classes="titulo-secao")
             yield Select([
-                ("Mensagem (Texto)", "mensagem"),
+                ("Mensagem no prompt (Texto)", "mensagem"),
+                ("Notificação na tela (Texto)", "noficação"),
                 ("Teleporte (Mudar Mapa/Posição)", "teleporte"),
                 ("Inventário (Add/Sub)", "mudar_inventario"),
                 ("Status do Herói (HP/MP)", "mudar_status_heroi"),
                 ("Bifurcação Condicional (Opções)", "bifurcacao_condicional"),
+                ("Variável (Valor)", "controle_variavel"),
                 ("Switch (Liga/Desliga)", "controle_switch"),
                 ("Self Switch (Local)", "controle_self_switch")
             ], id="cmd-tipo")
@@ -1405,6 +1390,9 @@ class AdicionarComandoScreen(ModalScreen[dict]):
             
         if tipo == "mensagem":
             container.mount(Input(placeholder="Texto da mensagem (Use tags [color] se quiser)", id="cmd-msg-texto", value=dados.get("texto", "")))
+        elif tipo == "notificação":
+            container.mount(Input(placeholder="Texto da notificação (Use tags [color] se quiser)", id="cmd-notif-texto", value=dados.get("texto", "")))
+
         elif tipo == "teleporte":
             container.mount(Input(placeholder="ID do Mapa Destino", id="cmd-tel-mapa", value=str(dados.get("mapa_id", ""))))
             container.mount(Input(placeholder="Coordenada X (Coluna)", id="cmd-tel-x", value=str(dados.get("pos_x", ""))))
@@ -1425,13 +1413,17 @@ class AdicionarComandoScreen(ModalScreen[dict]):
             container.mount(Input(placeholder="Opção 1 (ex: Sim)", id="cmd-bif-op1", value=op1))
             container.mount(Input(placeholder="Opção 2 (ex: Não)", id="cmd-bif-op2", value=op2))
         elif tipo == "controle_switch":
-            container.mount(Input(placeholder="Nome da Variável Switch", id="cmd-sw-nome", value=dados.get("nome", "")))
+            container.mount(Input(placeholder="Nome da Switch", id="cmd-sw-nome", value=dados.get("nome", "")))
             val_str = "true" if dados.get("valor", True) else "false"
             container.mount(Select([("Ligar (True)", "true"), ("Desligar (False)", "false")], value=val_str, id="cmd-sw-valor"))
         elif tipo == "controle_self_switch":
             container.mount(Select([("A", "A"), ("B", "B"), ("C", "C"), ("D", "D")], value=dados.get("letra", "A"), id="cmd-ssw-letra"))
             val_str = "true" if dados.get("valor", True) else "false"
             container.mount(Select([("Ligar (True)", "true"), ("Desligar (False)", "false")], value=val_str, id="cmd-ssw-valor"))
+        elif tipo == "controle_variavel":
+            container.mount(Input(placeholder="Nome da Variável", id="cmd-variavel-nome", value=dados.get("nome", "")))
+            val_str = self.query_one("#cmd-variavel-nome").value 
+            container.mount(Input(placeholder="Valor atribuido", id="cmd-variavel-valor", value=dados.get("valor", "")))
 
     def on_button_pressed(self, event: Button.Pressed):
         if event.button.id == "btn-cancel":
@@ -1445,6 +1437,8 @@ class AdicionarComandoScreen(ModalScreen[dict]):
             try:
                 if tipo == "mensagem":
                     comando["dados"]["texto"] = self.query_one("#cmd-msg-texto").value
+                elif tipo == "notificação":
+                    comando["dados"]["texto"] = self.query_one("#cmd-notif-texto").value
                 elif tipo == "teleporte":
                     comando["dados"]["mapa_id"] = int(self.query_one("#cmd-tel-mapa").value)
                     comando["dados"]["pos_x"] = int(self.query_one("#cmd-tel-x").value)
@@ -1478,6 +1472,11 @@ class AdicionarComandoScreen(ModalScreen[dict]):
                 elif tipo == "controle_self_switch":
                     comando["dados"]["letra"] = self.query_one("#cmd-ssw-letra").value
                     comando["dados"]["valor"] = self.query_one("#cmd-ssw-valor").value == "true"
+                elif tipo == "controle_variavel":
+                    comando["dados"]["nome"] = self.query_one("#cmd-variavel-nome").value
+                    comando["dados"]["valor"] = self.query_one("#cmd-variavel-valor").value
+
+                
             except Exception as e:
                 self.notify(f"Erro ao salvar comando: Preencha os campos corretamente", severity="error")
                 return

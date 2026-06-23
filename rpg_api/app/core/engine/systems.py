@@ -231,7 +231,7 @@ class InteractionSystem:
     def interagir(self, entidade_id: int, direcao_olhar: str) -> bool:
         """
         Verifica se há um evento à frente do jogador (ID 1).
-        Se houver, publica as informações e parâmetros do evento para o EventBus,
+        Se houver, publica as informações e parâmetros do evento para o esper,
         delegando a responsabilidade de execução para o EventSystem.
         """
         pos_origem = esper.component_for_entity(entidade_id, PositionComponent)
@@ -402,7 +402,10 @@ class EventSystem:
             texto = dados.get("texto", "")
             self.log_callback(f"[cyan]{emoji} {texto}[/]")
         
-        
+        elif tipo == "notificação":
+            texto = dados.get("texto", "")
+            self.log_callback(f"{texto}", notif=True)
+
         elif tipo == "mudar_inventario":
             item = dados.get("item")
             operacao = dados.get("operacao")

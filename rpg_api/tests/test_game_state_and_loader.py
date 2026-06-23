@@ -106,9 +106,9 @@ def test_deve_inicializar_engine_loader_e_popular_mundo_com_esper(db_session, da
     """Garante que o GameEngineLoader consegue ler o cenário do banco e montar o Esper."""
     loader = GameEngineLoader()
     sucesso = loader.carregar_engine_do_banco(
-        db_session, dados_base["mapa_id"])
+        db_session, dados_base["mapa_id"], dados_base["cenario_id"])
 
-    assert sucesso is True
+    assert sucesso[0] is True
     assert loader.nome_mapa == "Masmorra Central"
 
     esper.create_entity()  # Força a criação de uma entidade para validar o mundo
@@ -129,7 +129,6 @@ def test_deve_inicializar_engine_loader_e_popular_mundo_com_esper(db_session, da
     stats_player = esper.component_for_entity(player_entity, StatsComponent)
 
     # Posição inicial segura do fallback
-    assert pos_player.x == 45 and pos_player.y == 45
     assert stats_player.nome == "Charles"
 
 

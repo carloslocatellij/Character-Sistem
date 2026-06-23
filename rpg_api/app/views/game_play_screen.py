@@ -222,31 +222,29 @@ class GamePlayScreen(Screen):
         # 4. Atualiza a tela para o jogador ver o novo cenário imediatamente
         self.atualizar_tudo()
             
-    def log_mensagem(self, texto: str, estilo=None, velocidade: float = 0.05):
+    def log_mensagem(self, texto: str, estilo=None, velocidade: float = 0.05, notif=False):
         """Injeta mensagens formatadas no painel lateral de logs."""
-        import time
+        
         def escreve_msg_por_vez():
             try:
-                escrevendo = self.query_one("#area-interacao", ChatLog).escrever(texto, estilo=estilo, velocidade=velocidade)
+                self.query_one("#area-interacao", ChatLog).escrever(texto, estilo=estilo, velocidade=velocidade)
                 self.query_one("#area-interacao").scroll_end()
             except Exception:
                 logging.error(f"Erro ao escrever mensagem no log.: {texto}")
                 
         esper.set_handler('escreve', escreve_msg_por_vez)
-        
         numero_de_mensagens_no_handler = len(esper.event_registry.get('escreve', []))
- 
         
-        while numero_de_mensagens_no_handler >= 0:
-            
-            if numero_de_mensagens_no_handler == 1:
-        
-                self.set_interval(velocidade * len(texto),
-                                esper.dispatch_event('escreve'), repeat=1)
-                
-                esper.remove_handler('escreve', escreve_msg_por_vez)
-            numero_de_mensagens_no_handler -= 1
-        
+        if not notif:
+            while numero_de_mensagens_no_handler >= 0:
+                if numero_de_mensagens_no_handler == 1:
+                    self.set_interval(velocidade * len(texto)*2,
+                                    esper.dispatch_event('escreve'), repeat=1)
+                    
+                    esper.remove_handler('escreve', escreve_msg_por_vez)
+                numero_de_mensagens_no_handler -= 1
+        else:
+            self.notify(texto, title="Noticia", severity="information")
             
 
     def game_tick(self):

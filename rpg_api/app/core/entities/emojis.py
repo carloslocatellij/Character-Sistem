@@ -15,9 +15,9 @@ class CatalogoTiles:
                 "🛶", "🧊", "📦", "📖", "📚", "🏴",
                 "🍖", "🍗", "🍕", "🍺", "🍞", "🎃",
                 "🧪", "🪑", "☕", "🚪" , "🦴", "💀",
-                "🔱", "🗿", "🔹", "🍒", "🍀"]
+                "🔱", "🗿", "🔹", "🍒", "🍀", ]
     
-    EVENTOS = ["📦", "🧙", "👾", "🚪", "🧷"]
+    EVENTOS = ["📦", "🧙", "👾", "🚪", "🧷", ""]
     
     # Mapeamento de cores de fundo para os terrenos
     CORES_BG = {
@@ -53,8 +53,7 @@ dict_item_emoji = {
                   "capa": "🧥", "luvas": "🧤", "elmo": "🧢", "botas": "👢", "cap": "🧢",},
     "escudos": {"escudo": "🛡️",  "escudo de ferro": "🛡️", "escudo de madeira": "🛡️",},
     "outros": {
-            "bau": "💼", 
-            "bau de ferro": "💼",
+        "bau": "💼",
             "bau de madeira": "💼",
             "bau de ouro": "💼",
             "poção": "🧪",
@@ -65,11 +64,8 @@ dict_item_emoji = {
             "livro" : "📖",
             "livro de feitiços": "📖",
             "pergaminho": "📜",
-            "amuleto": "🪬",
             "tocha": "🔥", 
-            "moeda": "🪙",
             "saco de moedas": "💰",
-            "corda": "🪢",  
             "anel": "💍",
             "colar": "📿",
             "bracelete": "📿",
@@ -79,19 +75,19 @@ dict_item_emoji = {
         }
 
 dict_emoji_efeito = {
-        "fogo": "🔥", "agua": "🌊", "terra": "🪨", "ar": "🌬️",
-        "luz": "🌅", "trevas": "🪯", "eter": "🌌", "sangue": "🩸",
+        "fogo": "🔥", "agua": "🌊", "terra": "🟤", "ar": "🌬️",
+        "luz": "🌅", "trevas": "💫", "eter": "🌌", "sangue": "🩸",
         "raio": "⚡", "planta": "🌱", "metal": "🔩", 
         }
 
 dict_emoji_racas = {
-        "humano": "👨‍🦱", 
+        "humano": "👨", 
         "orc": "🐷",
         "goblin": "👾",
         "elfo": "🧝",
-        "anão": "🧔🏽",
+        "anão": "🧔",
         "troll": "🤢",
-        "zumbi": "🧟‍♂️",
+        "zumbi": "🧟",
         "vampiro": "🧛",
         "golem": "🤖",
         "ogro": "👹",
@@ -100,11 +96,11 @@ dict_emoji_racas = {
         "anjo": "👼",
         "demonio": "😈",
         "fada": "🧚",
-        "sereia": "🧜‍♀️",
+        "sereia": "🧜",
         "centauro": "🐎",
         "minotauro": "🐂",
         "esqueleto": "💀",
-        "mumia": "🧟‍♀️",
+        "mumia": "🧟",
         "licantropo": "🐺",
         "elemental": "🌪️",
         "homenlagarto": "🦖",

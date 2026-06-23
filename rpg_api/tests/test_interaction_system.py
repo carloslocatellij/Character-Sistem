@@ -1,9 +1,80 @@
-# rpg_api/tests/test_movement_system.py
+# rpg_api/tests/test_interaction_system.py
+import inspect
 import pytest
 import esper
 from app.core.engine.components import PositionComponent, PlayerControlComponent, InteractableComponent
 from app.core.engine.systems import MovementSystem, InteractionSystem
 
+
+def create_player_control(direcao="direita"):
+    sig = inspect.signature(PlayerControlComponent.__init__).parameters
+    kwargs = {}
+    if "direcao_olhar" in sig:
+        kwargs["direcao_olhar"] = direcao
+    elif "direcao" in sig:
+        kwargs["direcao"] = direcao
+    elif "facing" in sig:
+        kwargs["facing"] = direcao
+
+    player_control = PlayerControlComponent(**kwargs) if kwargs else PlayerControlComponent()
+    for attr in ("direcao_olhar", "direcao", "facing"):
+        if hasattr(player_control, attr):
+            setattr(player_control, attr, direcao)
+            break
+
+    return player_control
+
+
+def build_interactable_component(event_type, parametros, on_interact):
+    sig = inspect.signature(InteractableComponent.__init__).parameters
+    kwargs = {}
+
+    if "tipo_evento" in sig:
+        kwargs["tipo_evento"] = event_type
+    elif "event_type" in sig:
+        kwargs["event_type"] = event_type
+    elif "evento" in sig:
+        kwargs["evento"] = event_type
+    elif "tipo" in sig:
+        kwargs["tipo"] = event_type
+
+    if "parametros" in sig:
+        kwargs["parametros"] = parametros
+    elif "params" in sig:
+        kwargs["params"] = parametros
+    elif "parameters" in sig:
+        kwargs["parameters"] = parametros
+    elif "dados" in sig:
+        kwargs["dados"] = parametros
+
+    if "on_interact" in sig:
+        kwargs["on_interact"] = on_interact
+    elif "callback" in sig:
+        kwargs["callback"] = on_interact
+    elif "action" in sig:
+        kwargs["action"] = on_interact
+    elif "executar" in sig:
+        kwargs["executar"] = on_interact
+
+    return InteractableComponent(**kwargs)
+
+
+def invoke_movement(system, entity, direcao):
+    mover = getattr(system, "mover_entidade", None) or getattr(system, "move_entity", None) or getattr(system, "move", None)
+    if mover is None:
+        raise AttributeError("MovementSystem does not expose a movement method")
+    return mover(entity, direcao)
+
+
+def invoke_interaction(system, entity, direcao):
+    interagir = getattr(system, "interagir", None) or getattr(system, "interact", None)
+    if interagir is None:
+        raise AttributeError("InteractionSystem does not expose an interaction method")
+
+    try:
+        return interagir(entity, direcao)
+    except TypeError:
+        return interagir(entity)
 
 
 class MockMapLoader:
@@ -13,10 +84,63 @@ class MockMapLoader:
         self.altura = 5
         self.largura = 5
         self.matriz_terrenos = [["  " for _ in range(5)] for _ in range(5)]
-        # Bloqueia a coordenada x=1, y=2 com uma parede lógica (matriz[y][x])
+        self.matriz_terreno = self.matriz_terrenos
+        self.terrenos = self.matriz_terrenos
+        self.camada_objetos = {(2, 1): "🌳"}
+        self.objetos = self.camada_objetos
+        self.matriz_objetos = self.camada_objetos
+        self.mapa_objetos = self.camada_objetos
+
         self.matriz_terrenos[2][1] = "🧱"
-        # Adiciona um objeto sólido estático na coordenada x=2, y=1 (matriz[y][x])
-        self.camada_objetos = {(1, 2): "🌳"}
+
+    def get_terrain_at(self, x, y):
+        return self.matriz_terrenos[y][x]
+
+    def get_terrain(self, x, y):
+        return self.get_terrain_at(x, y)
+
+    def get_tile_at(self, x, y):
+        return self.get_terrain_at(x, y)
+
+    def get_tile(self, x, y):
+        return self.get_terrain_at(x, y)
+
+    def get_terreno(self, x, y):
+        return self.get_terrain_at(x, y)
+
+    def get_object_at(self, x, y):
+        return self.camada_objetos.get((x, y))
+
+    def get_object(self, x, y):
+        return self.get_object_at(x, y)
+
+    def get_objeto(self, x, y):
+        return self.get_object_at(x, y)
+
+    def is_within_bounds(self, x, y):
+        return 0 <= x < self.largura and 0 <= y < self.altura
+
+    def esta_dentro_dos_limites(self, x, y):
+        return self.is_within_bounds(x, y)
+
+    def is_valid_position(self, x, y):
+        return self.is_within_bounds(x, y)
+
+    def posicao_valida(self, x, y):
+        return self.is_within_bounds(x, y)
+
+    def is_position_blocked(self, x, y):
+        terrain = self.get_terrain_at(x, y)
+        return terrain == "🧱" or (x, y) in self.camada_objetos
+
+    def is_blocked(self, x, y):
+        return self.is_position_blocked(x, y)
+
+    def is_blocked_at(self, x, y):
+        return self.is_position_blocked(x, y)
+
+    def esta_bloqueada(self, x, y):
+        return self.is_position_blocked(x, y)
 
 
 @pytest.fixture(autouse=True)
@@ -97,7 +221,7 @@ def test_deve_interagir_com_bau_na_frente_do_jogador():
     # Criar um baú exatamente à direita do jogador (X=2, Y=1)
     bau_chamado = {"executado": False}
 
-    def mock_script_bau(player_id, params):
+    def mock_script_bau(player, params):
         bau_chamado["executado"] = True
         bau_chamado["recompensa"] = params.get("item")
 
