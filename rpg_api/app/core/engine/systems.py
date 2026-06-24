@@ -252,6 +252,9 @@ class InteractionSystem:
                     "entidade_id": entidade_alvo,
                     "parametros": getattr(interact, "parametros", {})
                 }
+                # Executa o callback on_interact se existir
+                if interact.on_interact is not None:
+                    interact.on_interact(entidade_id, interact.parametros)
                 esper.dispatch_event("INTERACTION_SUCCESS", payload)
                 return True
         return False
