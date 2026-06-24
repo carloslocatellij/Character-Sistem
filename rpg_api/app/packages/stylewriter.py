@@ -97,7 +97,7 @@ class ChatLog(VerticalScroll):
         self.fila_mensagens = []
         self.mensagem_ativa = None
 
-    def escrever(self, texto: str, estilo: str | None = None, velocidade: float = 0.01) -> None:
+    def write(self, texto: str, estilo: str | None = None, velocidade: float = 0.01) -> None:
         """Adiciona uma nova mensagem à fila e inicia a reprodução se ocioso."""
         self.fila_mensagens.append((texto, estilo, velocidade))
         self.processar_fila()

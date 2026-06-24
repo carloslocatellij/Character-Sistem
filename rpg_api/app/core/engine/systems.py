@@ -327,32 +327,47 @@ class EventSystem:
                 logging.info(f"requer o item {item_req}")
                 inv = esper.component_for_entity(1, InventoryComponent)
                 if not inv or not self.inv_sys._inventory_has_item(inv, item_req):
-                    logging.info(f"mas não tem")
+                    logging.info(f"mas não tem o item")
                     return False
                     
             switches = condicoes.get("switches", [])
+            
             for sw in switches:
                 if self.game_state.get_switch(sw["nome"]) != sw.get("valor", True):
-                    logging.info(f"não tem switch {sw} ligada")
+                    logging.info(f"A switch {sw} não está ligada")
                     return False
                     
             variaveis = condicoes.get("variaveis", [])
-            for var in variaveis:
-                atual = self.game_state.get_variable(var["nome"], 0)
-                op = var.get("operador", "igual")
-                val = var.get("valor", 0)
-                if op == "maior_ou_igual" and not (atual >= val): return False
-                if op == "menor_ou_igual" and not (atual <= val): return False
-                if op == "igual" and not (atual == val): return False
-                if op == "diferente" and not (atual != val): return False
-            
-            logging.info(f"verificou variaveis mas não tem problema")
+            if len(variaveis) > 0:
+                for var in variaveis:
+                    atual = self.game_state.get_variable(var["nome"], 0)
+                    op = var.get("operador", "igual")
+                    
+                    val_esperado = var.get("valor", 0)
+                    
+                    if str(atual).isdigit():
+                        atual = int(atual)
+                        if op == "maior_ou_igual" and not (atual >= val_esperado): return False
+                        if op == "menor_ou_igual" and not (atual <= val_esperado): return False
+                        if op == "igual" and not (atual == val_esperado): return False
+                        if op == "diferente" and not (atual != val_esperado): return False
+
+                    else:
+                        if op == "igual" and not (atual == val_esperado): return False
+                        if op == "diferente" and not (atual != val_esperado):  return False
+                        
+                                
+                    logging.info(
+                        f"Verificando variável: {var.get("nome", '[Ops: Nada com este nome]')} com o valor: {val_esperado}")
+                    
+                logging.info(f"Verificou variaveis e o valor é {atual}")
+
 
             self_sw = condicoes.get("self_switch")
             if self_sw:
-                logging.info(f"requer a suto condição {self_sw}")
+                logging.info(f"requer que a auto condição {self_sw}_Ligada seja verdadeira")
                 if not self.game_state.get_switch(f"evento_{entidade_id}_{self_sw}"):
-                    logging.info(f"masa condição [{self_sw}] é falsa")
+                    logging.info(f"mas a condição [{self_sw}]_Ligada é falsa")
                     return False
                 
             return True
@@ -404,10 +419,13 @@ class EventSystem:
         if tipo == "mensagem":
             texto = dados.get("texto", "")
             self.log_callback(f"[cyan]{emoji} {texto}[/]")
-        
-        elif tipo == "notificação":
+            
+        elif tipo == "notificacao":
             texto = dados.get("texto", "")
-            self.log_callback(f"{texto}", notif=True)
+            try:
+                self.log_callback(f"{texto}", notif=True)
+            except Exception as e:
+                logging.info(f"Notificação: {comando} - {texto}")
 
         elif tipo == "mudar_inventario":
             item = dados.get("item")
@@ -455,6 +473,11 @@ class EventSystem:
             letra = dados.get("letra")
             valor = dados.get("valor")
             self.game_state.set_switch(f"evento_{entidade_id}_{letra}", valor)
+            
+        elif tipo == "controle_variavel":
+            nome = dados.get("nome")
+            valor = dados.get("valor")
+            self.game_state.set_variable(nome,  valor)
             
             
         elif tipo == "bifurcacao_condicional":
@@ -506,6 +529,9 @@ class EventSystem:
             
         elif tipo == "mover_evento":
             self.log_callback(f"[dim]🏃 Movimento de evento acionado.[/]")
+
+
+
 
     def avancar_ramo_evento(self, opcao_escolhida: str):
         """Injetado externamente pela GamePlayScreen através do #txt-chat ou ChoiceBox."""

@@ -85,12 +85,14 @@ DataTable {
 
 #paleta-container {
     height: 65%;
+    overflow: auto;
     border-bottom: dashed green;
     padding: 0;
 }
 
 #arvore-container {
     height: 35%;
+    overflow: auto;
     padding: 1;
 }
 

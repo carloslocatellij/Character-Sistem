@@ -225,10 +225,13 @@ class GamePlayScreen(Screen):
     def log_mensagem(self, texto: str, estilo=None, velocidade: float = 0.05, notif=False):
         """Injeta mensagens formatadas no painel lateral de logs."""
         if notif:
-            self.notify(texto, title="Noticia", severity="information")
+            try:
+                self.notify(texto, title="Noticia", severity="information")
+            except Exception as e:
+                logging.error(f"Erro ao notificar mensagem no log: {e}")
         else:
             try:
-                self.query_one("#area-interacao", ChatLog).escrever(texto, estilo=estilo, velocidade=velocidade)
+                self.query_one("#area-interacao", ChatLog).write(texto, estilo=estilo, velocidade=velocidade)
             except Exception as e:
                 logging.error(f"Erro ao escrever mensagem no log: {e}")
             

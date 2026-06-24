@@ -25,8 +25,10 @@ class GameStateManager:
     def get_variable(self, nome: str, padrao=0) -> any:
         return self.variables.get(nome, padrao)
 
-    def set_variable(self, nome: str, valor: any):
+    def set_variable(self, nome: str,  valor: any):
         self.variables[nome] = valor
+        
+        
 
     def modificar_variavel(self, nome: str, operacao: str, valor: any):
         atual = self.get_variable(nome, 0)

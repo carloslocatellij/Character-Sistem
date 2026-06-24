@@ -1360,7 +1360,7 @@ class AdicionarComandoScreen(ModalScreen[dict]):
             yield Label("Escolha o tipo de Comando", classes="titulo-secao")
             yield Select([
                 ("Mensagem no prompt (Texto)", "mensagem"),
-                ("Notificação na tela (Texto)", "noficação"),
+                ("Notificação na tela (Texto)", "noficacao"),
                 ("Teleporte (Mudar Mapa/Posição)", "teleporte"),
                 ("Inventário (Add/Sub)", "mudar_inventario"),
                 ("Status do Herói (HP/MP)", "mudar_status_heroi"),
@@ -1390,7 +1390,8 @@ class AdicionarComandoScreen(ModalScreen[dict]):
             
         if tipo == "mensagem":
             container.mount(Input(placeholder="Texto da mensagem (Use tags [color] se quiser)", id="cmd-msg-texto", value=dados.get("texto", "")))
-        elif tipo == "notificação":
+            
+        elif tipo == "notificacao":
             container.mount(Input(placeholder="Texto da notificação (Use tags [color] se quiser)", id="cmd-notif-texto", value=dados.get("texto", "")))
 
         elif tipo == "teleporte":
@@ -1437,7 +1438,7 @@ class AdicionarComandoScreen(ModalScreen[dict]):
             try:
                 if tipo == "mensagem":
                     comando["dados"]["texto"] = self.query_one("#cmd-msg-texto").value
-                elif tipo == "notificação":
+                elif tipo == "notificacao":
                     comando["dados"]["texto"] = self.query_one("#cmd-notif-texto").value
                 elif tipo == "teleporte":
                     comando["dados"]["mapa_id"] = int(self.query_one("#cmd-tel-mapa").value)
