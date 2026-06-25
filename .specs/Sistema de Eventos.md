@@ -236,7 +236,7 @@ JSON
     },
     {
       "tipo": "mensagem",
-      "dados": {"texto": "[bold red]Aviso:[/] Você pisou em estacas escondidas e perdeu 15 de PV!"}
+      "dados": {"texto": "[bold red]Aviso:[/] Você pisou em estacas escondidas e perdeu 15 de hp!"}
     }
   ]
 }

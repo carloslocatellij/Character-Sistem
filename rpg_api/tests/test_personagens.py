@@ -28,7 +28,7 @@ def test_calculo_atributos_totais_personagem():
     assert heroi.atributos_totais["exuberancia"] == 2
 
 def test_formulas_status_derivados():
-    """Testa a integridade das fórmulas matemáticas de PV e PM do MANUAL.md."""
+    """Testa a integridade das fórmulas matemáticas de hp e mp do MANUAL.md."""
     raca_humano = Raca(nome="human", bonus_atributos={})
     classe_comum = ClasseRPG(nome="Camponês")
     
@@ -38,8 +38,8 @@ def test_formulas_status_derivados():
         forca_base=2, agilidade_base=2, res_base=2, perc_base=2, exub_base=2
     )
     
-    #pv = int(7+ (ceil(self.nivel * ceil((res+2) / 2) + ceil((self.nivel + res) *3))))
-    assert heroi.pv_max == 18
+    #hp = int(7+ (ceil(self.nivel * ceil((res+2) / 2) + ceil((self.nivel + res) *3))))
+    assert heroi.max_hp == 18
     assert heroi.pv_atual == 18
     
     # atq = int(self.nivel * ceil(forca + (agi / 2))) deve ser 3)
@@ -66,7 +66,7 @@ def test_receber_dano():
     raca = Raca("human")
     classe = ClasseRPG("warrior")
     
-    # Criamos um alvo com PV alto e 0 de resistência para isolar a armadura no teste
+    # Criamos um alvo com hp alto e 0 de resistência para isolar a armadura no teste
     alvo = Personagem("Alvo", 1, raca, classe, 1, 1, 0, 1, 1)
     alvo.pv_atual = 50 
     alvo.armadura = Armadura("Ferro", defesa=5)
@@ -81,7 +81,7 @@ def test_receber_dano():
 
 
 def test_sistema_de_magia_mana(monkeypatch):
-    """Testa o gasto de PM ao lançar magias com a nova assinatura de objetos."""
+    """Testa o gasto de mp ao lançar magias com a nova assinatura de objetos."""
     raca = Raca("elven")
     classe = ClasseRPG("magee")
     mago = Personagem("Gandalf", 1, raca, classe, 1, 1, 1, 3, 4) # Exuberância 3
@@ -102,7 +102,7 @@ def test_sistema_de_magia_mana(monkeypatch):
     assert evento["sucesso"] is True
     assert mago.pm_atual == 4
     
-    # Teste 2: Falha por falta de mana (magee só tem 4 PM agora, o Raio custa 5)
+    # Teste 2: Falha por falta de mana (magee só tem 4 mp agora, o Raio custa 5)
     evento_falha = mago.lancar_magia(magia_raio, alvo)
     assert evento_falha["sucesso"] is False
     assert mago.pm_atual == 4 # Mana não foi gasta

@@ -6,18 +6,26 @@ class CatalogoTiles:
     
     # Listas para construir as abas
     TERRENOS = ["  ", "⬛", "🔲", "⬜", "🟫", "🟩", "🟦", "🟧", "🈸", "🈴", "🔯" ]
-    TERRENOS_BLOQUEANTES = ["🔳", "🧱", "🔲", "🟦", "🟧"]
+    TERRENOS_BLOQUEANTES = ["⬛", "🔳", "🧱", "🔲", "🟦", "🟧"]
     
     OBJETOS = [ "🌲", "🌳", "🌴", "🌵", "🎄","🍄",
-                "🌻", "🌹", "🌷","🌾" ,"🔮", "🌋", 
-                "🗻", "🏠", "🎪", "🏤", "🕍", "🏰",
-                "🕌", "⛺",  "⛲", "⌛", "🕋", "🧱",
-                "🛶", "🧊", "📦", "📖", "📚", "🏴",
-                "🍖", "🍗", "🍕", "🍺", "🍞", "🎃",
-                "🧪", "🪑", "☕", "🚪" , "🦴", "💀",
-                "🔱", "🗿", "🔹", "🍒", "🍀"]
+                "🌻", "🌹", "🌷", "🌾", "🌼", "🔮",
+                "🌋", "🗻", "🏠", "🎪", "🏤", "🕍",
+                "🏰", "🕌", "⛺",  "⛲", "⌛", "🕋",
+                "🧱", "🛶", "🧊", "📦", "📖", "📚",
+                "🏴", "🍖", "🍗", "🍕", "🍺", "🍞",
+                "🎃", "🧪", "🪑", "☕", "🚪" , "🦴", 
+                "💀", "📚", "📕", "📗", "📖", "🎋", 
+                "🪔", "🔱", "🗿", "🔹", "🍒", "🍀", ]
     
-    EVENTOS = ["📦", "🧙‍♂️", "👾", "🚪", "🧷"]
+    EVENTOS = ["🧙", "👨", "👩", "👦", "👧", "👳",
+               "💂", "👷", "🤴", "🧝", "🧚", "👽",
+               "💀", "🦝", "🐷", "🐻", "🦊", "🐥",
+               "👾", "🚪", "📦", "🧷", "🕳 ", "🌾",
+               "🏠", "🎪", "🏤", "🕍", "🏰", "🕌",
+               "⛺", "🔑", "🍺", "🍷" , "🍗", "🍕",
+               "🍎", "🍒", "📚", "📕", "📗", "📖",
+               "🔔", "👑", "🛒", "🔮", "📜",  "  "]
     
     # Mapeamento de cores de fundo para os terrenos
     CORES_BG = {
@@ -50,48 +58,45 @@ dict_item_emoji = {
               "arco longo": "🏹", "arco curto": "🏹", "picareta": "⛏️",
               },
     "armaduras": {"armadura": "🦺", "armadura de placas": "🧥", "cota de malha": "🥼", "couro batido": "🦺",
-                  "capa": "🧥", "luvas": "🧤", "elmo": "🪖", "botas": "👢", "cap": "🧢",},
+                  "capa": "🧥", "luvas": "🧤", "elmo": "🧢", "botas": "👢", "cap": "🧢",},
     "escudos": {"escudo": "🛡️",  "escudo de ferro": "🛡️", "escudo de madeira": "🛡️",},
     "outros": {
-            "bau": "💼", 
-            "bau de ferro": "💼",
-            "bau de madeira": "💼",
-            "bau de ouro": "💼",
+        "bau": "💼",
+        "bau de madeira": "📦",
+            "bau de ouro": "🕋",
             "poção": "🧪",
-            "poção de vida": "🧪",
+            "poção de vida": "🌡 ",
             "poção de mana": "🧪",
             "chave" : "🗝️",
             "chave de ouro": "🗝️",
             "livro" : "📖",
-            "livro de feitiços": "📖",
+            "livro de feitiços": "📕",
             "pergaminho": "📜",
-            "amuleto": "🪬",
             "tocha": "🔥", 
-            "moeda": "🪙",
             "saco de moedas": "💰",
-            "corda": "🪢",  
             "anel": "💍",
             "colar": "📿",
             "bracelete": "📿",
             "broche": "📿",
             "mochila": "👜",
+            "cama": "🛏 "
     }
         }
 
 dict_emoji_efeito = {
-        "fogo": "🔥", "agua": "🌊", "terra": "🪨", "ar": "🌬️",
-        "luz": "🌅", "trevas": "🪯", "eter": "🌌", "sangue": "🩸",
+        "fogo": "🔥", "agua": "🌊", "terra": "🟤", "ar": "🌬️",
+        "luz": "🌅", "trevas": "💫", "eter": "🌌", "sangue": "🩸",
         "raio": "⚡", "planta": "🌱", "metal": "🔩", 
         }
 
 dict_emoji_racas = {
-        "humano": "👨‍🦱", 
-        "orc": "🧌",
+        "humano": "👨", 
+        "orc": "🐷",
         "goblin": "👾",
         "elfo": "🧝",
-        "anão": "🧔🏽",
-        "troll": "🧟",
-        "zumbi": "🧟‍♂️",
+        "anão": "🧔",
+        "troll": "🤢",
+        "zumbi": "🧟",
         "vampiro": "🧛",
         "golem": "🤖",
         "ogro": "👹",
@@ -100,11 +105,11 @@ dict_emoji_racas = {
         "anjo": "👼",
         "demonio": "😈",
         "fada": "🧚",
-        "sereia": "🧜‍♀️",
+        "sereia": "🧜",
         "centauro": "🐎",
         "minotauro": "🐂",
         "esqueleto": "💀",
-        "mumia": "🧟‍♀️",
+        "mumia": "🧟",
         "licantropo": "🐺",
         "elemental": "🌪️",
         "homenlagarto": "🦖",

@@ -108,7 +108,7 @@ class SimuladorCombate:
                     if resultado["acertou"]:
                         print("   💫 Acertou o golpe!")
                         print(f"   🛡️ {alvo.nome} tentou absorver! Bloqueou {resultado['defesa_total']} ({resultado['absorcao_dados']} Resistência, {resultado['bonus_armadura']} Armadura).")
-                        print(f"   💥 {alvo.nome} sofreu {resultado['dano_causado']} de dano! PV restante: {resultado['pv_restante']:.1f}")
+                        print(f"   💥 {alvo.nome} sofreu {resultado['dano_causado']} de dano! hp restante: {resultado['pv_restante']:.1f}")
                         if resultado.get("alvo_morreu", False) and not silencioso: print(f"💀 {atacante.nome} eliminou {alvo.nome}!")
                     else:
                         print("   🔴 O ataque falhou ou foi esquivado!")

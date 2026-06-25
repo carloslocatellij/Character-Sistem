@@ -58,26 +58,87 @@
     layout: vertical;
     border: solid white;
     background: $panel;
-    height: 100%;
     width: 100%;
 }
 
 #area-interacao {
     column-span: 4;
     overflow: auto;
-    /* Estica de ponta a ponta no rodapé */
     border: solid white;
     background: $panel;
-    padding: 0 1;
-    height: 90%;
+    padding: 0;
+    /* 1fr faz a área ocupar TODO o espaço que sobrar no topo */
+    height: 85%;
+     /* 60% da altura total, deixando 40% para o prompt */
+     width: 100%;
 }
 
 #terminal-prompt {
     column-span: 4;
-    height: 1fr;
+    height: 3;
+    /* Altura fixa pequena para o prompt */
     width: 100%;
     background: $surface;
     border: none;
     color: green;
-    /* Prompt verde estilo hacker/terminal retro */
+}
+
+ChoiceBox {
+    width: 100%;
+    /* REMOVA o dock: bottom para ele não quebrar o layout vertical */
+    height: 5;
+    /* O dobro do tamanho do prompt (3 * 2 = 6) */
+    background: transparent;
+    margin: 0;
+    padding: 0;
+}
+
+/* Estado quando a ChoiceBox está oculta */
+ChoiceBox.hidden {
+    display: none;
+}
+
+/* Estado quando o Prompt está oculto */
+#terminal-prompt.hidden {
+    display: none;
+}
+
+/* Resto dos seus estilos internos do ChoiceBox (RadioSet, Label, etc.) */
+#choice-box-card {
+    background: $surface;
+    overflow: auto;
+    border: none;
+    padding: 0 1;
+    width: 100%;
+    height: 100%;
+    /* Mude para 100% para preencher o ChoiceBox */
+}
+
+#choice-label {
+    color: $accent;
+    margin-top: 1;
+    margin-bottom: 0;
+}
+
+#choice-radioset {
+    background: transparent;
+    border: tall $primary ;
+    overflow: auto;
+    padding: 0;
+    margin-bottom: 1;
+    height: auto;
+}
+
+/* Deixa os botões de rádio mais compactos para caber na barra inferior */
+#choice-radioset RadioButton {
+    height: 1;
+    margin: 0;
+    padding: 0;
+}
+
+#choice-submit {
+    dock: right;
+    width: 15%;
+    border-top: none;
+    height: 2;
 }

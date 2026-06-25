@@ -4,15 +4,17 @@ from textual.widgets import Static, RichLog, Label, Input
 from textual.containers import Container, ScrollableContainer
 from textual.events import Key
 from textual import on
-
+from app.views.components.choice_box import ChoiceBox
 from app.db.database import SessionLocal
 from app.core.engine.systems import (MovementSystem, InteractionSystem, AISystem,
-                                     RenderSystem, InventarySystem)
+                                     RenderSystem, InventarySystem, EventSystem)
 from app.core.engine.engine_loader import GameEngineLoader
 from app.core.engine.components import (PositionComponent, RenderComponent, 
                                         PlayerControlComponent, StatsComponent,
                                         InventoryComponent, EquipmentComponent                                       
 )
+from app.core.engine.game_state import GameStateManager
+from app.packages.stylewriter import ChatLog
 import logging
 logging.basicConfig(level=logging.INFO, filename="log.log", filemode="a")
 
@@ -28,6 +30,7 @@ class GamePlayScreen(Screen):
 
         # Inicializa o Barramento e Carregador da Engine
         self.loader = GameEngineLoader()
+        self.game_state = GameStateManager()
         self.mapa_matriz = None
         self.mapa_objetos = {}
 
@@ -36,6 +39,8 @@ class GamePlayScreen(Screen):
         self.interacao_sys = None
         self.render_sys = RenderSystem()
         self.invSys = InventarySystem()
+        
+        
 
     BINDINGS = [("/", "focus_in_command_bar", "")]
 
@@ -49,8 +54,8 @@ class GamePlayScreen(Screen):
             with Container(id="tela-status"):
                 yield Label("🧙‍♂️ Status", classes="titulo-secao")
                 yield Label("Nome: [bold]...[/]", id="lbl-nome")
-                yield Label("PV: -- / --", id="lbl-pv")
-                yield Label("PM: -- / --", id="lbl-pm")
+                yield Label("hp: -- / --", id="lbl-hp")
+                yield Label("mp: -- / --", id="lbl-mp")
                 yield Label("ATK: -- | DEF: --", id="lbl-combate")
                 
             # Tela de Itens Dinâmica (Lê do Inventário engine)
@@ -60,61 +65,56 @@ class GamePlayScreen(Screen):
                 
             # Área de Interação Combinada: Histórico (Log) + Entrada de Texto (Terminal Input)
             with Container(id="area-interacao-container"):
-                yield RichLog(id="area-interacao", markup=True)
+                yield ChatLog(id="area-interacao") #markup=True)
                 yield Input(placeholder="Digite um comando... (ex: /usar poção, /equipar espada_fogo)", id="terminal-prompt")
 
     
     def on_mount(self):
         self.log_mensagem(
-            "[bold yellow]>>> Inicializando sistemas de campanha...[/]")
+            "CharSystem",
+            estilo='slant'
+            )
         
         try:
-            with SessionLocal() as db:
+            with SessionLocal() as db_session:
                 # Carregamento autêntico sem simulações!
                 
                 self.engine_manager = self.loader.carregar_engine_do_banco(
-                        #usuario_id=self.personagem_id, # ID do jogador ativo
-                        #cenario_id=1,                  # ID do jogo/campanha escolhida
-                        #slot_numero=1                  # Slot selecionado
-                        db,
-                        mapa_id=1
+                    db_session,
+                        usuario_id=1, # ID do jogador ativo
+                        cenario_id=1,                  # ID do jogo/campanha escolhida
+                        slot_numero=1,                  # Slot selecionado
+                        default_mapa_id=1
                                             )
                 
             self.mapa_matriz = self.loader.matriz_terrenos
             self.mapa_objetos = self.loader.camada_objetos
             self.mapa_id = self.loader.mapa_id
             
-            # TODO: teste pratico mostrou que o engine_load cria a entidade; limpar
-            if not esper.entity_exists(1):
-                esper.create_entity(
-                    PositionComponent(x=9, y=9),
-                    RenderComponent(emoji="🐱"),
-                    PlayerControlComponent()
-                )
-
+            # Inicia SISTEMAS:
+            # # Inicia sistema de eventos
+            # self.event_sys = EventSystem(
+            #     self.invSys, self.game_state, self.log_mensagem, self.loader.event_bus)
+            # # Interações com o Esper
+            # self.interacao_sys = InteractionSystem(self.loader.event_bus)
             self.movimento_sys = MovementSystem(self.loader)
             
-            # Interações com o Esper
-            self.interacao_sys = InteractionSystem(self.loader.event_bus)
+            self.event_sys = EventSystem(
+                self.invSys, self.game_state, self.log_mensagem)
+            self.interacao_sys = InteractionSystem()
+            self.ai_sys = AISystem(self.movimento_sys)
             
-            self.ai_sys = AISystem(self.loader,
-                                   self.movimento_sys, self.loader.event_bus)
+            
+            esper.remove_handler("mudar_mapa", self.ao_mudar_de_mapa)
+            esper.remove_handler("INTERACTION_SUCCESS", self.on_evento_interacao)
+            esper.remove_handler("disparar_bifurcacao", self.disparar_bifurcacao_visual)
 
-            self.loader.event_bus.subscribe(
-                "INTERACTION_SUCCESS", self.on_evento_interacao)
-
-            self.log_mensagem(
-                f"[green]Mapa '[bold]{self.loader.nome_mapa}[/]' carregado com sucesso![/]")
-            self.atualizar_tudo()
-
-
-            # Assina eventos globais da rádio lúdica
-            #self.loader.event_bus.subscribe("bau", self.ao_recolher_bau)
-            self.loader.event_bus.subscribe("ataque_monstro", self.ao_levar_ataque)
-
-            # Batimento dos monstros autónomos a cada 1 segundo
-            self.set_interval(1.0, self.game_tick)
-
+            esper.set_handler("mudar_mapa", self.ao_mudar_de_mapa)
+            esper.set_handler("INTERACTION_SUCCESS", self.on_evento_interacao)
+            esper.set_handler("disparar_bifurcacao", self.disparar_bifurcacao_visual)
+            
+            self.set_interval(0.33, self.game_tick)
+            
             self.log_mensagem(
                 "[bold green]>>> Engine Pronta! Use setas para andar, ENTER para interagir ou use o Terminal de comandos abaixo.[/]")
             self.atualizar_tudo()
@@ -122,16 +122,91 @@ class GamePlayScreen(Screen):
         except Exception as e:
             self.log_mensagem(f"[bold red]❌ Erro crítico: {e}[/]")
             
-    def log_mensagem(self, texto: str):
+
+    def ao_mudar_de_mapa(self, dados_teleporte):
+        """
+        O ponteiro central de transição. 
+        Recebe: {'mapa_id': 3, 'pos_x': 15, 'pos_y': 15}
+        """
+        
+        mapa_alvo = dados_teleporte["mapa_id"]
+        nova_pos_x = dados_teleporte["pos_x"]
+        nova_pos_y = dados_teleporte["pos_y"]
+
+        with SessionLocal() as db_session:
+            # 1. Recarrega a Engine do zero apontando para o novo mapa!
+            
+            try:
+                self.engine_manager = self.loader.carregar_engine_do_banco(
+                    db_session=db_session,
+                    usuario_id=1,
+                    cenario_id=1,
+                    slot_numero=1,
+                    default_mapa_id=mapa_alvo
+                )
+            except Exception as e:
+                self.log_mensagem(f"Erro: {e}")
+                self.log_mensagem(f"engine_manager: {self.engine_manager}") 
+
+        
+        # 2. Recarrega dados do mapa
+        self.mapa_id = self.loader.mapa_id
+        self.mapa_matriz = self.loader.matriz_terrenos
+        self.mapa_objetos = self.loader.camada_objetos
+
+        # 2.1 Re-instancia os sistemas para a nova Engine limpa
+        try:
+            self.movimento_sys = MovementSystem(self.loader)
+            self.interacao_sys = InteractionSystem()
+            self.ai_sys = AISystem(self.movimento_sys)
+            
+        except Exception as e:
+            self.log_mensagem(f"Erro ao Re-instaciar sistemas: {e}")
+
+        # 3. Força o Jogador (ID 1) a posicionar-se na coordenada exata que o JSON mandou
+        try:
+            pos = esper.component_for_entity(1, PositionComponent)
+            if pos:
+                pos.x = nova_pos_x
+                pos.y = nova_pos_y
+                
+        except Exception as e:
+            self.log_mensagem(f"Erro ao posicionar jogador: {e}")
+            
+        esper.remove_handler("mudar_mapa", self.ao_mudar_de_mapa)
+        esper.remove_handler("INTERACTION_SUCCESS", self.on_evento_interacao)
+        esper.remove_handler("disparar_bifurcacao", self.disparar_bifurcacao_visual)
+
+        esper.set_handler("mudar_mapa", self.ao_mudar_de_mapa)
+        esper.set_handler("INTERACTION_SUCCESS", self.on_evento_interacao)
+        esper.set_handler("disparar_bifurcacao", self.disparar_bifurcacao_visual)
+
+
+        self.log_mensagem(
+            f"[green]Mapa '[bold]{self.loader.nome_mapa}[/]' carregado com sucesso![/]")
+        self.atualizar_tudo()
+        
+        esper.set_handler(
+            "ataque_monstro", self.ao_levar_ataque)
+
+        self.set_interval(0.33, self.game_tick)
+
+        # 4. Atualiza a tela para o jogador ver o novo cenário imediatamente
+        self.atualizar_tudo()
+            
+    def log_mensagem(self, texto: str, estilo=None, velocidade: float = 0.05, notif=False):
         """Injeta mensagens formatadas no painel lateral de logs."""
-        try:
-            self.query_one("#log-eventos", RichLog).write(texto)
-        except Exception:
-            pass
-        try:
-            self.query_one("#area-interacao", RichLog).write(texto)
-        except Exception:
-            pass
+        if notif:
+            try:
+                self.notify(texto, title="Noticia", severity="information")
+            except Exception as e:
+                logging.error(f"Erro ao notificar mensagem no log: {e}")
+        else:
+            try:
+                self.query_one("#area-interacao", ChatLog).write(texto, estilo=estilo, velocidade=velocidade)
+            except Exception as e:
+                logging.error(f"Erro ao escrever mensagem no log: {e}")
+            
 
     def game_tick(self):
         if self.ai_sys:
@@ -153,48 +228,13 @@ class GamePlayScreen(Screen):
     # ==========================================
     
     def on_evento_interacao(self, payload: dict):
-        """Callback acionado via Event Bus quando o InteractionSystem processa algo."""
-        tipo = payload.get("tipo", "evento")
-        params = payload.get("parametros", {})
-
-        if tipo == "bau":
-            self.ao_recolher_bau(payload)
-            
-        elif tipo == "npc_dialogo":
-            self.log_mensagem(f"[cyan]💬 NPC: {params.get('texto', 'Olá!')}[/]")
-            
-        else:
-            self.log_mensagem(f"[white]✨ Evento ativado: {tipo}[/]")
-            
-            
-    def ao_recolher_bau(self, dados):
-        params = dados.get("parametros", {})
-        
-        # Resolução genérica: Tenta pegar dados de um estado específico ou do nível raiz
-        estado_nome = params.get("estado_atual")
-        bloco = params.get("estados").get(
-            estado_nome) if estado_nome and estado_nome in params.get("estados") else params
-        
-        # Normalização de campos para aceitar múltiplos modelos de JSON
-        item_nome = bloco.get("item") or bloco.get("item_id") or bloco.get("nome") or "item desconhecido"
-        qtd = bloco.get("quantidade") or bloco.get("qtd") or 1
-        msg = bloco.get("mensagem") or bloco.get("msg") or "Você abriu um baú!"
-        
-        inv = esper.component_for_entity(1, InventoryComponent)
-        if inv:
-            self.invSys._inventory_add_item(inv, item_nome, qtd)
-
-        self.log_mensagem(
-            f"[bold cyan]🎁 {msg} e coletou: [yellow]{item_nome} x{qtd}[/yellow]! "
-            f"(Digite /equipar ou /usar no terminal para usufruir)[/]"
-        )
-        self.atualizar_paineis_status()
-
+        """Processador de Eventos Universal - Pipeline de 4 Etapas."""
+        self.event_sys.processar_evento_interacao(payload)
+        self.atualizar_tudo()
 
     def ao_levar_ataque(self, dados_ataque):
-        log = self.query_one("#area-interacao", RichLog)
+        log = self.query_one("#area-interacao", ChatLog)
         dano = dados_ataque.get("mudar_hp", {}).get("valor", 1)
-        self.log_mensagem(f'dano: {dano} - dados ataque: {dados_ataque}')
         
         stats = esper.component_for_entity(1, StatsComponent)
         if stats:
@@ -211,13 +251,90 @@ class GamePlayScreen(Screen):
         self.atualizar_paineis_status()
 
 
+    def disparar_bifurcacao_visual(self, dados):
+        """
+        Chamado pelo interpretador de comandos quando atinge uma bifurcação.
+        Instancia e exibe a caixa interativa na tela.
+        """
+        pergunta = dados.get("pergunta", "Pergunta:")
+        opcoes = dados.get("opcoes", [])
+        # Remove uma ChoiceBox antiga caso ainda exista por segurança
+        self.remover_choice_box_ativa()
+
+        # Cria a nova caixa dinâmica
+        try:
+            caixa_escolha = ChoiceBox(
+                mensagem=pergunta, opcoes=opcoes, id="box-evento-ativo")
+        except Exception as e:
+            self.log_mensagem(f"Erro na caixa: {e}")
+
+        # Monta o widget dentro do container de interações ou
+        # painel lateral da sua UI
+        def executar_montagem_segura(): # Interrompe o scroll automático do Textual!
+            try:
+                container = self.query_one(
+                    "#area-interacao-container")
+            except Exception as e:
+                self.log_mensagem(f"[red]Erro ao montar a caixa:[/] {e}")
+
+            area_texto = self.query_one("#area-interacao")
+            area_texto.styles.height = "60%"
+            
+            self.query_one("#terminal-prompt").add_class("hidden")
+
+            container.mount(caixa_escolha)
+            sub_caixa_element = caixa_escolha.get_child_by_id('choice-box-card')
+            caixa_element = sub_caixa_element.get_child_by_id('choice-radioset')
+            caixa_element.focus()
+            sub_caixa_element.trap_focus()
+
+        self.call_next(executar_montagem_segura)
+
+    def remover_choice_box_ativa(self):
+        """Remove o widget da tela de forma limpa."""
+        try:
+            caixa = self.query_one("#box-evento-ativo", ChoiceBox)
+            caixa.remove()
+            input_chat = self.query_one("#terminal-prompt")
+            area_texto = self.query_one("#area-interacao")
+            area_texto.styles.height = "85%"
+            self.query_one("#terminal-prompt").remove_class("hidden")
+            input_chat.focus()
+        except Exception:
+            pass
+
+    @on(ChoiceBox.Selected, "#box-evento-ativo")
+    def ao_selecionar_opcao_evento(self, event: ChoiceBox.Selected):
+        """
+        Nativo do Textual. Captura o sinal emitido pelo ChoiceBox 
+        assim que o jogador confirma a opção.
+        """
+        # 1. Guarda a resposta limpa escolhida (texto ou índice)
+        opcao_escolhida = event.text
+        
+        # 2. Desmolda o widget da interface para liberar espaço visual
+        self.remover_choice_box_ativa()
+        
+        # Devolve o foco para o chat de comandos normais
+        self.query_one("#terminal-prompt").focus()
+
+        # 3. Alimenta o motor de estados com a escolha e retoma o loop assíncrono
+        # (ramos_disponiveis foi mapeado previamente no processador usando strings ou índices)
+        self.event_sys.avancar_ramo_evento(
+            opcao_escolhida)
+
     # ==========================================
     # INTERPRETADOR DE COMANDOS DO TERMINAL (SUBMIT INPUT)
     # ==========================================
     @on(Input.Submitted, "#terminal-prompt")
     def processar_comando_terminal(self, event: Input.Submitted):
-        texto = event.value.strip().lower()
-        log = self.query_one("#area-interacao", RichLog)
+        
+        if event.value.startswith('/>'):
+            texto = event.value.strip()
+        else:
+            texto = event.value.strip().lower()
+            
+        log = self.query_one("#area-interacao", ChatLog)
         prompt = self.query_one("#terminal-prompt", Input)
         
         # Limpa o input para o próximo comando
@@ -244,7 +361,7 @@ class GamePlayScreen(Screen):
                     if self.invSys._inventory_remove_item(inv, argumento, 1):
                         stats.hp = min(stats.max_hp, stats.hp + 20)
                         self.log_mensagem(
-                            f"[bold green]✨ Você tomou uma poção. Recuperou 20 PV![/]")
+                            f"[bold green]✨ Você tomou uma poção. Recuperou 20 hp![/]")
                     else:
                         self.log_mensagem(
                             f"[red]Erro ao usar '{argumento}'.[/]")
@@ -312,19 +429,27 @@ class GamePlayScreen(Screen):
             self.log_mensagem(
                 f"[red]Comando desconhecido: '{comando}'. Tente /usar ou /equipar.[/]")
         
-        #self.atualizar_paineis_status()
+        self.atualizar_paineis_status()
 
     # ==========================================
     # INPUTS DE MOVIMENTAÇÃO (MANTÉM O FOCO FORA DO PROMPT AO USAR SETAS)
     # ==========================================
-    def on_key(self, event: Key) -> None:
+    def on_key(self, event: Key, ) -> None:
         key = event.key
         moveu = False
         
+        
         if event.key == '/' or event.key == "\\":
             self.action_focus_in_command_bar(event)
-            
-        if key in ("up", "down", "left", "right", "w", "s", "a", "d", "/"):
+        
+        if hasattr(self, "event_sys") and self.event_sys.aguardando_escolha:
+            if key in ("d", "/", "m"):
+                event.prevent_default()  # Interrompe o scroll automático do Textual!
+                event.stop()
+            return
+        
+        
+        if key in ("up", "down", "left", "right", "w", "s", "a", "d", "/", "m"):
             event.prevent_default()  # Interrompe o scroll automático do Textual!
             event.stop()
 
@@ -358,8 +483,7 @@ class GamePlayScreen(Screen):
                     "[gray]Não há nada para acionar aqui na sua frente.[/]")
             self.atualizar_tudo()
             return
-
-        #sleep(0.01)
+        
         self.atualizar_tudo()
 
     # ==========================================
@@ -418,9 +542,14 @@ class GamePlayScreen(Screen):
 
 
     def atualizar_paineis_status(self):
-        stats = esper.component_for_entity(1, StatsComponent)
-        inv = esper.component_for_entity(1, InventoryComponent)
-        eqp = esper.component_for_entity(1, EquipmentComponent)
+       # 🚀 BLINDAGEM CONTRA KEYERROR EM TRANSIÇÕES / FECHAMENTO:
+        try:
+            stats = esper.component_for_entity(1, StatsComponent)
+            inv = esper.component_for_entity(1, InventoryComponent)
+            eqp = esper.component_for_entity(1, EquipmentComponent)
+        except KeyError:
+            # Se o herói não foi instanciado no frame de encerramento do app, aborta o redesenho suavemente
+            return
 
         if not stats: return
 
@@ -433,8 +562,8 @@ class GamePlayScreen(Screen):
 
         # Atualiza Painel de Status
         self.query_one("#lbl-nome", Label).update(f"Nome: [bold green]{stats.nome}[/]")
-        self.query_one("#lbl-pv", Label).update(f"PV: [bold red]{stats.hp} / {stats.max_hp}[/]")
-        self.query_one("#lbl-pm", Label).update(f"PM: [bold blue]{stats.mp} / {stats.max_mp}[/]")
+        self.query_one("#lbl-hp", Label).update(f"hp: [bold red]{stats.hp} / {stats.max_hp}[/]")
+        self.query_one("#lbl-mp", Label).update(f"mp: [bold blue]{stats.mp} / {stats.max_mp}[/]")
         self.query_one("#lbl-combate", Label).update(f"ATK: [yellow]{atk_total}[/] | DEF: [cyan]{def_total}[/]")
 
         # Atualiza Painel de Itens (Inventário)

@@ -38,7 +38,7 @@ Esses Atributos possuem pontos que variam de 0 a 3 em um personagem inicial e po
 ou para baixo em caso de ataque e defesa
 
 
-#### 1 - PONTOS DE VIDA (PV MÁX.)
+#### 1 - PONTOS DE VIDA (hp MÁX.)
 
 - Todos tem **7** pontos  
 - **+**  A soma do: **Nível**  vezes ( **Resistência** + **2** )  **/** (dividido por)  2

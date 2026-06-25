@@ -19,7 +19,7 @@ class RenderComponent:
 
 @dataclass
 class InteractableComponent:
-    tipo_evento: str  # 'bau', 'porta', 'npc_dialogo', etc.
+    event_type: str  # 'bau', 'porta', 'npc_dialogo', etc.
     parametros: Dict[str, Any] = field(default_factory=dict)
     seguravel: bool = False
     # Callback opcional que a Engine executará passando a entidade que interagiu e os parâmetros
@@ -33,7 +33,7 @@ class PlayerControlComponent:
 @dataclass
 class AIComponent:
     """Define o comportamento autônomo (NPCs, Monstros, Pets)."""
-    tipo_movimento: str       # Ex: "aleatório", "patrulha", "seguir"
+    movement_type: str       # Ex: "aleatório", "patrulha", "seguir"
     action_on_touch: dict    # O que faz se esbarrar em alguém
 
 @dataclass

@@ -18,7 +18,7 @@ class EventoDB(Base):
     pos_y = Column(Integer, nullable=False)
     
     # Define o comportamento na Engine ('bau', 'npc_loja', 'npc_dialogo', 'porta', 'armadilha')
-    tipo_evento = Column(String, nullable=False) 
+    event_type = Column(String, nullable=False) 
     
     # Armazena os dados específicos de cada tipo. 
     # Ex Lojas: {"produtos": [1, 5, 8], "dinheiro_npc": 500}

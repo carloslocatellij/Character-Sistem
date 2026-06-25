@@ -24,7 +24,7 @@ class Efeito:
         if self.tipo == "dano_continuo":
             alvo.receber_dano_de_efeito(self.valor)
         elif self.tipo == "cura_continua":
-            alvo.pv_atual = min(alvo.pv_max, alvo.pv_atual + self.valor)
+            alvo.pv_atual = min(alvo.max_hp, alvo.pv_atual + self.valor)
             
         self.duracao_turnos -= 1
         evento["turnos_restantes"] = self.duracao_turnos

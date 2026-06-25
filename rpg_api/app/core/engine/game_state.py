@@ -25,12 +25,14 @@ class GameStateManager:
     def get_variable(self, nome: str, padrao=0) -> any:
         return self.variables.get(nome, padrao)
 
-    def set_variable(self, nome: str, valor: any):
+    def set_variable(self, nome: str,  valor: any):
         self.variables[nome] = valor
+        
+        
 
     def modificar_variavel(self, nome: str, operacao: str, valor: any):
         atual = self.get_variable(nome, 0)
-        if operacao == "set":
+        if operacao == "=":
             self.variables[nome] = valor
             return
         if isinstance(atual, (int, float)) and isinstance(valor, (int, float)):
@@ -38,6 +40,15 @@ class GameStateManager:
                 self.variables[nome] = atual + valor
             elif operacao == "-":
                 self.variables[nome] = atual - valor
+            elif operacao == "*":
+                self.variables[nome] = atual * valor
+            elif operacao == "/":
+                self.variables[nome] = atual / valor if valor != 0 else atual
+            else:
+                raise ValueError(f"Operação inválida: {operacao}")
+        else:
+            raise TypeError("As variáveis devem ser numéricas para operações aritméticas.")
+
 
     # ==========================================
     # PERSISTÊNCIA ATÔMICA DO MUNDO (ESPER ECS ➡️ BD)
@@ -68,7 +79,7 @@ class GameStateManager:
                         "ataque_base": stats.ataque_base, "defesa_base": stats.defesa_base
                     } if stats else None,
                     "InteractableComponent": {
-                        "tipo_evento": interact.tipo_evento,
+                        "event_type": interact.event_type,
                         "parametros": interact.parametros
                     } if interact else None
                 }
