@@ -32,7 +32,7 @@ class GameStateManager:
 
     def modificar_variavel(self, nome: str, operacao: str, valor: any):
         atual = self.get_variable(nome, 0)
-        if operacao == "set":
+        if operacao == "=":
             self.variables[nome] = valor
             return
         if isinstance(atual, (int, float)) and isinstance(valor, (int, float)):
@@ -40,6 +40,14 @@ class GameStateManager:
                 self.variables[nome] = atual + valor
             elif operacao == "-":
                 self.variables[nome] = atual - valor
+            elif operacao == "*":
+                self.variables[nome] = atual * valor
+            elif operacao == "/":
+                self.variables[nome] = atual / valor if valor != 0 else atual
+            else:
+                raise ValueError(f"Operação inválida: {operacao}")
+        else:
+            raise TypeError("As variáveis devem ser numéricas para operações aritméticas.")
 
 
     # ==========================================

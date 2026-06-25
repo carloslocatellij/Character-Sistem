@@ -39,32 +39,35 @@
     }
 },
 
+
 "3 - monstro":
-{ "movimento": "aleatório",
-"estado_atual": "vivo",
-"gatilho": "gatilho_colisao",
-"estados": 
-    {
-        "vivo": {
-        "condicao": null,
-        
-        "comandos": [
-            {
-                "tipo": "ataque",
-                "dano": 3
-            } ]
-        },
-
-        "morto": {
-            "mudar_gatilho": "enter",
-            "mudar_movimento": null,
-            "tipo": "mensagem",
-            "texto": "Ele está morto."
-
+{
+    "paginas": [
+        {
+            "id_pagina": 1,
+            "condicoes": {},
+            "configuracao_visual": {
+                "emoji": "\ud83e\uddd9"
+            },
+            "gatilho": "paralelo",
+            "movimento": {
+                "tipo": "roteiro",
+                "direcoes": [
+                    "direita",
+                    "direita",
+                    "baixo",
+                    "baixo",
+                    "direita",
+                    "direita"
+                ],
+                "ciclos": "vai-e-volta"
+            },
+            
+            "comandos": []
         }
-    }
+    ]
+}
 
-},
 
 "4 Teleporte":{
     "movimento": null,

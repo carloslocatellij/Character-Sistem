@@ -104,14 +104,17 @@ def fixture_dados_base(db_session):
 # ==============================================================================
 def test_deve_inicializar_engine_loader_e_popular_mundo_com_esper(db_session, dados_base):
     """Garante que o GameEngineLoader consegue ler o cenário do banco e montar o Esper."""
+    esper.clear_database()
     loader = GameEngineLoader()
     sucesso = loader.carregar_engine_do_banco(
-        db_session, dados_base["mapa_id"], dados_base["cenario_id"])
+        db_session, usuario_id=dados_base["usuario_id"],
+        slot_numero=1, default_mapa_id=dados_base["mapa_id"], cenario_id=dados_base["cenario_id"])
 
     assert sucesso[0] is True
     assert loader.nome_mapa == "Masmorra Central"
 
-    esper.create_entity()  # Força a criação de uma entidade para validar o mundo
+
+    #esper.create_entity()  # Força a criação de uma entidade para validar o mundo
 
     # Deve conter 2 entidades: Jogador (Injetado) + Orc Soldado (Banco)
     position_components = list(esper.get_components(PositionComponent))

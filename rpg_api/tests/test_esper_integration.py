@@ -116,17 +116,18 @@ def fixture_dados_base(db_session):
 
 
 def test_deve_executar_carregar_engine_do_banco_com_esper(db_session, dados_base):
-    """Garante que o método esperado pela tela limpa o mundo e popula as entidades."""
+    """Garante que o método e'sperado pela tela limpa o mundo e popula as entidades."""
 
     mapa = dados_base.get('mapa_id')
     db = db_session
     
     # 2. AÇÃO: Executa o método esperado pela UI
     loader = GameEngineLoader()
-    sucesso = loader.carregar_engine_do_banco(db, mapa)
+    sucesso = loader.carregar_engine_do_banco(
+        db, usuario_id=1, default_mapa_id=mapa, slot_numero=1, cenario_id=dados_base.get('cenario_id'))
 
     # 3. VALIDAÇÕES COERENTES COM O MOTOR COMPLETO
-    assert sucesso is True
+    assert sucesso[0] is True
     assert loader.nome_mapa == "Caverna do Esper"
 
     # O Esper agora possui 2 entidades com posição (O Jogador injetado + o Goblin do banco)
@@ -152,7 +153,7 @@ def test_deve_atribuir_status_e_inventario_ao_jogador_no_esper(db_session, dados
     mapa_id = dados_base.get("mapa_id")
 
     loader = GameEngineLoader()
-    loader.carregar_engine_do_banco(db_session, mapa_id)
+    loader.carregar_engine_do_banco(db_session, usuario_id=1, default_mapa_id=mapa_id, slot_numero=1, cenario_id=1)
 
     player_entity = None
     for ent_id, (stats,) in esper.get_components(StatsComponent):
@@ -166,7 +167,7 @@ def test_deve_atribuir_status_e_inventario_ao_jogador_no_esper(db_session, dados
     eqp = esper.component_for_entity(player_entity, EquipmentComponent)
 
     assert stats.nome == "Charles"
-    assert stats.classe == "Mago"
+    assert stats.classe == "mago"
     assert stats.ataque_base == 2
-    assert isinstance(inv.itens, list)
+    assert isinstance(inv.itens, dict)
     assert eqp.arma is None

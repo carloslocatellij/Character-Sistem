@@ -1367,7 +1367,8 @@ class AdicionarComandoScreen(ModalScreen[dict]):
                 ("Bifurcação Condicional (Opções)", "bifurcacao_condicional"),
                 ("Variável (Valor)", "controle_variavel"),
                 ("Switch (Liga/Desliga)", "controle_switch"),
-                ("Self Switch (Local)", "controle_self_switch")
+                ("Self Switch (Local)", "controle_self_switch"),
+                
             ], id="cmd-tipo")
             yield Container(id="cmd-form-container")
             with Horizontal(id="evt-botoes"):
@@ -1423,7 +1424,7 @@ class AdicionarComandoScreen(ModalScreen[dict]):
             container.mount(Select([("Ligar (True)", "true"), ("Desligar (False)", "false")], value=val_str, id="cmd-ssw-valor"))
         elif tipo == "controle_variavel":
             container.mount(Input(placeholder="Nome da Variável", id="cmd-variavel-nome", value=dados.get("nome", "")))
-            val_str = self.query_one("#cmd-variavel-nome").value 
+            container.mount(Select([(" = ", "="), (" + ", "+"), (" - ", "-"), (" * ", "*"), (" / ", "//")], value=dados.get("operador", "="), id="cmd-variavel-operador"))
             container.mount(Input(placeholder="Valor atribuido", id="cmd-variavel-valor", value=dados.get("valor", "")))
 
     def on_button_pressed(self, event: Button.Pressed):
@@ -1475,6 +1476,7 @@ class AdicionarComandoScreen(ModalScreen[dict]):
                     comando["dados"]["valor"] = self.query_one("#cmd-ssw-valor").value == "true"
                 elif tipo == "controle_variavel":
                     comando["dados"]["nome"] = self.query_one("#cmd-variavel-nome").value
+                    comando["dados"]["operador"] = self.query_one("#cmd-variavel-operador").value
                     comando["dados"]["valor"] = self.query_one("#cmd-variavel-valor").value
 
                 

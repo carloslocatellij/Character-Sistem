@@ -71,7 +71,7 @@ class GamePlayScreen(Screen):
     
     def on_mount(self):
         self.log_mensagem(
-            "Olá",
+            "CharSystem",
             estilo='slant'
             )
         
@@ -105,21 +105,6 @@ class GamePlayScreen(Screen):
             self.ai_sys = AISystem(self.movimento_sys)
             
             
-            # self.loader.event_bus.subscribe(
-            #     "mudar_mapa", self.ao_mudar_de_mapa)
-
-            # self.loader.event_bus.subscribe(
-            #     "INTERACTION_SUCCESS", self.on_evento_interacao)
-
-            # self.log_mensagem(
-            #     f"[green]Mapa '[bold]{self.loader.nome_mapa}[/]' carregado com sucesso![/]")
-            # self.atualizar_tudo()
-
-            # self.loader.event_bus.subscribe("ataque_monstro", self.ao_levar_ataque)
-            
-            # self.loader.event_bus.subscribe("disparar_bifurcacao",
-            #                                 self.disparar_bifurcacao_visual)
-            
             esper.remove_handler("mudar_mapa", self.ao_mudar_de_mapa)
             esper.remove_handler("INTERACTION_SUCCESS", self.on_evento_interacao)
             esper.remove_handler("disparar_bifurcacao", self.disparar_bifurcacao_visual)
@@ -128,7 +113,7 @@ class GamePlayScreen(Screen):
             esper.set_handler("INTERACTION_SUCCESS", self.on_evento_interacao)
             esper.set_handler("disparar_bifurcacao", self.disparar_bifurcacao_visual)
             
-            self.set_interval(1.0, self.game_tick)
+            self.set_interval(0.33, self.game_tick)
             
             self.log_mensagem(
                 "[bold green]>>> Engine Pronta! Use setas para andar, ENTER para interagir ou use o Terminal de comandos abaixo.[/]")
@@ -150,7 +135,6 @@ class GamePlayScreen(Screen):
 
         with SessionLocal() as db_session:
             # 1. Recarrega a Engine do zero apontando para o novo mapa!
-            # Passamos o mapa_alvo como o default_mapa_id
             
             try:
                 self.engine_manager = self.loader.carregar_engine_do_banco(
@@ -172,10 +156,6 @@ class GamePlayScreen(Screen):
 
         # 2.1 Re-instancia os sistemas para a nova Engine limpa
         try:
-            # Interações com o Esper
-            # self.interacao_sys = InteractionSystem(self.loader.event_bus)
-            # self.ai_sys = AISystem(self.loader,
-            #                        self.movimento_sys, self.loader.event_bus)
             self.movimento_sys = MovementSystem(self.loader)
             self.interacao_sys = InteractionSystem()
             self.ai_sys = AISystem(self.movimento_sys)
@@ -184,7 +164,6 @@ class GamePlayScreen(Screen):
             self.log_mensagem(f"Erro ao Re-instaciar sistemas: {e}")
 
         # 3. Força o Jogador (ID 1) a posicionar-se na coordenada exata que o JSON mandou
-        
         try:
             pos = esper.component_for_entity(1, PositionComponent)
             if pos:
@@ -193,11 +172,7 @@ class GamePlayScreen(Screen):
                 
         except Exception as e:
             self.log_mensagem(f"Erro ao posicionar jogador: {e}")
-
-        # self.loader.event_bus.subscribe(
-        #     "INTERACTION_SUCCESS", self.on_evento_interacao)
-        # self.loader.event_bus.subscribe(
-        #     "mudar_mapa", self.ao_mudar_de_mapa)
+            
         esper.remove_handler("mudar_mapa", self.ao_mudar_de_mapa)
         esper.remove_handler("INTERACTION_SUCCESS", self.on_evento_interacao)
         esper.remove_handler("disparar_bifurcacao", self.disparar_bifurcacao_visual)
@@ -214,10 +189,7 @@ class GamePlayScreen(Screen):
         esper.set_handler(
             "ataque_monstro", self.ao_levar_ataque)
 
-        # self.loader.event_bus.subscribe(
-        #     "ataque_monstro", self.ao_levar_ataque)
-
-        self.set_interval(1.0, self.game_tick)
+        self.set_interval(0.33, self.game_tick)
 
         # 4. Atualiza a tela para o jogador ver o novo cenário imediatamente
         self.atualizar_tudo()
@@ -457,7 +429,7 @@ class GamePlayScreen(Screen):
             self.log_mensagem(
                 f"[red]Comando desconhecido: '{comando}'. Tente /usar ou /equipar.[/]")
         
-        #self.atualizar_paineis_status()
+        self.atualizar_paineis_status()
 
     # ==========================================
     # INPUTS DE MOVIMENTAÇÃO (MANTÉM O FOCO FORA DO PROMPT AO USAR SETAS)
@@ -511,8 +483,7 @@ class GamePlayScreen(Screen):
                     "[gray]Não há nada para acionar aqui na sua frente.[/]")
             self.atualizar_tudo()
             return
-
-        #sleep(0.01)
+        
         self.atualizar_tudo()
 
     # ==========================================

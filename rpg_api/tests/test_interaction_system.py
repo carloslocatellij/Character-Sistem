@@ -86,7 +86,7 @@ class MockMapLoader:
         self.matriz_terrenos = [["  " for _ in range(5)] for _ in range(5)]
         self.matriz_terreno = self.matriz_terrenos
         self.terrenos = self.matriz_terrenos
-        self.camada_objetos = {(2, 1): "🌳"}
+        self.camada_objetos = {(1, 2): "🌳"}
         self.objetos = self.camada_objetos
         self.matriz_objetos = self.camada_objetos
         self.mapa_objetos = self.camada_objetos

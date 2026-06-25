@@ -105,47 +105,93 @@ class MovementSystem:
 class AISystem:
     def __init__(self, movement_system):
         self.movement_system = movement_system
+        
+    def processar_movimento_autonomo(self):
+        """Processa movimento autônomo de monstros/NPCs a cada tick."""
+        
+        deltas = {
+            "cima": (0, -1),
+            "baixo": (0, 1),
+            "esquerda": (-1, 0),
+            "direita": (1, 0)
+        }
+        
+        for ent_id, (pos_comp, ai_comp) in esper.get_components(PositionComponent, AIComponent):
+            # Só processa monstros com movimento aleatório por enquanto
+            if ai_comp.movement_type == "aleatório":
+                # Escolhe uma direção aleatória (4 direções + ficar parado)
+                opcoes = ["cima", "baixo", "esquerda", "direita", None]
+                direcao = random.choice(opcoes)
+
+                if not direcao:
+                    continue  # 20% de chance de ficar parado
+
+                # Tenta mover usando a mesma lógica de colisão do jogador
+                moveu = self.movement_system.mover_entidade(ent_id, direcao)
+
+                # Se colidiu com algo, verifica se foi o herói
+                if not moveu:
+                    pos_heroi = esper.component_for_entity(1, PositionComponent)
+                    if pos_heroi:
+                        # Calcula a posição alvo que tentou alcançar
+                        dx, dy = deltas.get(direcao, (0, 0))
+                        alvo_x = pos_comp.x + dx
+                        alvo_y = pos_comp.y + dy
+                        if pos_heroi.x == alvo_x and pos_heroi.y == alvo_y:
+                            esper.dispatch_event("ataque_monstro", {
+                                "parametros": ai_comp.action_on_touch})
+
+            if ai_comp.movement_type == "perseguir_heroi":
+                pos_heroi = esper.component_for_entity(1, PositionComponent)
+                if pos_heroi:
+                    dx = pos_heroi.x - pos_comp.x
+                    dy = pos_heroi.y - pos_comp.y
+                    direcao = None
+                    if abs(dx) > abs(dy):
+                        direcao = "direita" if dx > 0 else "esquerda"
+                    elif dy != 0:
+                        direcao = "baixo" if dy > 0 else "cima"
+
+                    if direcao:
+                        self.movement_system.mover_entidade(ent_id, direcao)
+
+            if ai_comp.movement_type == "fugir_heroi":
+                pos_heroi = esper.component_for_entity(1, PositionComponent)
+                if pos_heroi:
+                    dx = pos_heroi.x - pos_comp.x
+                    dy = pos_heroi.y - pos_comp.y
+                    direcao = None
+                    if abs(dx) > abs(dy):
+                        direcao = "esquerda" if dx > 0 else "direita"
+                    elif dy != 0:
+                        direcao = "cima" if dy > 0 else "baixo"
+
+                    if direcao:
+                        self.movement_system.mover_entidade(ent_id, direcao)
+
+            if ai_comp.movement_type == "patrulha":
+                if not ai_comp.patrol_path:
+                    continue
+                # Move para o próximo ponto do caminho de patrulha
+                proximo_ponto = ai_comp.patrol_path[ai_comp.current_patrol_index]
+                dx = proximo_ponto[0] - pos_comp.x
+                dy = proximo_ponto[1] - pos_comp.y
+                direcao = None
+                if abs(dx) > abs(dy):
+                    direcao = "direita" if dx > 0 else "esquerda"
+                elif dy != 0:
+                    direcao = "baixo" if dy > 0 else "cima"
+
+                if direcao:
+                    moveu = self.movement_system.mover_entidade(ent_id, direcao)
+                    if moveu and pos_comp.x == proximo_ponto[0] and pos_comp.y == proximo_ponto[1]:
+                        # Avança para o próximo ponto do caminho de patrulha
+                        ai_comp.current_patrol_index = (ai_comp.current_patrol_index + 1) % len(ai_comp.patrol_path)
+
 
     def update(self):
         """Processa movimento autônomo de monstros/NPCs a cada tick."""
-        for ent_id, (pos_comp, ai_comp) in esper.get_components(PositionComponent, AIComponent):
-            # Só processa monstros com movimento aleatório por enquanto
-            if ai_comp.movement_type != "aleatório":
-                continue
-
-            # Escolhe uma direção aleatória (4 direções + ficar parado)
-            opcoes = ["cima", "baixo", "esquerda", "direita", None]
-            direcao = random.choice(opcoes)
-
-            if not direcao:
-                continue  # 20% de chance de ficar parado
-
-            # Tenta mover usando a mesma lógica de colisão do jogador
-            moveu = self.movement_system.mover_entidade(ent_id, direcao)
-
-            # Se colidiu com algo, verifica se foi o herói
-            if not moveu:
-                pos_heroi = esper.component_for_entity(1, PositionComponent)
-                if pos_heroi:
-                    # Calcula a posição alvo que tentou alcançar
-                    deltas = {
-                        "cima": (0, -1),
-                        "baixo": (0, 1),
-                        "esquerda": (-1, 0),
-                        "direita": (1, 0)
-                    }
-                    dx, dy = deltas.get(direcao, (0, 0))
-                    alvo_x = pos_comp.x + dx
-                    alvo_y = pos_comp.y + dy
-
-                    # Se a colisão foi com o herói, emite evento de ataque
-                    if pos_heroi.x == alvo_x and pos_heroi.y == alvo_y:
-                        # if self.event_bus:
-                        #     self.event_bus.publish("ataque_monstro", {
-                        #         "parametros": ai_comp.action_on_touch
-                        #     })
-                        esper.dispatch_event("ataque_monstro", {
-                            "parametros": ai_comp.action_on_touch})
+        self.processar_movimento_autonomo()
                             
 class InventarySystem():
     """ Gerencia estoques de baús e o inventário do personagem. 
@@ -477,9 +523,10 @@ class EventSystem:
         elif tipo == "controle_variavel":
             nome = dados.get("nome")
             valor = dados.get("valor")
-            self.game_state.set_variable(nome,  valor)
-            
-            
+            operador = dados.get("operador", "=")
+            self.game_state.modificar_variavel(nome, operador, valor)
+
+
         elif tipo == "bifurcacao_condicional":
             pergunta = dados.get("pergunta", "Escolha uma opção:")
             opcoes = dados.get("opcoes", [])
@@ -527,7 +574,8 @@ class EventSystem:
             arquivo = dados.get("arquivo")
             self.log_callback(f"[dim]🎵 Som tocando: {arquivo}[/]")
             
-        elif tipo == "mover_evento":
+            
+        elif tipo == "mover":
             self.log_callback(f"[dim]🏃 Movimento de evento acionado.[/]")
 
 

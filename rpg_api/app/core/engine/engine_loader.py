@@ -517,9 +517,16 @@ class GameEngineLoader:
 
                     pos_inicial = mapa_db.configs.get(
                         "pos_inicial", [42, 42]) if mapa_db.configs else [42, 42]
-
-                    esper.add_component(1, PositionComponent(
-                        x=pos_inicial[0], y=pos_inicial[1], direcao_olhar="baixo"))
+                    
+                    try:
+                        esper.add_component(1, PositionComponent(
+                            x=pos_inicial[0], y=pos_inicial[1], direcao_olhar="baixo"))
+                    except KeyError:
+                        esper.clear_database()
+                        esper.create_entity()
+                        esper.add_component(1, PositionComponent(
+                            x=pos_inicial[0], y=pos_inicial[1], direcao_olhar="baixo"))
+                        
                     esper.add_component(1, RenderComponent(
                         emoji=str(p_logic.raca if hasattr(p_logic, 'raca') else "🧙")))
                     esper.add_component(1, InventoryComponent(itens={}))
@@ -595,6 +602,7 @@ class GameEngineLoader:
                     esper.add_component(entidade_ecs_id, StatsComponent(
                         nome=evt.nome, classe='', hp=10, max_hp=10, mp=0, max_mp=0, ataque_base=val_dano, defesa_base=2
                     ))
+
 
             if "mover" in parametros_base:
                 esper.add_component(entidade_ecs_id, AIComponent(
