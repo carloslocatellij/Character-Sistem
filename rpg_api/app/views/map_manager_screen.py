@@ -17,6 +17,7 @@ from app.models.eventos_db import EventoDB
 from app.models.equipamentos_db import ItemDB
 from app.core.entities.emojis import CatalogoTiles, padronizar_largura_tile, dict_item_emoji, dict_emoji_efeito, dict_emoji_racas
 from rich.text import Text
+from app.views.tools.painting_tools import balde_de_tinta
 
 import rich.cells
 from rich.cells import cell_len as rich_cell_len
@@ -89,13 +90,43 @@ class MapManagerScreen(Screen):
         self.mapa_atual_eventos = {}
         
         self.mapa_atual_dados = None
-        self.tile_selecionado = "⬛"
-        self.tem_alteracoes = False
         self.id_mapa_na_agulha = None
+        self.tem_alteracoes = False
         self.historico_desfazer = []
         self.historico_refazer = []
+        self.tile_selecionado = "⬛"
+        self.ferramenta_atual = "lapis" # Exemplo de pincel ativo
         
-# ==========================================
+        
+    BINDINGS = [
+        ("ctrl+z", "desfazer_acao", "Desfazer"),
+        ("ctrl+y", "refazer_acao", "Refazer"),
+        ("ctrl+s", "salvar_mapa_no_banco", "Salvar"),
+        ("ctrl+b", "selecionar_balde", "Balde de Tinta"),
+        ("b", "selecionar_lapis", "Lápis Comum"),
+                                                    ]
+
+    def action_selecionar_balde(self) -> None:
+        self.ferramenta_atual = "balde"
+        self.notify("Ferramenta atual: Balde de Tinta 🪣")
+
+    def action_selecionar_lapis(self) -> None:
+        self.ferramenta_atual = "lapis"
+        self.notify("Ferramenta atual: Lápis ✏️")
+    
+    def action_desfazer_acao(self):
+        self.desfazer_acao()
+        self.notify("Desfez")
+        
+    def action_refazer_acao(self):
+        self.refazer_acao()
+        self.notify("Refez")
+    
+    def action_salvar_mapa_no_banco(self):
+        self.salvar_mapa_no_banco()
+        self.notify("Salvou o mapa no banco !")
+        
+    # ==========================================
     # UTILITÁRIOS DE SERIALIZAÇÃO DE OBJETOS
     # ==========================================
     def _empacotar_objetos_para_banco(self) -> dict:
@@ -363,46 +394,118 @@ class MapManagerScreen(Screen):
 
     @on(MapaInterativo.Pintar)
     def processar_pintura(self, event: MapaInterativo.Pintar):
-        if self.mapa_atual_matriz is None: return 
-            
-        linha, coluna = event.linha, event.coluna
-        
-        if 0 <= linha < len(self.mapa_atual_matriz) and 0 <= coluna < len(self.mapa_atual_matriz[0]):
-            tipo_pincel = CatalogoTiles.obter_tipo(self.tile_selecionado)
-            
-            # 🪄 TRATAMENTO EXCLUSIVO PARA EVENTOS
-            if tipo_pincel == "evento":
-                # Abrimos o modal apenas no INÍCIO do clique. 
-                # Isso impede o Textual de abrir 50 janelas enquanto o usuário arrasta o mouse!
-                if event.inicio_de_traco:
-                    # Desliga a trava de clique contínuo imediatamente
-                    self.query_one("#mapa-view", MapaInterativo).mouse_pressionado = False
-                    
-                    # Verifica se já existia um evento nessa posição para abrir em Modo Edição
-                    evento_atual = self.mapa_atual_eventos.get((linha, coluna))
-                    
-                    # Abre o Modal passando as coordenadas e escuta o callback de retorno
-                    self.app.push_screen(
-                        PropriedadesEventoFormScreen(linha, coluna, self.tile_selecionado, evento_atual),
-                        lambda dados: self.ao_terminar_configurar_evento(linha, coluna, dados)
-                    )
-                return # Interrompe o fluxo padrão de desenho contínuo
+        if self.mapa_atual_matriz is None:
+            return
 
-            # MODO BORRACHA / TERRENO / OBJETO (Mantém-se idêntico ao seu código anterior)
+        linha, column = event.linha, event.coluna
+
+        # Validação de Limites da Matriz
+        if 0 <= linha < len(self.mapa_atual_matriz) and 0 <= column < len(self.mapa_atual_matriz[0]):
+            
+            # =========================================================================
+            # 🪣 NOVO INTERCEPTADOR: FERRAMENTA BALDE DE TINTA
+            # =========================================================================
+            if getattr(self, "ferramenta_atual", "lapis") == "balde":
+                # Executa APENAS no primeiro clique, ignorando o arrasto do mouse
+                if event.inicio_de_traco:
+                    # Salva o estado atual no histórico antes de derramar a tinta (para o Desfazer funcionar)
+                    self.salvar_estado_historico()
+
+                    # Desliga o sensor de clique contínuo para evitar reprocessamentos
+                    self.query_one(
+                        "#mapa-view", MapaInterativo).mouse_pressionado = False
+
+                    # Dispara o algoritmo de Flood Fill iterativo
+                    balde_de_tinta(self.mapa_atual_matriz,
+                        linha, column, self.tile_selecionado)
+
+                    # Atualiza o estado de modificação e renderiza a tela
+                    self.tem_alteracoes = True
+                    self.exibir_mapa_na_tela()
+                return  # Interrompe o fluxo para não rodar o desenho bloco a bloco comum
+
+            # =========================================================================
+            # 🪄 TRATAMENTO EXCLUSIVO PARA EVENTOS (Inalterado)
+            # =========================================================================
+            tipo_pincel = CatalogoTiles.obter_tipo(self.tile_selecionado)
+
+            if tipo_pincel == "evento":
+                if event.inicio_de_traco:
+                    self.query_one(
+                        "#mapa-view", MapaInterativo).mouse_pressionado = False
+                    evento_atual = self.mapa_atual_eventos.get((linha, column))
+
+                    self.app.push_screen(
+                        PropriedadesEventoFormScreen(
+                            linha, column, self.tile_selecionado, evento_atual),
+                        lambda dados: self.ao_terminar_configurar_evento(
+                            linha, column, dados)
+                    )
+                return
+
+            # =========================================================================
+            # MODO BORRACHA / TERRENO / OBJETO (Seu código padrão bloco a bloco)
+            # =========================================================================
             if event.inicio_de_traco:
                 self.salvar_estado_historico()
 
             if self.tile_selecionado == "❌":
-                if (linha, coluna) in self.mapa_atual_objetos: del self.mapa_atual_objetos[(linha, coluna)]
-                if (linha, coluna) in self.mapa_atual_eventos: del self.mapa_atual_eventos[(linha, coluna)] # Borracha apaga eventos também!
+                if (linha, column) in self.mapa_atual_objetos:
+                    del self.mapa_atual_objetos[(linha, column)]
+                if (linha, column) in self.mapa_atual_eventos:
+                    del self.mapa_atual_eventos[(linha, column)]
             elif tipo_pincel == "terreno":
-                if self.mapa_atual_matriz[linha][coluna] != self.tile_selecionado:
-                    self.mapa_atual_matriz[linha][coluna] = self.tile_selecionado
+                if self.mapa_atual_matriz[linha][column] != self.tile_selecionado:
+                    self.mapa_atual_matriz[linha][column] = self.tile_selecionado
             else:
-                self.mapa_atual_objetos[(linha, coluna)] = self.tile_selecionado
+                self.mapa_atual_objetos[(linha, column)
+                                        ] = self.tile_selecionado
 
             self.tem_alteracoes = True
-            self.exibir_mapa_na_tela()    
+            self.exibir_mapa_na_tela()
+
+    # @on(MapaInterativo.Pintar)
+    # def processar_pintura(self, event: MapaInterativo.Pintar):
+    #     if self.mapa_atual_matriz is None: return 
+            
+    #     linha, coluna = event.linha, event.coluna
+        
+    #     if 0 <= linha < len(self.mapa_atual_matriz) and 0 <= coluna < len(self.mapa_atual_matriz[0]):
+    #         tipo_pincel = CatalogoTiles.obter_tipo(self.tile_selecionado)
+            
+    #         # 🪄 TRATAMENTO EXCLUSIVO PARA EVENTOS
+    #         if tipo_pincel == "evento":
+    #             # Abrimos o modal apenas no INÍCIO do clique. 
+    #             # Isso impede o Textual de abrir 50 janelas enquanto o usuário arrasta o mouse!
+    #             if event.inicio_de_traco:
+    #                 # Desliga a trava de clique contínuo imediatamente
+    #                 self.query_one("#mapa-view", MapaInterativo).mouse_pressionado = False
+                    
+    #                 # Verifica se já existia um evento nessa posição para abrir em Modo Edição
+    #                 evento_atual = self.mapa_atual_eventos.get((linha, coluna))
+                    
+    #                 # Abre o Modal passando as coordenadas e escuta o callback de retorno
+    #                 self.app.push_screen(
+    #                     PropriedadesEventoFormScreen(linha, coluna, self.tile_selecionado, evento_atual),
+    #                     lambda dados: self.ao_terminar_configurar_evento(linha, coluna, dados)
+    #                 )
+    #             return # Interrompe o fluxo padrão de desenho contínuo
+
+    #         # MODO BORRACHA / TERRENO / OBJETO (Mantém-se idêntico ao seu código anterior)
+    #         if event.inicio_de_traco:
+    #             self.salvar_estado_historico()
+
+    #         if self.tile_selecionado == "❌":
+    #             if (linha, coluna) in self.mapa_atual_objetos: del self.mapa_atual_objetos[(linha, coluna)]
+    #             if (linha, coluna) in self.mapa_atual_eventos: del self.mapa_atual_eventos[(linha, coluna)] # Borracha apaga eventos também!
+    #         elif tipo_pincel == "terreno":
+    #             if self.mapa_atual_matriz[linha][coluna] != self.tile_selecionado:
+    #                 self.mapa_atual_matriz[linha][coluna] = self.tile_selecionado
+    #         else:
+    #             self.mapa_atual_objetos[(linha, coluna)] = self.tile_selecionado
+
+    #         self.tem_alteracoes = True
+    #         self.exibir_mapa_na_tela()    
     
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
