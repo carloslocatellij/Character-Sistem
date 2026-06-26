@@ -5,7 +5,7 @@ class CatalogoTiles:
     """Registo central que define as categorias e propriedades visuais dos emojis."""
     
     # Listas para construir as abas
-    TERRENOS = ["  ", "⬛", "🔲", "⬜", "🟫", "🟩", "🟦", "🟧", "🈸", "🈴", "🔯" ]
+    TERRENOS = [ "🔳", "🔲", "⬜", "🟫", "🟩", "🟦", "🟧", "🈸", "🈴", "🔯" ]
     TERRENOS_BLOQUEANTES = ["⬛", "🔳", "🧱", "🔲", "🟦", "🟧"]
     
     OBJETOS = [ "🌲", "🌳", "🌴", "🌵", "🎄","🍄",

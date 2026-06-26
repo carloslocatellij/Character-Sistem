@@ -38,3 +38,10 @@ def balde_de_tinta(matriz_terrenos: list[list[str]], y_inicial: int, x_inicial: 
                 pilha.append((y, x - 1))
             if x < largura - 1:
                 pilha.append((y, x + 1))
+
+
+def desenha_retangulo():
+    pass
+
+def desenha_circulo():
+    pass
