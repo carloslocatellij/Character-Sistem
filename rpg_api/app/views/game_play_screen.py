@@ -116,7 +116,7 @@ class GamePlayScreen(Screen):
             self.set_interval(0.33, self.game_tick)
             
             self.log_mensagem(
-                "[bold green]>>> Engine Pronta! Use setas para andar, ENTER para interagir ou use o Terminal de comandos abaixo.[/]")
+                "[bold green]>>> Engine Pronta!.[/]")
             self.atualizar_tudo()
 
         except Exception as e:
@@ -194,7 +194,7 @@ class GamePlayScreen(Screen):
         # 4. Atualiza a tela para o jogador ver o novo cenário imediatamente
         self.atualizar_tudo()
             
-    def log_mensagem(self, texto: str, estilo=None, velocidade: float = 0.05, notif=False):
+    def log_mensagem(self, texto: str, estilo=None, velocidade: float = 0.01, notif=False):
         """Injeta mensagens formatadas no painel lateral de logs."""
         if notif:
             try:

@@ -33,7 +33,10 @@ class PlayerControlComponent:
 @dataclass
 class AIComponent:
     """Define o comportamento autônomo (NPCs, Monstros, Pets)."""
-    movement_type: str       # Ex: "aleatório", "patrulha", "seguir"
+    movement_type: str  # Ex: "aleatório", "patrulha", "seguir"
+    direcoes: list  
+    pontos: list
+    ciclos: int
     action_on_touch: dict    # O que faz se esbarrar em alguém
 
 @dataclass
