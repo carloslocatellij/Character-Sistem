@@ -21,6 +21,7 @@
     }
 },
 
+
 "2 - NPC":
 {"movimento" : null,
 "estado_atual": "desconhecido",
@@ -66,7 +67,7 @@
             "comandos": []
         }
     ]
-}
+},
 
 
 "4 Teleporte":{

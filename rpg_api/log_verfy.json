@@ -1,0 +1,15 @@
+{
+    "id": 2,
+    "nome": "caverninha",
+    "tipo": "caverna",
+    "mapa_pai_id": None,
+    "largura": 30,
+    "altura": 30,
+    "configs": {
+        "taxa_preenchimento": 55,
+        "iteracoes": 3,
+        "tile_parede": "🔲",
+        "tile_chao": "░░",
+        "coordenadas_iniciais": "7,8"
+    }
+}

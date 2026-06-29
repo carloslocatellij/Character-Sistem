@@ -43,6 +43,8 @@ class CatalogoTiles:
         tile_limpo = tile.strip()
         if tile_limpo in cls.TERRENOS:
             return "terreno"
+        if tile_limpo in cls.EVENTOS and tile_limpo in cls.OBJETOS:
+            return 'obj/evt'
         if tile_limpo in cls.EVENTOS:
             return "evento" # <- NOVA CATEGORIA DETECTADA!
         return "objeto"

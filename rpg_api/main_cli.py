@@ -707,6 +707,7 @@ class MainScreen(Screen):
         yield Footer()
 
     def on_button_pressed(self, event: Button.Pressed):
+        
         btn_id = event.button.id
         if btn_id == "menu-create": self.app.push_screen(CreationScreen())
         elif btn_id == "menu-mapas": self.app.push_screen(MapManagerScreen())
@@ -725,7 +726,8 @@ class RPGApp(App):
     #music.play()
     
     def on_mount(self):
-        self.push_screen(MainScreen())
+        self.app.push_screen(MapManagerScreen())
+        #self.push_screen(MainScreen())
  
     def on_key(self, event):
         if event.key == "m":
