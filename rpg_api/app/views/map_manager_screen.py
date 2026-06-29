@@ -27,6 +27,7 @@ CSS_PATH = "styles/styles.css"
 
 Pincel = Literal['lapis', 'balde', 'borracha', 'mira']
 Modo_de_Captura = Literal['config_ini', None]
+Tipo_da_Camada = Literal['terreno', 'objeto', 'evento']
 
 class MapaInterativo(Static):
     """Componente customizado que exibe o mapa e captura movimentos contínuos do mouse."""
@@ -83,6 +84,7 @@ class MapManagerScreen(Screen):
         self.historico_desfazer: list = []
         self.historico_refazer: list = []
         self.tile_selecionado: str = "🟫"
+        self.camada_do_tile: Tipo_da_Camada = 'terreno'
         self.ferramenta_atual: Pincel = "lapis"  # Exemplo de pincel ativo
         self.modo_captura_coordenada: bool = False
         self.contexto_do_modo_de_captura_ativo: Modo_de_Captura = None
@@ -100,10 +102,12 @@ class MapManagerScreen(Screen):
 
     def action_selecionar_balde(self) -> None:
         self.ferramenta_atual = "balde"
+        self.query_one("#btn-balde").focus
         self.notify("Ferramenta atual: Balde de Tinta 🪣")
 
     def action_selecionar_lapis(self) -> None:
         self.ferramenta_atual = "lapis"
+        self.query_one("#btn-lapis").focus
         self.notify("Ferramenta atual: Lápis ✏️")
     
     def action_desfazer_acao(self):
@@ -320,13 +324,26 @@ class MapManagerScreen(Screen):
     def processar_pintura(self, event: MapaInterativo.Pintar):
         if self.matriz_do_mapa_atual is None:
             return
-
         linha, coluna = event.linha, event.coluna
-
+        
         # Validação de Limites da Matriz
         if 0 <= linha < len(self.matriz_do_mapa_atual) and 0 <= coluna < len(self.matriz_do_mapa_atual[0]):
+            if event.inicio_de_traco:
+                self.salvar_estado_historico()
             
-            if self.modo_captura_coordenada or self.ferramenta_atual == "mira": 
+            # =========================================================================
+            # FERRAMENTA BORRACHA / TERRENO / OBJETO (Seu código padrão bloco a bloco)
+            # =========================================================================
+            if self.ferramenta_atual == "borracha":
+                if (linha, coluna) in self.objetos_do_mapa_atual:
+                    del self.objetos_do_mapa_atual[(linha, coluna)]
+                if (linha, coluna) in self.eventos_do_mapa_atual:
+                    del self.eventos_do_mapa_atual[(linha, coluna)]
+                    
+            # =========================================================================
+            # FERRAMENTA MODO CAPTURADOR DE COORDENADA
+            # =========================================================================
+            if self.modo_captura_coordenada or self.ferramenta_atual == "mira":
                 logging.info(f"Modo de captura: coords: (x={coluna}, y={linha})")
                 
                 if event.inicio_de_traco:
@@ -347,73 +364,66 @@ class MapManagerScreen(Screen):
                 return
             
             # =========================================================================
-            # 🪣 NOVO INTERCEPTADOR: FERRAMENTA BALDE DE TINTA
+            # FERRAMENTA BALDE DE TINTA
             # =========================================================================
+            #TODO: A ferramenta balde não está preenchedo o fundo em caso de objetos
             if self.ferramenta_atual == "balde":
                 # Executa APENAS no primeiro clique, ignorando o arrasto do mouse
                 if event.inicio_de_traco:
-                    # Salva o estado atual no histórico antes de derramar a tinta (para o Desfazer funcionar)
-                    self.salvar_estado_historico()
-
                     # Desliga o sensor de clique contínuo para evitar reprocessamentos
                     self.query_one(
                         "#mapa-view", MapaInterativo).mouse_pressionado = False
 
                     # Dispara o algoritmo de Flood Fill iterativo
-                    balde_de_tinta(self.matriz_do_mapa_atual,
-                        linha, coluna, self.tile_selecionado)
-
+                    try:
+                        balde_de_tinta(self.matriz_do_mapa_atual,
+                            linha, coluna, self.tile_selecionado)
+                    except Exception as e:
+                        raise(f"Erro ao aplicar balde_de_tinta: {e}")
+                    
                     # Atualiza o estado de modificação e renderiza a tela
                     self.tem_alteracoes = True
                     self.exibir_mapa_na_tela()
-                return  # Interrompe o fluxo para não rodar o desenho bloco a bloco comum
+                return  
 
+            
             # =========================================================================
-            # 🪄 TRATAMENTO EXCLUSIVO PARA EVENTOS (Inalterado)
+            # FERRAMENTA LÁPIS 
             # =========================================================================
-            # TODO: Aqui ocorre o erro de confundir objetos por eventos, o .obter_tipo não sabe mais diferenciar já que a emojis iguais nos dois tipos.
-            tipo_pincel = CatalogoTiles.obter_tipo(self.tile_selecionado) 
-            if tipo_pincel == 'obj/evt':
-                ...
-
-            if tipo_pincel == "evento":
-                if self.ferramenta_atual == 'balde':
-                    self.ferramenta_atual = 'lapis'
-                if event.inicio_de_traco:
-                    self.query_one(
-                        "#mapa-view", MapaInterativo).mouse_pressionado = False
-                    evento_atual = self.eventos_do_mapa_atual.get((linha, coluna))
-                    try:
-                        self.app.push_screen(
-                            PropriedadesEventoFormScreen(
-                                linha, coluna, self.tile_selecionado, evento_atual),
-                            lambda dados: self.ao_terminar_configurar_evento(
-                                linha, coluna, dados)
-                        )
-                    except Exception as e:
-                        raise(f"Erro em lançar o form de evento na pintura de evento: {e} ")
-                    
-                    self.salvar_estado_historico()
-                return
-
-            # =========================================================================
-            # MODO BORRACHA / TERRENO / OBJETO (Seu código padrão bloco a bloco)
-            # =========================================================================
-            if event.inicio_de_traco:
-                self.salvar_estado_historico()
-
-            if self.ferramenta_atual == "borracha":
-                if (linha, coluna) in self.objetos_do_mapa_atual:
-                    del self.objetos_do_mapa_atual[(linha, coluna)]
-                if (linha, coluna) in self.eventos_do_mapa_atual:
-                    del self.eventos_do_mapa_atual[(linha, coluna)]
+            if self.ferramenta_atual == "lapis":
                 
+                #tipo_pincel = CatalogoTiles.obter_tipo(self.tile_selecionado) 
                 
-                    
-            if getattr(self, "ferramenta_atual", "lapis") == "lapis":
-                if tipo_pincel == "terreno":
+                # =========================================================================
+                # TRATAMENTO EXCLUSIVO PARA EVENTOS (Inalterado)
+                # =========================================================================
+                # TODO: Aqui ocorre o erro de confundir objetos por eventos, o .obter_tipo não sabe mais diferenciar já que a emojis iguais nos dois tipos.
+
+                if self.camada_do_tile == "terreno":
                     if self.matriz_do_mapa_atual[linha][coluna] != self.tile_selecionado:
                         self.matriz_do_mapa_atual[linha][coluna] = self.tile_selecionado
+                
+                elif self.camada_do_tile == "evento":
+                    if self.ferramenta_atual == 'balde':
+                        self.ferramenta_atual = 'lapis'
+                        
+                    if event.inicio_de_traco:
+                        self.query_one(
+                            "#mapa-view", MapaInterativo).mouse_pressionado = False
+                        evento_atual = self.eventos_do_mapa_atual.get((linha, coluna))
+                        try:
+                            self.app.push_screen(
+                                PropriedadesEventoFormScreen(
+                                    linha, coluna, self.tile_selecionado, evento_atual),
+                                lambda dados: self.ao_terminar_configurar_evento(
+                                    linha, coluna, dados)
+                            )
+                        except Exception as e:
+                            raise(f"Erro em lançar o form de evento na pintura de evento: {e} ")
+                        
+                        self.salvar_estado_historico()
+                    return
+                
                 else:
                     self.objetos_do_mapa_atual[(linha, coluna)
                                             ] = self.tile_selecionado
@@ -448,7 +458,13 @@ class MapManagerScreen(Screen):
             # ✅ DEPOIS: Passamos o texto do botão pelo nosso padronizador!
             tile_bruto = str(event.button.label)
             self.tile_selecionado = padronizar_largura_tile(tile_bruto)
-
+            if 'evt' in event.button.id:
+                self.camada_do_tile = 'evento'
+                self.action_selecionar_lapis()
+            elif 'obj' in event.button.id:
+                self.camada_do_tile = 'objeto'
+            else:
+                self.camada_do_tile   = 'terreno'
             self.query_one("#lbl-tile-atual", Label).update(f"Selecionado: {self.tile_selecionado}")
             return
             
@@ -1100,7 +1116,7 @@ class PropriedadesFormScreen(ModalScreen[dict]):
         if 'coordenadas_iniciais' in self.dados_atuais:
             self.query_one("#switch_ini_world").value = True
             self.query_one("#cx-coordenadas_iniciais").display = True
-        
+        from app.db.database import SessionLocal
             
         with SessionLocal() as db:
             mapas = db.query(MapaDB).all()
