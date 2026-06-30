@@ -4,7 +4,7 @@ import copy
 from textual.app import ComposeResult
 from textual.screen import Screen, ModalScreen
 from textual.widgets import Footer, Tree, Static, Label, Button, Input, Select, Switch
-from textual.widgets import TabbedContent, TabPane, Tabs
+from textual.widgets import TabbedContent, TabPane
 from textual.containers import Horizontal, Vertical, Container
 from textual.message import Message
 from textual import on
@@ -18,8 +18,6 @@ from rich.text import Text
 from app.views.tools.painting_tools import balde_de_tinta
 from app.views.components.evento_form_screen import PropriedadesEventoFormScreen
 from app.db.database import SessionLocal
-import rich.cells
-from rich.cells import cell_len as rich_cell_len
 import logging
 logging.basicConfig(level=logging.INFO, filename="log.log", filemode="a")
 from typing import Literal
@@ -547,11 +545,13 @@ class MapManagerScreen(Screen):
             self.buffer_de_dados_do_formulario = dados_de_propridades_alteradas.get(
                 "estado_formulario_atual", {})
 
+
         # Atualiza a memória com os novos dados
         self.dados_do_mapa_atual["nome"] = dados_de_propridades_alteradas["nome"]
         self.dados_do_mapa_atual["mapa_pai_id"] = dados_de_propridades_alteradas["mapa_pai_id"]
         if "coordenadas_iniciais" in dados_de_propridades_alteradas:
             self.dados_do_mapa_atual["configs"]["coordenadas_iniciais"] =  dados_de_propridades_alteradas["coordenadas_iniciais"]
+        
         
         self.tem_alteracoes = True
         # Atualiza o título na tela
@@ -622,18 +622,27 @@ class MapManagerScreen(Screen):
     def _reabrir_formulario_enviando_coordenadas(self, linha_coletada: int, coluna_coletada: int, id_alvo: str):
         """Monta o formulário de volta injetando a nova coordenada no escopo correto."""
         
+        dados_para_reenvio_de_propriedades = self.dados_do_mapa_atual
+        
+        #dados_para_reenvio_de_propriedades['nome'] = self.dados_do_mapa_atual.get("nome"),
+        dados_para_reenvio_de_propriedades ['mapa_pai_id']= self.dados_do_mapa_atual.get(
+            'mapa_pai_id', None)
+        
         dados_atuais = dict(
             coordenadas_iniciais=str(str(linha_coletada)+','+str(coluna_coletada)), 
-            nome=self.dados_do_mapa_atual.get("nome"),
             switch_coord_ini=True,
-            mapa_pai=self.dados_do_mapa_atual.get('mapa_pai', None)
             )
+        
+        for key , value in dados_atuais.items():
+            dados_para_reenvio_de_propriedades['configs'][key] = value
+            
+            
         if id_alvo == 'config_ini':
-            form_screen = PropriedadesFormScreen(dados_atuais
+            form_screen = PropriedadesFormScreen(dados_para_reenvio_de_propriedades
             )
             self.app.push_screen(
                     form_screen,
-                lambda dados_atuais: self.ao_terminar_propriedades(dados_atuais)
+                lambda dados_para_reenvio_de_propriedades: self.ao_terminar_propriedades(dados_para_reenvio_de_propriedades)
                 )
         
         else:
@@ -1122,13 +1131,16 @@ class PropriedadesFormScreen(ModalScreen[dict]):
 
             yield Horizontal(
                 Static("Mapa Inicial:      ", classes="label"),         
-                Switch(value=False, id='switch_ini_world', tooltip='Mude para selecionar o local de início do jogo'),
+                Switch(value=self.dados_de_propriedades_atuais.get(
+                           'configs', {}).get("switch_coord_ini", False), id='switch_ini_world',
+                       
+                       tooltip='Mude para selecionar o local de início do jogo'),
                 classes="container",)
             
             with Horizontal(id='cx-coordenadas_iniciais', classes="container"):
                 yield Button("Indicar coordenada.", id='btn-indica-coord-ini', classes="label")
                 yield Input(placeholder="coordenadas_iniciais: x , y",
-                            value=self.dados_de_propriedades_atuais.get("coordenadas_iniciais", ""), id="coordenadas_iniciais", classes="label")
+                            value=self.dados_de_propriedades_atuais.get('configs',{}).get("coordenadas_iniciais", ""), id="coordenadas_iniciais", classes="label")
                 
                         
             with Horizontal(id="prop-botoes"):
@@ -1137,11 +1149,16 @@ class PropriedadesFormScreen(ModalScreen[dict]):
 
     def on_mount(self):
         """Ao abrir, carrega os mapas do banco para o Select de Mapa Pai."""
+        
         logging.info(f"dados_atuais_recebidos_pelo_form = {self.dados_de_propriedades_atuais}")
-        self.query_one("#cx-coordenadas_iniciais").display = False
-        if 'coordenadas_iniciais' in self.dados_de_propriedades_atuais:
-            self.query_one("#switch_ini_world").value = True
+        
+        switch_mapa_ini = self.query_one("#switch_ini_world").value 
+        
+        if switch_mapa_ini or self.dados_de_propriedades_atuais.get('configs', {}).get("coordenadas_iniciais"):
             self.query_one("#cx-coordenadas_iniciais").display = True
+        else:
+            self.query_one("#cx-coordenadas_iniciais").display = False
+            
         from app.db.database import SessionLocal
             
         with SessionLocal() as db:
@@ -1163,10 +1180,16 @@ class PropriedadesFormScreen(ModalScreen[dict]):
         
         if event.value: 
             self.query_one("#cx-coordenadas_iniciais").display = True
-            self.notify(f"Mundo inicial setado.")
+            self.notify(f"Mundo inicial setado. Deve haver apenas um.")
         else:
             self.query_one("#cx-coordenadas_iniciais").display = False
-        
+            
+            self.query_one("#coordenadas_iniciais").value = ''
+            self.dados_de_propriedades_atuais.get(
+                'configs', {}).pop("coordenadas_iniciais")
+            self.dados_de_propriedades_atuais.get(
+                'configs', {}).pop("switch_ini_world")
+
 
     def on_button_pressed(self, event: Button.Pressed):
         if event.button.id == "btn-prop-cancelar":
@@ -1196,6 +1219,7 @@ class PropriedadesFormScreen(ModalScreen[dict]):
 
             
         elif event.button.id == "btn-prop-salvar":
+            
             novo_nome = self.query_one("#prop-nome").value
             novo_pai = self.query_one("#prop-pai").value
             coordenadas_iniciais = self.query_one("#coordenadas_iniciais").value
@@ -1208,6 +1232,7 @@ class PropriedadesFormScreen(ModalScreen[dict]):
                 "mapa_pai_id": novo_pai or None,
                 "coordenadas_iniciais": coordenadas_iniciais or ''
             }
+            
             self.dismiss(dados_de_propridades_alteradas)
             
     def _capturar_valores_campos_atuais(self) -> dict:
