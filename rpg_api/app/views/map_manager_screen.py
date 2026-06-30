@@ -4,7 +4,7 @@ import copy
 from textual.app import ComposeResult
 from textual.screen import Screen, ModalScreen
 from textual.widgets import Footer, Tree, Static, Label, Button, Input, Select, Switch
-from textual.widgets import TabbedContent, TabPane
+from textual.widgets import TabbedContent, TabPane, Tabs
 from textual.containers import Horizontal, Vertical, Container
 from textual.message import Message
 from textual import on
@@ -17,6 +17,7 @@ from app.core.entities.emojis import CatalogoTiles, padronizar_largura_tile, dic
 from rich.text import Text
 from app.views.tools.painting_tools import balde_de_tinta
 from app.views.components.evento_form_screen import PropriedadesEventoFormScreen
+from app.db.database import SessionLocal
 import rich.cells
 from rich.cells import cell_len as rich_cell_len
 import logging
@@ -354,12 +355,12 @@ class MapManagerScreen(Screen):
 
                     # Passa o contexto ativo para a reabertura do formulário
                     try:
-                        self._reabrir_formulario_com_coordenadas(
+                        self._reabrir_formulario_enviando_coordenadas(
                             linha, coluna, self.contexto_do_modo_de_captura_ativo)
                     except Exception as e:
-                        logging.info(f"Erro ao _reabrir_formulario_com_coordenadas: {e}")
+                        logging.info(f"Erro ao _reabrir_formulario_enviando_coordenadas: {e}")
                         raise ValueError(
-                            f"Erro ao _reabrir_formulario_com_coordenadas: {e}")
+                            f"Erro ao _reabrir_formulario_enviando_coordenadas: {e}")
                 
                 return
             
@@ -438,7 +439,8 @@ class MapManagerScreen(Screen):
         if event.button.id == "btn-fechar":
             self.dismiss()
         elif event.button.id == "btn-novo":
-            self.app.push_screen(NovoMapaFormScreen(), self.ao_terminar_form)
+            self.app.push_screen(NovoMapaFormScreen(), self.ao_terminar_form_de_novo_mapa)
+            
         elif event.button.id == "btn-salvar":
             self.salvar_mapa_no_banco()
         elif event.button.id == "btn-desfazer":
@@ -458,13 +460,7 @@ class MapManagerScreen(Screen):
             # ✅ DEPOIS: Passamos o texto do botão pelo nosso padronizador!
             tile_bruto = str(event.button.label)
             self.tile_selecionado = padronizar_largura_tile(tile_bruto)
-            if 'evt' in event.button.id:
-                self.camada_do_tile = 'evento'
-                self.action_selecionar_lapis()
-            elif 'obj' in event.button.id:
-                self.camada_do_tile = 'objeto'
-            else:
-                self.camada_do_tile   = 'terreno'
+            logging.info(f"btn:: {event.button.id}")
             self.query_one("#lbl-tile-atual", Label).update(f"Selecionado: {self.tile_selecionado}")
             return
             
@@ -472,60 +468,90 @@ class MapManagerScreen(Screen):
             if self.dados_do_mapa_atual is None:
                 self.notify("Crie ou carregue um mapa primeiro!", severity="warning")
                 return
-            
-            self.app.push_screen(
-                PropriedadesFormScreen(self.dados_do_mapa_atual), 
-                self.ao_terminar_propriedades)
-            
+            try:
+                self.app.push_screen(
+                    PropriedadesFormScreen(self.dados_do_mapa_atual), 
+                    self.ao_terminar_propriedades)
+            except Exception as e:
+                logging.info(f"Erro ao lançar Form de Propriedades pelo botão: {e}")
+                
         elif event.button.id == "btn-menu":
             # Abre o menu flutuante!
             self.app.push_screen(MenuAcoesScreen(), self.ao_escolher_acao_menu)
 
+    @on(TabbedContent.TabActivated)
+    def on_tab_pane_enabled(self, event: TabbedContent.TabActivated):
+        logging.info(f"tab: {event.pane.id  }")
+        aba_ativa_id = event.pane.id
 
-    def ao_terminar_form(self, dados_do_form: dict | None):
+        if aba_ativa_id == 'tab-terrenos':
+            logging.info(f"tab: {aba_ativa_id}")
+            self.camada_do_tile = 'terreno'
+            if self.dados_do_mapa_atual:
+                self.tile_selecionado = self.dados_do_mapa_atual.get(
+                    'configs').get('tile_chao', "🟫")
+            
+        elif aba_ativa_id == 'tab-eventos':
+            logging.info(f"tab: {aba_ativa_id}")
+            self.camada_do_tile = 'evento'
+            self.action_selecionar_lapis()
+            
+        else:
+            logging.info(f"tab: {aba_ativa_id}")
+            self.camada_do_tile = 'objeto'
+            
+
+    def ao_terminar_form_de_novo_mapa(self, dados_recebidos_do_form_novo_mapa: dict | None):
         """Callback acionado quando o usuário clica em 'Gerar' ou 'Cancelar' no form."""
-        if dados_do_form is None:
+        if dados_recebidos_do_form_novo_mapa is None:
             return 
         
-        self.dados_do_mapa_atual = dados_do_form
+        self.dados_do_mapa_atual = dados_recebidos_do_form_novo_mapa
         self.objetos_do_mapa_atual.clear()
         
         # 2. PREPARAÇÃO DOS DADOS: Juntamos os tiles e as configurações num único pacote
-        configs_completas = dados_do_form.get("configs", {})
-        configs_completas["tile_parede"] = dados_do_form.get("tile_parede", "🔲")
-        configs_completas["tile_chao"] = dados_do_form.get("tile_chao", "  ")
+        configs_completas = dados_recebidos_do_form_novo_mapa.get("configs", {})
+        configs_completas["tile_parede"] = dados_recebidos_do_form_novo_mapa.get("tile_parede", "🔲")
+        configs_completas["tile_chao"] = dados_recebidos_do_form_novo_mapa.get("tile_chao", "  ")
         
-        # 3. Chama a lógica pura (O nosso core de geração) e injeta os dados reais
-        self.matriz_do_mapa_atual = GestorDeMapas.gerar_mapa_rpg(
-            tipo=dados_do_form["tipo"],
-            largura=dados_do_form["largura"],
-            altura=dados_do_form["altura"],
-            configs=configs_completas 
-        )
+        try:
+            # 3. Chama a lógica pura (O nosso core de geração) e injeta os dados reais
+            self.matriz_do_mapa_atual = GestorDeMapas.gerar_mapa_rpg(
+                tipo=dados_recebidos_do_form_novo_mapa["tipo"],
+                largura=dados_recebidos_do_form_novo_mapa["largura"],
+                altura=dados_recebidos_do_form_novo_mapa["altura"],
+                configs=configs_completas 
+            )
+        except Exception as e:
+            raise (f"Erro no processo de Gerar mapa pelo GestorDeMapas: {e}")
+        
         # 4. Exibe o mapa na tela e avisa o utilizador!
         self.exibir_mapa_na_tela()
-        self.notify(f"Mapa '{dados_do_form['nome']}' gerado com as novas regras!")
+        self.notify(f"Mapa '{dados_recebidos_do_form_novo_mapa['nome']}' gerado com as novas regras!")
         
         
-    def ao_terminar_propriedades(self, alteracoes: dict | None):
+    def ao_terminar_propriedades(self, dados_de_propridades_alteradas: dict | None):
         """Callback acionado ao fechar a tela de Propriedades."""
-        if alteracoes is None:
+        if dados_de_propridades_alteradas is None:
             return 
         
-        if alteracoes.get("acao_especial") == "ativar_capitura_de_posicao":
+        logging.info(
+            f"dados_de_propridades_alteradas: {dados_de_propridades_alteradas}")
+        
+        if dados_de_propridades_alteradas.get("acao_especial") == "ativar_capitura_de_posicao":
             self.modo_captura_coordenada = True
             self.ferramenta_atual = "mira"
 
             # 🌟 Registra o identificador do campo para a resposta saber onde se injetar
-            self.contexto_do_modo_de_captura_ativo = alteracoes.get("id_alvo", 'config_ini')
-            self.buffer_de_dados_do_formulario = alteracoes.get(
+            self.contexto_do_modo_de_captura_ativo = dados_de_propridades_alteradas.get("id_alvo", 'config_ini')
+            self.buffer_de_dados_do_formulario = dados_de_propridades_alteradas.get(
                 "estado_formulario_atual", {})
 
         # Atualiza a memória com os novos dados
-        self.dados_do_mapa_atual["nome"] = alteracoes["nome"]
-        self.dados_do_mapa_atual["mapa_pai_id"] = alteracoes["mapa_pai_id"]
-        if "coordenadas_iniciais" in alteracoes:
-            self.dados_do_mapa_atual["configs"]["coordenadas_iniciais"] =  alteracoes["coordenadas_iniciais"]
+        self.dados_do_mapa_atual["nome"] = dados_de_propridades_alteradas["nome"]
+        self.dados_do_mapa_atual["mapa_pai_id"] = dados_de_propridades_alteradas["mapa_pai_id"]
+        if "coordenadas_iniciais" in dados_de_propridades_alteradas:
+            self.dados_do_mapa_atual["configs"]["coordenadas_iniciais"] =  dados_de_propridades_alteradas["coordenadas_iniciais"]
         
         self.tem_alteracoes = True
         # Atualiza o título na tela
@@ -593,7 +619,7 @@ class MapManagerScreen(Screen):
         
         
         
-    def _reabrir_formulario_com_coordenadas(self, linha_coletada: int, coluna_coletada: int, id_alvo: str):
+    def _reabrir_formulario_enviando_coordenadas(self, linha_coletada: int, coluna_coletada: int, id_alvo: str):
         """Monta o formulário de volta injetando a nova coordenada no escopo correto."""
         
         dados_atuais = dict(
@@ -1079,17 +1105,17 @@ class NovoMapaFormScreen(ModalScreen[dict]):
 class PropriedadesFormScreen(ModalScreen[dict]):
     """Tela flutuante para editar as propriedades de um mapa que já está na memória."""
 
-    def __init__(self, dados_atuais: dict):
+    def __init__(self, dados_atuais_recebidos_pelo_form: dict):
         super().__init__()
         # Recebe os dados do mapa atual para pré-preencher o formulário
-        self.dados_atuais = dados_atuais
-        self.mapa_pai_id = self.dados_atuais.get('mapa_pai_id', None)
+        self.dados_de_propriedades_atuais = dados_atuais_recebidos_pelo_form
+        self.mapa_pai_id = self.dados_de_propriedades_atuais.get('mapa_pai_id', None)
     
     def compose(self):
         with Vertical(id="prop-caixa"):
             yield Label("📝 Propriedades do Mapa", classes="titulo-secao")
             yield Label("Nome:")
-            yield Input(value=self.dados_atuais.get("nome", ""), id="prop-nome")
+            yield Input(value=self.dados_de_propriedades_atuais.get("nome", ""), id="prop-nome")
             
             yield Label("Mapa Pai:")
             yield Select([], id="prop-pai",)
@@ -1102,7 +1128,7 @@ class PropriedadesFormScreen(ModalScreen[dict]):
             with Horizontal(id='cx-coordenadas_iniciais', classes="container"):
                 yield Button("Indicar coordenada.", id='btn-indica-coord-ini', classes="label")
                 yield Input(placeholder="coordenadas_iniciais: x , y",
-                            value=self.dados_atuais.get("coordenadas_iniciais", ""), id="coordenadas_iniciais", classes="label")
+                            value=self.dados_de_propriedades_atuais.get("coordenadas_iniciais", ""), id="coordenadas_iniciais", classes="label")
                 
                         
             with Horizontal(id="prop-botoes"):
@@ -1111,9 +1137,9 @@ class PropriedadesFormScreen(ModalScreen[dict]):
 
     def on_mount(self):
         """Ao abrir, carrega os mapas do banco para o Select de Mapa Pai."""
-        logging.info(f"dados_atuais = {self.dados_atuais}")
+        logging.info(f"dados_atuais_recebidos_pelo_form = {self.dados_de_propriedades_atuais}")
         self.query_one("#cx-coordenadas_iniciais").display = False
-        if 'coordenadas_iniciais' in self.dados_atuais:
+        if 'coordenadas_iniciais' in self.dados_de_propriedades_atuais:
             self.query_one("#switch_ini_world").value = True
             self.query_one("#cx-coordenadas_iniciais").display = True
         from app.db.database import SessionLocal
@@ -1126,7 +1152,7 @@ class PropriedadesFormScreen(ModalScreen[dict]):
             select_pai.set_options(opcoes)
             
             # Tenta marcar no Select o mapa pai que este mapa já possui
-            pai_atual = self.dados_atuais.get("mapa_pai_id", None)
+            pai_atual = self.dados_de_propriedades_atuais.get("mapa_pai_id", None)
             if pai_atual and pai_atual != '':
                 select_pai.value = pai_atual
             else:
@@ -1177,12 +1203,12 @@ class PropriedadesFormScreen(ModalScreen[dict]):
                 novo_pai = None
 
             # Retornamos apenas o que foi alterado
-            alteracoes = {
+            dados_de_propridades_alteradas = {
                 "nome": novo_nome or '',
                 "mapa_pai_id": novo_pai or None,
                 "coordenadas_iniciais": coordenadas_iniciais or ''
             }
-            self.dismiss(alteracoes)
+            self.dismiss(dados_de_propridades_alteradas)
             
     def _capturar_valores_campos_atuais(self) -> dict:
         """Coleta o texto atual digitado nos campos para não perder o progresso."""
