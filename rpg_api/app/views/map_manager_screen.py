@@ -137,20 +137,21 @@ class MapManagerScreen(Screen):
                 with Container(id="paleta-container"):
                     yield Label("🎨 Paleta", classes="titulo-secao")
                     yield Label(f"Selecionado: {self.tile_selecionado}", id="lbl-tile-atual")
-                    yield Button("Balde 🧺", id="btn-balde", classes="btn-pequeno")
-                    yield Button("Lápis ✏", id="btn-lapis", classes="btn-pequeno")
+                    with Horizontal():
+                        yield Button("↩ Des.", id="btn-desfazer", classes="btn-pequeno")
+                        yield Button("↪ Ref.", id="btn-refazer", classes="btn-pequeno")
                     
                     with Horizontal(id="ferramentas-hist"):
-                        yield Button("↩ Desfazer", id="btn-desfazer", classes="btn-pequeno")
-                        yield Button("↪ Refazer", id="btn-refazer", classes="btn-pequeno")
                         # NOVO: Borracha para apagar objetos
-                        yield Button("❌ Borracha", id="btn-borracha", classes="btn-pequeno", variant="error")
+                        yield Button("Lápis ✏", id="btn-lapis", classes="btn-pequeno", variant="warning")
+                        yield Button("Balde 🧺", id="btn-balde", classes="btn-pequeno", variant="warning")
+                        yield Button("❌ Borracha", id="btn-borracha", classes="btn-pequeno", variant="warning")
                     
                     # 🪄 O NOVO SISTEMA DE ABAS!
                     with TabbedContent(id="tabs-paleta"):
                         # ABA 1: TERRENOS E PAREDES
                         with TabPane("🌍 Terrenos", id="tab-terrenos"):
-                            with Container(classes="grade-paleta"): # Note que mudei id="grade-paleta" para classes="grade-paleta" no seu CSS depois
+                            with Container(classes="grade-paleta"): 
                                 for i, tile in enumerate(CatalogoTiles.TERRENOS):
                                     yield Button(padronizar_largura_tile(tile), classes="btn-paleta", id=f"tile-terr-{i}")
                         
@@ -547,10 +548,13 @@ class MapManagerScreen(Screen):
 
 
         # Atualiza a memória com os novos dados
-        self.dados_do_mapa_atual["nome"] = dados_de_propridades_alteradas["nome"]
-        self.dados_do_mapa_atual["mapa_pai_id"] = dados_de_propridades_alteradas["mapa_pai_id"]
-        if "coordenadas_iniciais" in dados_de_propridades_alteradas:
-            self.dados_do_mapa_atual["configs"]["coordenadas_iniciais"] =  dados_de_propridades_alteradas["coordenadas_iniciais"]
+        try:
+            self.dados_do_mapa_atual["nome"] = dados_de_propridades_alteradas["nome"]
+            self.dados_do_mapa_atual["mapa_pai_id"] = dados_de_propridades_alteradas["mapa_pai_id"]
+            if "coordenadas_iniciais" in dados_de_propridades_alteradas:
+                self.dados_do_mapa_atual["configs"]["coordenadas_iniciais"] =  dados_de_propridades_alteradas["coordenadas_iniciais"]
+        except KeyError as ke:
+            raise(f"KeyError ao obter dados_de_propridades_alteradas: {ke}")
         
         
         self.tem_alteracoes = True
@@ -577,100 +581,10 @@ class MapManagerScreen(Screen):
         snapshot_passado = self.historico_desfazer.pop()
         self.matriz_do_mapa_atual = snapshot_passado["matriz"]
         self.objetos_do_mapa_atual = snapshot_passado["objetos"]
-        
         self.tem_alteracoes = True
         self.exibir_mapa_na_tela()
         
         
-    def ao_terminar_configurar_evento(self, linha: int, coluna: int, dados_evento: dict | None):
-        """Callback acionado quando o usuário confirma os dados do evento no Modal."""
-        if dados_evento is None:
-            return # Usuário clicou em Cancelar, nada é alterado
-
-        if dados_evento.get("acao_especial") == "ativar_capitura_de_posicao":
-            self.modo_captura_coordenada = True
-            self.ferramenta_atual = "mira"
-                        
-            # 🌟 Registra o identificador do campo para a resposta saber onde se injetar
-            self.contexto_do_modo_de_captura_ativo = dados_evento.get("id_alvo")
-            self.buffer_de_dados_do_formulario = dados_evento.get(
-                "estado_formulario_atual", {})
-            self.notify(
-                f"Modo Mira Ativo: Selecione a coordenada para o campo [{self.contexto_do_modo_de_captura_ativo}]! 🎯")
-            return
-        
-        # Usa a nossa função estruturada (que validamos no teste TDD anterior!)
-        self.adicionar_evento_para_memoria(
-            linha=linha,
-            coluna=coluna,
-            nome=dados_evento["nome"],
-            emoji=dados_evento["emoji"],
-            event_type=dados_evento["event_type"],
-            parametros=dados_evento["parametros"],
-            evento_id=dados_evento.get("id")
-        )
-        
-        # Garante que o histórico do Desfazer registrou essa mudança
-        self.salvar_estado_historico()
-        
-        # Atualiza o display e renderiza o novo emoji de evento por cima do mapa
-        self.exibir_mapa_na_tela()
-        self.notify(f"Evento '{dados_evento['nome']}' instanciado com sucesso!")
-        
-        
-        
-    def _reabrir_formulario_enviando_coordenadas(self, linha_coletada: int, coluna_coletada: int, id_alvo: str):
-        """Monta o formulário de volta injetando a nova coordenada no escopo correto."""
-        
-        dados_para_reenvio_de_propriedades = self.dados_do_mapa_atual
-        
-        #dados_para_reenvio_de_propriedades['nome'] = self.dados_do_mapa_atual.get("nome"),
-        dados_para_reenvio_de_propriedades ['mapa_pai_id']= self.dados_do_mapa_atual.get(
-            'mapa_pai_id', None)
-        
-        dados_atuais = dict(
-            coordenadas_iniciais=str(str(linha_coletada)+','+str(coluna_coletada)), 
-            switch_coord_ini=True,
-            )
-        
-        for key , value in dados_atuais.items():
-            dados_para_reenvio_de_propriedades['configs'][key] = value
-            
-            
-        if id_alvo == 'config_ini':
-            form_screen = PropriedadesFormScreen(dados_para_reenvio_de_propriedades
-            )
-            self.app.push_screen(
-                    form_screen,
-                lambda dados_para_reenvio_de_propriedades: self.ao_terminar_propriedades(dados_para_reenvio_de_propriedades)
-                )
-        
-        else:
-            form_screen = PropriedadesEventoFormScreen(
-                linha=linha_coletada, 
-                coluna=coluna_coletada,
-                tile=self.tile_selecionado,
-                evento_atual=self.eventos_do_mapa_atual.get((linha_coletada, coluna_coletada))
-            )
-            # 🌟 Restaura a memória do formulário e passa a coordenada mapeada ao alvo correspondente
-            form_screen.restaurar_valores_dos_campos(
-                dados=self.buffer_de_dados_do_formulario, 
-                linha_coletada=linha_coletada, 
-                coluna_coletada=coluna_coletada,
-                id_alvo=id_alvo
-            )
-            self.app.push_screen(
-                form_screen,
-                lambda dados: self.ao_terminar_configurar_evento(linha_coletada, coluna_coletada, dados)
-            )
-        
-        # Limpa as flags e buffers de contexto
-        self.buffer_de_dados_do_formulario = {}
-        self.contexto_do_modo_de_captura_ativo = None
-        
-        
-
-
     def refazer_acao(self):
         """Avança Terrenos e Objetos para o estado do futuro."""
         if not self.historico_refazer:
@@ -688,9 +602,107 @@ class MapManagerScreen(Screen):
         snapshot_futuro = self.historico_refazer.pop()
         self.matriz_do_mapa_atual = snapshot_futuro["matriz"]
         self.objetos_do_mapa_atual = snapshot_futuro["objetos"]
-        
         self.tem_alteracoes = True
         self.exibir_mapa_na_tela()
+        
+        
+    def ao_terminar_configurar_evento(self, linha: int, coluna: int, dados_do_evento_configurado: dict | None):
+        """Callback acionado quando o usuário confirma os dados do evento no Modal."""
+        if dados_do_evento_configurado is None:
+            return # Usuário clicou em Cancelar, nada é alterado
+
+        if dados_do_evento_configurado.get("acao_especial") == "ativar_capitura_de_posicao":
+            self.modo_captura_coordenada = True
+            self.ferramenta_atual = "mira"
+                        
+            # 🌟 Registra o identificador do campo para a resposta saber onde se injetar
+            self.contexto_do_modo_de_captura_ativo = dados_do_evento_configurado.get("id_alvo")
+            self.buffer_de_dados_do_formulario = dados_do_evento_configurado.get(
+                "estado_formulario_atual", {})
+            self.notify(
+                f"Selecione a coordenada para o campo [{self.contexto_do_modo_de_captura_ativo}]! 🎯")
+            return
+        
+        # Usa a nossa função estruturada (que validamos no teste TDD anterior!)
+        self.adicionar_evento_para_memoria(
+            linha=linha,
+            coluna=coluna,
+            nome=dados_do_evento_configurado["nome"],
+            emoji=dados_do_evento_configurado["emoji"],
+            event_type=dados_do_evento_configurado["event_type"],
+            parametros=dados_do_evento_configurado["parametros"],
+            evento_id=dados_do_evento_configurado.get("id")
+        )
+        
+        # Garante que o histórico do Desfazer registrou essa mudança
+        self.salvar_estado_historico()
+        
+        # Atualiza o display e renderiza o novo emoji de evento por cima do mapa
+        self.exibir_mapa_na_tela()
+        self.notify(f"Evento '{dados_do_evento_configurado['nome']}' instanciado com sucesso!")
+        
+        
+        
+    def _reabrir_formulario_enviando_coordenadas(self, linha_coletada: int, coluna_coletada: int, id_alvo: str):
+        """Monta o formulário de volta injetando a nova coordenada no escopo correto."""
+        
+        dados_para_reenvio_de_propriedades = self.dados_do_mapa_atual
+        
+        if id_alvo == 'config_ini':
+            #dados_para_reenvio_de_propriedades['nome'] = self.dados_do_mapa_atual.get("nome"),
+            dados_para_reenvio_de_propriedades ['mapa_pai_id']= self.dados_do_mapa_atual.get(
+                'mapa_pai_id', None)
+            
+            dados_atuais = dict(
+                coordenadas_iniciais=str(str(linha_coletada)+','+str(coluna_coletada)), 
+                switch_coord_ini=True,
+                )
+            
+            for key , value in dados_atuais.items():
+                dados_para_reenvio_de_propriedades['configs'][key] = value
+            try:
+                form_screen = PropriedadesFormScreen(dados_para_reenvio_de_propriedades)
+                self.app.push_screen(
+                        form_screen,
+                    lambda dados_para_reenvio_de_propriedades: self.ao_terminar_propriedades(dados_para_reenvio_de_propriedades)
+                    )
+            except Exception as e:
+                raise(f"Erro ao lançar tela de Propriedades do mapa: {e}")
+        
+        else:
+            try:
+                form_screen = PropriedadesEventoFormScreen(
+                    linha=linha_coletada, 
+                    coluna=coluna_coletada,
+                    tile=self.tile_selecionado,
+                    evento_atual=self.eventos_do_mapa_atual.get((linha_coletada, coluna_coletada))
+                )
+            except Exception as e:
+                raise(f"Erro ao instanciar tela  Form de Evento: {e}")
+            
+            # 🌟 Restaura a memória do formulário e passa a coordenada mapeada ao alvo correspondente
+            try:
+                form_screen.restaurar_valores_dos_campos(
+                    dados=self.buffer_de_dados_do_formulario, 
+                    linha_coletada=linha_coletada, 
+                    coluna_coletada=coluna_coletada,
+                    id_alvo=id_alvo
+                )
+            except Exception as e:
+                raise (f"Erro ao restaurar_valores_dos_campos do evento: {e}")
+            try:
+                self.app.push_screen(
+                    form_screen,
+                    lambda dados: self.ao_terminar_configurar_evento(linha_coletada, coluna_coletada, dados)
+                )
+            except Exception as e:
+                raise (f"Erro ao re-lançar tela do evento: {e}")
+        
+        # Limpa as flags e buffers de contexto
+        self.buffer_de_dados_do_formulario = {}
+        self.contexto_do_modo_de_captura_ativo = None
+        
+        
 
     def exibir_mapa_na_tela(self):
         """Monta o mapa base e sobrepõe os objetos aplicando transparência (cor de fundo)."""
@@ -731,9 +743,9 @@ class MapManagerScreen(Screen):
     def salvar_mapa_no_banco(self):
         """Salva o mapa atual, os objetos estáticos e os eventos dinâmicos no banco de dados."""
         from app.db.database import SessionLocal # Ajuste o import conforme o seu projeto
-        
         mapa_id_atual = self.dados_do_mapa_atual.get("id") if self.dados_do_mapa_atual else None
         nome_mapa = self.dados_do_mapa_atual.get("nome") if self.dados_do_mapa_atual else None
+        
         try:
             with SessionLocal() as db:
                 # ==========================================
@@ -967,7 +979,13 @@ class MapManagerScreen(Screen):
             raise ValueError(f"Erro ao _desempacotar_eventos_do_banco: {e}")
 
 
+class SecondaryMap(ModalScreen):
 
+    def compos(self):
+        with Container(id="sec-map-area"):
+                yield MapaInterativo("Matriz do Mapa aparecerá aqui...", id="sec-mapa-view")
+                
+                
 
 class NovoMapaFormScreen(ModalScreen[dict]):
     """
@@ -983,6 +1001,8 @@ class NovoMapaFormScreen(ModalScreen[dict]):
             # --- CAMPOS GERAIS (Sempre visíveis) ---
             yield Input(placeholder="Nome do Mapa", id="input-nome")
             yield Select([], prompt="Mapa Pai (Opcional)", id="select-pai")
+            
+            #TODO: A Lógica do tipo: 'Em branco' ainda deve ser criada.
             yield Select((("Em branco", "Em branco") , ("Masmorra", "masmorra"), ("Vila", "vila"), ("Caverna", "caverna")), prompt="Tipo de Mapa", id="select-tipo", value="caverna")
             with Horizontal(classes="linha-dupla"):
                 yield Input(placeholder="Largura (ex: 40)", id="input-largura")
@@ -1125,10 +1145,8 @@ class PropriedadesFormScreen(ModalScreen[dict]):
             yield Label("📝 Propriedades do Mapa", classes="titulo-secao")
             yield Label("Nome:")
             yield Input(value=self.dados_de_propriedades_atuais.get("nome", ""), id="prop-nome")
-            
             yield Label("Mapa Pai:")
             yield Select([], id="prop-pai",)
-
             yield Horizontal(
                 Static("Mapa Inicial:      ", classes="label"),         
                 Switch(value=self.dados_de_propriedades_atuais.get(
@@ -1138,11 +1156,10 @@ class PropriedadesFormScreen(ModalScreen[dict]):
                 classes="container",)
             
             with Horizontal(id='cx-coordenadas_iniciais', classes="container"):
-                yield Button("Indicar coordenada.", id='btn-indica-coord-ini', classes="label")
+                yield Button("📍Ponto de Nascimento", id='btn-indica-coord-ini', classes="label", variant='success')
                 yield Input(placeholder="coordenadas_iniciais: x , y",
                             value=self.dados_de_propriedades_atuais.get('configs',{}).get("coordenadas_iniciais", ""), id="coordenadas_iniciais", classes="label")
-                
-                        
+            
             with Horizontal(id="prop-botoes"):
                 yield Button("Cancelar", id="btn-prop-cancelar", variant="error")
                 yield Button("Salvar Alterações", id="btn-prop-salvar", variant="primary")
@@ -1180,15 +1197,24 @@ class PropriedadesFormScreen(ModalScreen[dict]):
         
         if event.value: 
             self.query_one("#cx-coordenadas_iniciais").display = True
-            self.notify(f"Mundo inicial setado. Deve haver apenas um.")
+            self.notify(f"Mundo inicial setado, clique em: [📍Ponto de Nascimento].  Deve haver apenas um.")
         else:
             self.query_one("#cx-coordenadas_iniciais").display = False
-            
             self.query_one("#coordenadas_iniciais").value = ''
-            self.dados_de_propriedades_atuais.get(
-                'configs', {}).pop("coordenadas_iniciais")
-            self.dados_de_propriedades_atuais.get(
-                'configs', {}).pop("switch_ini_world")
+            try:
+                self.dados_de_propriedades_atuais.get(
+                    'configs', {}).pop("coordenadas_iniciais")
+            except Exception as e:
+                print(
+                    f"Alerta: tentou pegar coordenadas em configs dados de propriedade, mas não tem")
+            try:
+                self.dados_de_propriedades_atuais.get(
+                    'configs', {}).pop("switch_ini_world")
+            except Exception as e:
+                print(
+                    f"Alerta: tentou pegar switch_ini_world em configs dados de propriedade, mas não tem")
+                
+            self.notify(f"O Ponto de Nascimento foi desmarcado. Deve haver algum.")
 
 
     def on_button_pressed(self, event: Button.Pressed):
@@ -1219,6 +1245,18 @@ class PropriedadesFormScreen(ModalScreen[dict]):
 
             
         elif event.button.id == "btn-prop-salvar":
+            from app.models.mapas_db import MapaDB
+            from sqlalchemy import select
+            
+            with SessionLocal() as db:
+                sql_limpa_coord = select(MapaDB).where(MapaDB.configs.contains("coordenadas_iniciais"))
+                registros = db.scalars(sql_limpa_coord).all()
+                for mapa in registros:
+                    novo_json = dict(mapa.configs)
+                    novo_json.pop("coordenadas_iniciais", None)
+                    mapa.configs = novo_json
+                    
+                db.commit()
             
             novo_nome = self.query_one("#prop-nome").value
             novo_pai = self.query_one("#prop-pai").value
@@ -1244,14 +1282,6 @@ class PropriedadesFormScreen(ModalScreen[dict]):
             "coordenadas_iniciais": self.query_one("#coordenadas_iniciais").value
             # ... guarde o valor de todos os outros inputs do seu form aqui ...
         }
-
-
-# PropriedadesEventoFormScreen e seus sub-modais foram movidos para:
-# app/views/components/evento_form_screen.py
-# O import está no topo deste arquivo.
-
-
-
 
 
 

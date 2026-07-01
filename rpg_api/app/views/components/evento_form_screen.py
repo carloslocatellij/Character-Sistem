@@ -149,7 +149,7 @@ class AdicionarComandoScreen(ModalScreen[dict]):
         elif tipo == "teleporte":
             with SessionLocal() as db:
                 mapas = db.query(MapaDB).all()
-                opcoes = [(m.nome, m.id) for m in mapas] + [('', '')]
+                opcoes = [(m.nome, str(m.id)) for m in mapas] + [('', '')]
 
             container.mount(Select(opcoes, id="cmd-tel-mapa", value=str(dados.get("mapa_id", ""))))
             container.mount(Button("Selecione o local.", id="btn-select-pos-xy"))
@@ -460,7 +460,7 @@ class PropriedadesEventoFormScreen(ModalScreen[dict]):
         coletanea_emoji = list([*itens_set, *racas_set, *efeitos_set, *CatalogoTiles.OBJETOS])
 
         with Vertical(id="evt-caixa-full"):
-            titulo = f"⚙️ Evento em [{self.linha},{self.coluna}]"
+            titulo = f"🛠️ Evento em [{self.linha},{self.coluna}]"
             yield Label(titulo, classes="titulo-secao")
 
             with Horizontal(classes="linha-dupla"):

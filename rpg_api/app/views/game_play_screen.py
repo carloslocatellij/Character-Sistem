@@ -6,11 +6,11 @@ from textual.events import Key
 from textual import on
 from app.views.components.choice_box import ChoiceBox
 from app.db.database import SessionLocal
+from app.models.mapas_db import MapaDB
 from app.core.engine.systems import (MovementSystem, InteractionSystem, AISystem,
                                      RenderSystem, InventarySystem, EventSystem)
 from app.core.engine.engine_loader import GameEngineLoader
-from app.core.engine.components import (PositionComponent, RenderComponent, 
-                                        PlayerControlComponent, StatsComponent,
+from app.core.engine.components import (PositionComponent, StatsComponent,
                                         InventoryComponent, EquipmentComponent                                       
 )
 from app.core.engine.game_state import GameStateManager
@@ -22,7 +22,7 @@ logging.basicConfig(level=logging.INFO, filename="log.log", filemode="a")
 class GamePlayScreen(Screen):
     CSS_PATH = "styles/game_styles.css"
     
-    def __init__(self, mapa_id: int, personagem_id: int = 1):
+    def __init__(self, mapa_id: int = 1, personagem_id: int = 1):
         super().__init__()
         self.mapa_id = mapa_id
         self.personagem_id = personagem_id
@@ -77,14 +77,21 @@ class GamePlayScreen(Screen):
         
         try:
             with SessionLocal() as db_session:
+                from sqlalchemy import select
+                sql_coord_ini = select(MapaDB).where(
+                    MapaDB.configs.contains("coordenadas_iniciais"))
+                self.mapa_id = db_session.scalars(sql_coord_ini).first().id
                 # Carregamento autêntico sem simulações!
+                coords_iniciais = db_session.scalars(
+                    sql_coord_ini).first().configs.get("coordenadas_iniciais", {})
                 
                 self.engine_manager = self.loader.carregar_engine_do_banco(
                     db_session,
                         usuario_id=1, # ID do jogador ativo
                         cenario_id=1,                  # ID do jogo/campanha escolhida
                         slot_numero=1,                  # Slot selecionado
-                        default_mapa_id=1
+                        default_mapa_id=self.mapa_id,
+                    coords_iniciais=coords_iniciais
                                             )
                 
             self.mapa_matriz = self.loader.matriz_terrenos

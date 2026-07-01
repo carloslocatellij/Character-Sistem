@@ -358,6 +358,7 @@ class GameEngineLoader:
         self.camada_objetos = {}
         self.altura = 0
         self.largura = 0
+        self.coords_iniciais=''  # Coordenadas iniciais do jogador (x, y) para o mapa atual
 
         # Infraestrutura de Cenas Isoladas (Mundos Esper)
         self.mundos_carregados = {}          # { mapa_id: objeto_esper_WorldContext }
@@ -367,7 +368,7 @@ class GameEngineLoader:
         self.master_event_registry = getattr(esper, "event_registry", {})
 
     def carregar_engine_do_banco(self, db_session: Session, usuario_id: int, cenario_id: int, 
-                                slot_numero: int = 1, default_mapa_id: int = None) -> tuple[bool, list[list[str]], dict, int]:
+                                slot_numero: int = 1, default_mapa_id: int = None, coords_iniciais: dict = None) -> tuple[bool, list[list[str]], dict, int]:
         """
         Alterna ou inicializa o mundo do mapa alvo, sincronizando snapshots em RAM e persistência de SaveDB.
         """
@@ -516,8 +517,9 @@ class GameEngineLoader:
                             p_logic.mao_esquerda.defesa, "defesa_extra", 0)
 
                     pos_inicial = mapa_db.configs.get(
-                        "pos_inicial", [42, 42]) if mapa_db.configs else [42, 42]
-                    
+                        "coordenadas_iniciais", [42, 42]) if mapa_db.configs else [42, 42]
+                    pos_inicial = pos_inicial.split(",") 
+                    pos_inicial = [int(pos_inicial[1]), int(pos_inicial[0])]
                     try:
                         esper.add_component(1, PositionComponent(
                             x=pos_inicial[0], y=pos_inicial[1], direcao_olhar="baixo"))
