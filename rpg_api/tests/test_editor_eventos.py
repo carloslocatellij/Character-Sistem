@@ -8,7 +8,7 @@ Cobre:
 """
 import pytest
 from app.views.map_manager_screen import MapManagerScreen
-from app.views.components.evento_form_screen import PropriedadesEventoFormScreen
+from rpg_api.app.views.tools.evento_form_screen import PropriedadesEventoFormScreen
 
 
 # ==============================================================================

@@ -6,17 +6,16 @@ from textual.screen import Screen, ModalScreen
 from textual.widgets import Footer, Tree, Static, Label, Button, Input, Select, Switch
 from textual.widgets import TabbedContent, TabPane
 from textual.containers import Horizontal, Vertical, Container
-from textual.message import Message
 from textual import on
-from textual.events import MouseDown, MouseUp, MouseMove
+
 from app.core.entities.mapas import GestorDeMapas
 from app.models.mapas_db import MapaDB
 from app.models.eventos_db import EventoDB
 from app.models.equipamentos_db import ItemDB
 from app.core.entities.emojis import CatalogoTiles, padronizar_largura_tile, dict_item_emoji, dict_emoji_efeito, dict_emoji_racas
 from rich.text import Text
-from app.views.tools.painting_tools import balde_de_tinta
-from app.views.components.evento_form_screen import PropriedadesEventoFormScreen
+from app.views.tools.painting_tools import balde_de_tinta, MapaInterativo
+from app.views.tools.evento_form_screen import PropriedadesEventoFormScreen
 from app.db.database import SessionLocal
 import logging
 logging.basicConfig(level=logging.INFO, filename="log.log", filemode="a")
@@ -28,43 +27,7 @@ Pincel = Literal['lapis', 'balde', 'borracha', 'mira']
 Modo_de_Captura = Literal['config_ini', None]
 Tipo_da_Camada = Literal['terreno', 'objeto', 'evento']
 
-class MapaInterativo(Static):
-    """Componente customizado que exibe o mapa e captura movimentos contínuos do mouse."""
-    
-    
-    class Pintar(Message):
-        """Mensagem enviada continuamente enquanto o mouse é arrastado."""
-        def __init__(self, linha: int, coluna: int, inicio_de_traco: bool = False):
-            self.linha = linha
-            self.coluna = coluna
-            # Esta flag ajuda o sistema a saber quando tirar a "foto" para o Desfazer
-            self.inicio_de_traco = inicio_de_traco 
-            super().__init__()
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.mouse_pressionado = False   # O nosso "sensor" de clique
-        self.capture_mouse()
-        self.release_mouse()
-
-    def on_mouse_down(self, event: MouseDown) -> None:
-        """Apertou o botão do mouse: começa o traço e captura o foco."""
-        self.mouse_pressionado = True
-        self.capture_mouse() 
-        self.post_message(self.Pintar(event.y, event.x // 2, inicio_de_traco=True))
-
-    def on_mouse_up(self, event: MouseUp) -> None:
-        """Soltou o botão do mouse: termina o traço e liberta o foco."""
-        self.mouse_pressionado = False
-        if self.has_focus or self.mouse_pressionado == False: 
-            self.release_mouse()
-
-    def on_mouse_move(self, event: MouseMove) -> None:
-        """Moveu o mouse: se estiver apertado, continua a pintar."""
-        if self.mouse_pressionado:
-            self.post_message(self.Pintar(event.y, event.x // 2, inicio_de_traco=False))
-            
-                    
+                   
 
 class MapManagerScreen(Screen):
     """
@@ -540,14 +503,11 @@ class MapManagerScreen(Screen):
         if dados_de_propridades_alteradas.get("acao_especial") == "ativar_capitura_de_posicao":
             self.modo_captura_coordenada = True
             self.ferramenta_atual = "mira"
-
             # 🌟 Registra o identificador do campo para a resposta saber onde se injetar
             self.contexto_do_modo_de_captura_ativo = dados_de_propridades_alteradas.get("id_alvo", 'config_ini')
             self.buffer_de_dados_do_formulario = dados_de_propridades_alteradas.get(
                 "estado_formulario_atual", {})
 
-
-        # Atualiza a memória com os novos dados
         try:
             self.dados_do_mapa_atual["nome"] = dados_de_propridades_alteradas["nome"]
             self.dados_do_mapa_atual["mapa_pai_id"] = dados_de_propridades_alteradas["mapa_pai_id"]
@@ -608,19 +568,33 @@ class MapManagerScreen(Screen):
         
     def ao_terminar_configurar_evento(self, linha: int, coluna: int, dados_do_evento_configurado: dict | None):
         """Callback acionado quando o usuário confirma os dados do evento no Modal."""
+        
+        logging.info(f"dados_do_evento_configurado: {dados_do_evento_configurado}")
         if dados_do_evento_configurado is None:
             return # Usuário clicou em Cancelar, nada é alterado
+        
 
         if dados_do_evento_configurado.get("acao_especial") == "ativar_capitura_de_posicao":
             self.modo_captura_coordenada = True
             self.ferramenta_atual = "mira"
+            logging.info(f"É uma ação de: {dados_do_evento_configurado.get("acao_especial")}")
                         
             # 🌟 Registra o identificador do campo para a resposta saber onde se injetar
             self.contexto_do_modo_de_captura_ativo = dados_do_evento_configurado.get("id_alvo")
             self.buffer_de_dados_do_formulario = dados_do_evento_configurado.get(
                 "estado_formulario_atual", {})
+            
             self.notify(
                 f"Selecione a coordenada para o campo [{self.contexto_do_modo_de_captura_ativo}]! 🎯")
+            
+            # try:
+            #     self.app.push_screen(
+            #         SecondaryMap(id_do_mapa_secundario=dados_do_evento_configurado.get(
+            #             'mapa_teleporte', 1), contexto_do_modo_de_captura_ativo='id_alvo'),
+            #     )
+            # except Exception as e:
+            #     logging.info(f"Tentou lançar mas: {e}")
+                
             return
         
         # Usa a nossa função estruturada (que validamos no teste TDD anterior!)
@@ -977,15 +951,7 @@ class MapManagerScreen(Screen):
         except Exception as e:
             logging.info(f"Erro ao _desempacotar_eventos_do_banco: {e}")
             raise ValueError(f"Erro ao _desempacotar_eventos_do_banco: {e}")
-
-
-class SecondaryMap(ModalScreen):
-
-    def compos(self):
-        with Container(id="sec-map-area"):
-                yield MapaInterativo("Matriz do Mapa aparecerá aqui...", id="sec-mapa-view")
-                
-                
+           
 
 class NovoMapaFormScreen(ModalScreen[dict]):
     """

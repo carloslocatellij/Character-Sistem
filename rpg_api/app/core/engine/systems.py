@@ -6,7 +6,6 @@ from app.core.engine.components import (
     PositionComponent, InteractableComponent, RenderComponent,
     StatsComponent, AIComponent, InventoryComponent
 )
-#from app.core.engine.event_bus import EventBus as event_bus
 from app.core.entities.emojis import CatalogoTiles
 bloqueantes = CatalogoTiles.TERRENOS_BLOQUEANTES
 import logging
@@ -338,7 +337,7 @@ class EventSystem:
 
 
     def processar_evento_interacao(self, payload: dict):
-        """Callback disparado pelo EventBus assim que o jogador interage com um bloco."""
+        """Callback disparado pelo esper event_handler  assim que o jogador interage com um bloco."""
 
         logging.info(f" foi por processar_evento_interacao")
         try:

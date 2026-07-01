@@ -350,7 +350,7 @@ class GamePlayScreen(Screen):
         if not texto: return
 
         # Mostra o comando ecoado no log
-        self.log_mensagem(f"[dim]>>> {texto}[/]")
+        #self.log_mensagem(f"[dim]>>> {texto}[/]")
 
         # 1. Separar o comando do argumento. Ex: "/usar poção" -> comando="/usar", argumento="poção"
         partes = texto.split(" ", 1)
@@ -478,16 +478,17 @@ class GamePlayScreen(Screen):
             moveu = self.movimento_sys.mover_entidade(1, "direita")
             self.centralizar_camera_no_jogador()
         elif key == "enter":
-            # Se o foco estiver no prompt do terminal, deixa o submit do input agir e ignora o raio
+            # Se o foco estiver no p
+            # rompt do terminal, deixa o submit do input agir e ignora o raio
+            achou_evento = None
             if self.focused == self.query_one("#terminal-prompt"):
                 telamapa = self.query_one("#tela-mapa", Static)
                 telamapa.focus()
-            
-            achou_evento = self.interacao_sys.interagir(1, self.direcao_olhar)
-            
-            if not achou_evento:
-                self.log_mensagem(
-                    "[gray]Não há nada para acionar aqui na sua frente.[/]")
+            else:
+                achou_evento = self.interacao_sys.interagir(1, self.direcao_olhar)
+                if not achou_evento:
+                    self.log_mensagem(
+                        "[gray]Não há nada para acionar aqui na sua frente.[/]")
             self.atualizar_tudo()
             return
         
