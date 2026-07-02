@@ -82,8 +82,8 @@ class GamePlayScreen(Screen):
                     MapaDB.configs.contains("coordenadas_iniciais"))
                 self.mapa_id = db_session.scalars(sql_coord_ini).first().id
                 # Carregamento autêntico sem simulações!
-                coords_iniciais = db_session.scalars(
-                    sql_coord_ini).first().configs.get("coordenadas_iniciais", {})
+                # coords_iniciais = db_session.scalars(
+                #     sql_coord_ini).first().configs.get("coordenadas_iniciais", {})
                 
                 self.engine_manager = self.loader.carregar_engine_do_banco(
                     db_session,
@@ -91,7 +91,7 @@ class GamePlayScreen(Screen):
                         cenario_id=1,                  # ID do jogo/campanha escolhida
                         slot_numero=1,                  # Slot selecionado
                         default_mapa_id=self.mapa_id,
-                    coords_iniciais=coords_iniciais
+                    #coords_iniciais=coords_iniciais
                                             )
                 
             self.mapa_matriz = self.loader.matriz_terrenos

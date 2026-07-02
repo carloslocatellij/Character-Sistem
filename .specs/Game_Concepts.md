@@ -47,8 +47,8 @@
 #### Modo Jogo ROGUE LIKE:
 
 [ ] Gerador de cenários procedural automático por árvores de mapas aninhados e com pontos de conexão por eventos de teleporte 
-[ ] Gerador de eventos semi-aleatórios por categoria
-[ ] Gerador de NPCs semi-aleatórios por categoria 
+[ ] Gerador de eventos semi-aleatorios por categoria
+[ ] Gerador de NPCs semi-aleatorios por categoria 
 [ ] Sistema Conector de História
 
  

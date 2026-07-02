@@ -4,12 +4,15 @@ import random
 from rich.text import Text
 from app.core.engine.components import (
     PositionComponent, InteractableComponent, RenderComponent,
-    StatsComponent, AIComponent, InventoryComponent
+    StatsComponent, MovimentComponent, InventoryComponent
 )
 from app.core.entities.emojis import CatalogoTiles
 bloqueantes = CatalogoTiles.TERRENOS_BLOQUEANTES
 import logging
 logging.basicConfig(level=logging.INFO, filename="log.log", filemode="a")
+from typing import Literal
+
+Direcoes: Literal["cima", "baixo", "esquerda", "direita", None]
 
 class RenderSystem:
     """Sistema responsável por compilar as camadas de Terreno, Objetos e Esper ECS em um único frame Text."""
@@ -114,12 +117,12 @@ class AISystem:
             "esquerda": (-1, 0),
             "direita": (1, 0)
         }
-        opcoes = ["cima", "baixo", "esquerda", "direita", None]
+        opcoes: list[str] = ["cima", "baixo", "esquerda", "direita", None]
         
-        for ent_id, (pos_comp, ai_comp) in esper.get_components(PositionComponent, AIComponent):
+        for ent_id, (pos_comp, ai_comp) in esper.get_components(PositionComponent, MovimentComponent):
             
-            # Processa monstros com movimento aleatório
-            if ai_comp.movement_type == "aleatório":
+            # Processa monstros com movimento aleatorio
+            if ai_comp.movement_type == "aleatorio":
                 # Escolhe uma direção aleatória (4 direções + ficar parado)
                 direcao = random.choice(opcoes)
 
@@ -142,7 +145,7 @@ class AISystem:
                                 "parametros": ai_comp.action_on_touch})
 
             # Perseguir heroi
-            if ai_comp.movement_type == "perseguir_heroi":
+            if ai_comp.movement_type == "seguir_heroi":
                 pos_heroi = esper.component_for_entity(1, PositionComponent)
                 if pos_heroi:
                     dx = pos_heroi.x - pos_comp.x

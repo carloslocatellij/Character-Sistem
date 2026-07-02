@@ -122,8 +122,19 @@ DataTable {
     /* Remova a linha 'align: center middle' se existir, para o mapa começar no topo/esquerda */
 }
 
+#sec-map-area {
+    width: 85%;
+    height: 95%;
+    padding: 1;
+    overflow: auto;
+    align: center middle;
+    /* MÁGICA: Cria barras de rolagem se o mapa crescer! */
+    /* Remova a linha 'align: center middle' se existir, para o mapa começar no topo/esquerda */
+}
+
 #mapa-view {
     width: auto;
+    overflow: auto;
     /* Permite que o componente cresça além do tamanho da tela sem quebrar as linhas */
     height: auto;
 }

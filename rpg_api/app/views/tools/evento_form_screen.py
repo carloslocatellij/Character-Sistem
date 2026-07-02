@@ -21,7 +21,7 @@ from typing import Literal
 
 
 Modo_de_Captura = Literal['config_ini', None]
-CSS_PATH = "styles/styles.css"
+#CSS_PATH = "styles/styles.css"
 
 
 # ==============================================================================
@@ -54,7 +54,7 @@ class PropriedadesEventoFormScreen(ModalScreen[dict]):
                     "condicoes": {},
                     "configuracao_visual": {"emoji": self.emoji},
                     "gatilho": "acao_jogador",
-                    'movimento': "parado",
+                    'movimento': {"tipo": "parado"},
                     "comandos": []
                 }
             ]
@@ -289,7 +289,7 @@ class PropriedadesEventoFormScreen(ModalScreen[dict]):
                 "id_pagina": len(self.paginas) + 1,
                 "condicoes": {},
                 "configuracao_visual": {"emoji": self.query_one("#evt-emoji").value},
-                "movimento": None,
+                "movimento": {"tipo": "parado"},
                 "gatilho": "acao_jogador",
                 "comandos": []
             }
@@ -453,12 +453,12 @@ class PropriedadesEventoFormScreen(ModalScreen[dict]):
             "nome": self.query_one("#evt-nome").value,
             "emoji": self.query_one("#evt-emoji").value,
             "gatilho": self.query_one("#evt-gatilho").value,
-            "item-requerido": self.query_one("#evt-item-requerido").value,''
+            "item-requerido": self.query_one("#evt-item-requerido").value,
             "self-switch": self.query_one("#evt-self-switch").value,
             "lista-variaveis": self.query_one("#lista-variaveis").value,
             "lista-switches": self.query_one("#lista-switches").value,
             "lista-comandos": self.query_one("#lista-comandos").value,
-            "movimento": self.query_one("#evt-movimento").value, ''
+            "movimento": self.query_one("#evt-movimento").value,
             "mapa_teleporte": self.query_one("#cmd-tel-mapa").value,
             "linha_teleporte": self.query_one("#cmd-tel-y").value,
             "coluna_teleporte": self.query_one("#cmd-tel-x").value,
@@ -484,8 +484,11 @@ class PropriedadesEventoFormScreen(ModalScreen[dict]):
             "#lista-switches").value = dados.get("lista-switches", "")
         self.query_one(
             "#lista-comandos").value = dados.get("lista-comandos", "")
-        self.query_one(
-            "#evt-movimento").value = dados.get("movimento", "parado")
+        try:
+            self.query_one(
+                "#evt-movimento").value = dados.get("movimento", "parado").get("tipo", "parado")
+        except Exception as e:
+            raise(f"Erro: não consegue obter o tipo: {e}")
 
         self.query_one("#cmd-tel-y").value = str(linha_coletada)
         self.query_one("#cmd-tel-x").value = str(coluna_coletada)
@@ -568,6 +571,13 @@ class AdicionarVariavelScreen(ModalScreen[dict]):
 
 
 # ==============================================================================
+# SUB-MODAL: SISTEMA DE MOVIMENTO DO EVENTO
+# ==============================================================================
+class AtribuirMovimentoScreen(ModalScreen[dict]):
+    """Sub-formulário para atribuição de movimentação propria ao evento."""
+    
+
+# ==============================================================================
 # SUB-MODAL: ADICIONAR / EDITAR COMANDO
 # ==============================================================================
 class AdicionarComandoScreen(ModalScreen[dict]):
@@ -576,6 +586,7 @@ class AdicionarComandoScreen(ModalScreen[dict]):
     def __init__(self, comando_existente: dict = None):
         super().__init__()
         self.comando_existente = comando_existente
+        logging.info(f"dados existentes {comando_existente}")
 
     def compose(self):
         with Vertical(id="add-cmd-caixa"):
@@ -705,6 +716,11 @@ class AdicionarComandoScreen(ModalScreen[dict]):
             "coluna_teleporte": self.query_one("#cmd-tel-x").value,
         }
 
+    def  _ao_obter_coordenadas_teleporte(self, dados_coords:dict) -> None:
+
+        self.query_one("#cmd-tel-y").value = str(dados_coords.get('linha', 0))
+        self.query_one("#cmd-tel-x").value = str(dados_coords.get('coluna', 0))
+
     def on_button_pressed(self, event: Button.Pressed):
         if event.button.id == "btn-cancel":
             self.dismiss(None)
@@ -720,9 +736,11 @@ class AdicionarComandoScreen(ModalScreen[dict]):
                 "dados": self._capturar_valores_campos_atuais(),
                 "mapa_teleporte": self.query_one("#cmd-tel-mapa").value
             }
-            self.push_screen(SecondaryMap(dados_requisicao),
-                             self.ao_posicao_selecionada)
-            #self.dismiss(dados_requisicao)
+            self.app.push_screen(SecondaryMap(dados_requisicao['mapa_teleporte'],
+                                              dados_requisicao['acao_especial']),
+                                 lambda dados_coords: self._ao_obter_coordenadas_teleporte(
+                                     dados_coords)
+                             )
 
             
         elif event.button.id == "btn-save":
@@ -903,25 +921,26 @@ class RamoEditorScreen(ModalScreen[list]):
 class SecondaryMap(ModalScreen):
     '''Um mostrador de mapa para coisas como pegar coordenada. '''
 
-    CSS_PATH = CSS_PATH
+    #CSS_PATH = CSS_PATH
 
-    def __init__(self):
+    def __init__(self, id_do_mapa_secundario: int, contexto_do_modo_de_captura_ativo: Modo_de_Captura):
         self.matriz_do_mapa_secundario: list | None = None
         self.objetos_do_mapa_secundario: dict = {}
-        self.id_do_mapa_secundario: int | None = None
+        self.id_do_mapa_secundario: int  = id_do_mapa_secundario
         self.contexto_do_modo_de_captura_ativo: Modo_de_Captura = None
 
         super().__init__()
 
     def compose(self):
         with Container(id="sec-map-area"):
-            yield MapaInterativo("Matriz do Mapa aparecerá aqui...", id="sec-mapa-view")
+            yield MapaInterativo("Matriz do Mapa aparecerá aqui...", id="sec-mapa-view", )
 
     def on_mount(self):
         """Executa automaticamente quando o Gerenciador de Mapas abre."""
         logging.info(f"Montagem do mapa secundário...")
         self.carregar_mapa_secundario()
-
+        self.exibir_mapa_sec_na_tela()
+        
     # CARREGAMENTO DO MAPA SECUNDÁRIO
 
     def carregar_mapa_secundario(self):
@@ -939,9 +958,10 @@ class SecondaryMap(ModalScreen):
             self.matriz_do_mapa_secundario = mapa_sec_db_carregado.mapa_em_si
 
             objetos_salvos = mapa_sec_db_carregado.objetos if mapa_sec_db_carregado.objetos else {}
-            logging.info(f"Carregou> obj: {objetos_salvos}")
             self.objetos_do_mapa_secundario = self._desempacotar_objetos_do_banco(
                 objetos_salvos)
+            
+            logging.info(f"Carregou> obj: {objetos_salvos}")
 
 
     # =========================================================================
@@ -964,13 +984,13 @@ class SecondaryMap(ModalScreen):
                 self.modo_captura_coordenada = False
                 self.ferramenta_atual = "lapis"
                 try:
-                    self._reabrir_formulario_enviando_coordenadas(
-                        linha, coluna, self.contexto_do_modo_de_captura_ativo)
+                    coordenadas_coletadas = {'linha': linha, 'coluna': coluna}
+                    self.dismiss(coordenadas_coletadas)
                 except Exception as e:
                     logging.info(
-                        f"Erro mapa-secundario ao _reabrir_formulario_enviando_coordenadas: {e}")
+                        f"Erro mapa-secundario ao coletar coordenadas: {coordenadas_coletadas}")
                     raise ValueError(
-                        f"Erro mapa-secundario ao _reabrir_formulario_enviando_coordenadas: {e}")
+                        f"Erro mapa-secundario ao coletar coordenadas: {coordenadas_coletadas}")
 
             return
 
@@ -980,14 +1000,16 @@ class SecondaryMap(ModalScreen):
     def exibir_mapa_sec_na_tela(self):
         """Monta o mapa base e sobrepõe os objetos aplicando transparência (cor de fundo)."""
         if self.matriz_do_mapa_secundario is None:
+            logging.info(f"Mapa sem matriz...")
             return
 
         texto_mapa = Text(no_wrap=True)
-
+        logging.info(f"Exibir mapa secundário...")
+        
         for linha_idx in range(len(self.matriz_do_mapa_secundario)):
             for col_idx in range(len(self.matriz_do_mapa_secundario[0])):
                 tile_chao = self.matriz_do_mapa_secundario[linha_idx][col_idx]
-                tile_objeto = self.matriz_do_mapa_secundario.get(
+                tile_objeto = self.objetos_do_mapa_secundario.get(
                     (linha_idx, col_idx))
 
                 if tile_objeto is not None:
@@ -1018,47 +1040,3 @@ class SecondaryMap(ModalScreen):
             raise ValueError(f"Erro ao _desempacotar_objetos_do_banco: {e}")
         return objetos_na_memoria
     
-
-    def _reabrir_formulario_enviando_coordenadas(self, linha_coletada: int, coluna_coletada: int, id_alvo: str):
-        """Monta o formulário de volta injetando a nova coordenada no escopo correto."""
-
-        
-        dados_atuais = dict(
-            coordenadas_iniciais=str(
-                str(linha_coletada)+','+str(coluna_coletada)),
-            switch_coord_ini=True,
-        )
-
-        try:
-            form_screen = PropriedadesEventoFormScreen(
-                linha=linha_coletada,
-                coluna=coluna_coletada,
-                
-                evento_atual=self.eventos_do_mapa_atual.get(
-                    (linha_coletada, coluna_coletada))
-            )
-        except Exception as e:
-            raise (f"Erro ao instanciar tela  Form de Evento: {e}")
-
-        # 🌟 Restaura a memória do formulário e passa a coordenada mapeada ao alvo correspondente
-        try:
-            form_screen.restaurar_valores_dos_campos(
-                dados=self.buffer_de_dados_do_formulario,
-                linha_coletada=linha_coletada,
-                coluna_coletada=coluna_coletada,
-                id_alvo=id_alvo
-            )
-        except Exception as e:
-            raise (f"Erro ao restaurar_valores_dos_campos do evento: {e}")
-        try:
-            self.app.push_screen(
-                form_screen,
-                lambda dados: self.ao_terminar_configurar_evento(
-                    linha_coletada, coluna_coletada, dados)
-            )
-        except Exception as e:
-            raise (f"Erro ao re-lançar tela do evento: {e}")
-
-        # Limpa as flags e buffers de contexto
-        self.buffer_de_dados_do_formulario = {}
-        self.contexto_do_modo_de_captura_ativo = None

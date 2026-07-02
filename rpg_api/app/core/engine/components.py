@@ -31,9 +31,9 @@ class PlayerControlComponent:
     pass
 
 @dataclass
-class AIComponent:
+class MovimentComponent:
     """Define o comportamento autônomo (NPCs, Monstros, Pets)."""
-    movement_type: str  # Ex: "aleatório", "patrulha", "seguir"
+    movement_type: str  # Ex: "aleatorio", "patrulha", "seguir"
     direcoes: list  
     pontos: list
     ciclos: int

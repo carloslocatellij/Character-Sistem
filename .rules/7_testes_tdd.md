@@ -4,7 +4,7 @@ A qualidade e a integridade lógica do motor de RPG são garantidas por uma suí
 
 ## 1. Isolamento de Testes de Dados Aleatórios
 
-- **Determinismo nas Rolagens:** Os testes que dependem de resultados de rolagens de dados (ataque, defesa, iniciativa, dano, absorção) não podem ser suscetíveis à aleatoriedade dos geradores de números pseudo-aleatórios.
+- **Determinismo nas Rolagens:** Os testes que dependem de resultados de rolagens de dados (ataque, defesa, iniciativa, dano, absorção) não podem ser suscetíveis à aleatoriedade dos geradores de números pseudo-aleatorios.
 - **Uso de `monkeypatch`:** Use o utilitário `monkeypatch` do pytest para interceptar a função de rolar dados (ex: `_rolar_d6` ou equivalentes) e forçar retornos determinísticos. Isso permite validar as fórmulas de dano e acerto com exatidão matemática previsível.
   
   ```python
