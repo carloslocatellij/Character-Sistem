@@ -4,6 +4,7 @@ Bem-vindo ao projeto SisCharlesRpg. Como agente de IA, você deve seguir estrita
 
 Consulte as regras específicas sempre que for implementar ou depurar o código:
 
+
 1. **[Arquitetura Limpa e DDD](file:///home/charles/DevProjects/JogosPy/SisCharlesRpg/.rules/1_arquitetura_limpa_ddd.md)**: Regula a separação rígida de camadas entre Domínio (Core), Persistência (SQLAlchemy/Models) e Interfaces (CLI/Textual/FastAPI), além de ditar o uso do padrão Mapper.
 2. **[ECS e Esper](file:///home/charles/DevProjects/JogosPy/SisCharlesRpg/.rules/2_ecs_esper.md)**: Regras para codificação no padrão Entity-Component-System usando a biblioteca Esper, processamento de mundos com `WorldContext` e a natureza Headless do motor.
 3. **[TUI e Textual](file:///home/charles/DevProjects/JogosPy/SisCharlesRpg/.rules/3_textual_tui.md)**: Melhores práticas para o framework de terminal Textual, incluindo prevenção do `OnDecoratorError` com a propriedade `control` nas mensagens customizadas, controle reativo de foco, interrupção de inputs e tratamento de threads/timers.

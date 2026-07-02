@@ -23,6 +23,7 @@ from typing import Literal
 Modo_de_Captura = Literal['config_ini', None]
 CSS_PATH = "styles/styles.css"
 
+
 # ==============================================================================
 # TELA PRINCIPAL: FORMULÁRIO DE PROPRIEDADES DO EVENTO
 # ==============================================================================
@@ -38,14 +39,14 @@ class PropriedadesEventoFormScreen(ModalScreen[dict]):
 
     def __init__(self, linha: int, coluna: int, emoji: str, dados_existentes: dict = None):
         super().__init__()
-        self.linha = linha
-        self.coluna = coluna
+        self.linha_y_do_evento = linha
+        self.coluna_x_do_evento = coluna
         self.emoji = emoji
         self.dados_existentes = copy.deepcopy(dados_existentes) or {}
 
         # Estrutura JSON Universal de Páginas
-        params = self.dados_existentes.get("parametros", {})
-        if "paginas" not in params:
+        evt_parametros = self.dados_existentes.get("parametros", {})
+        if "paginas" not in evt_parametros:
             # Evento simples ou novo: inicia com uma página padrão
             self.paginas = [
                 {
@@ -53,11 +54,12 @@ class PropriedadesEventoFormScreen(ModalScreen[dict]):
                     "condicoes": {},
                     "configuracao_visual": {"emoji": self.emoji},
                     "gatilho": "acao_jogador",
+                    'movimento': "parado",
                     "comandos": []
                 }
             ]
         else:
-            self.paginas = params["paginas"]
+            self.paginas = evt_parametros["paginas"]
 
         self.pagina_atual_idx = 0
 
@@ -70,14 +72,14 @@ class PropriedadesEventoFormScreen(ModalScreen[dict]):
             [*itens_set, *racas_set, *efeitos_set, *CatalogoTiles.OBJETOS])
 
         with Vertical(id="evt-caixa-full"):
-            titulo = f"🛠️ Evento em [{self.linha},{self.coluna}]"
+            titulo = f"🛠️ Evento em [{self.linha_y_do_evento},{self.coluna_x_do_evento}]"
             yield Label(titulo, classes="titulo-secao")
 
             with Horizontal(classes="linha-dupla"):
                 yield Label("Nome:", classes="campo-rotulo")
                 yield Input(
                     value=self.dados_existentes.get(
-                        "nome", f"ev_{self.linha}_{self.coluna}"),
+                        "nome", f"ev_{self.linha_y_do_evento}_{self.coluna_x_do_evento}"),
                     id="evt-nome")
                 yield Label("Emoji:", classes="campo-rotulo")
                 yield Select(
@@ -101,6 +103,17 @@ class PropriedadesEventoFormScreen(ModalScreen[dict]):
                 ("Processo Automático", "processo_automatico"),
                 ("Processo Paralelo", "processo_paralelo")
             ], value=self.paginas[0].get("gatilho", "acao_jogador"), id="evt-gatilho")
+
+            # ==================
+            # MOVIMENTO
+            # ==================
+            # "tipo": "aleat\u00f3rio", "pontos": ["(40,40)", "(43,43)"], "direcoes": [], "ciclos": 0
+            yield Label("Movimento do Evento:", classes="campo-rotulo")
+            yield Select([("Parado", "parado"), 
+                          ("Aleatório", "aleatorio"),
+                          ("Seguir Herói", "seguir_heroi"),
+                          ("Fugir do Herói", "fugir_heroi")], value=self.paginas[0].get("movimento", "parado"), id="evt-movimento")
+            
 
             # ==========================================
             # SEÇÃO DE CONDIÇÕES DA PÁGINA
@@ -177,15 +190,15 @@ class PropriedadesEventoFormScreen(ModalScreen[dict]):
         # --- Switches ---
         switches = condicoes.get("switches", [])
         if switches:
-            linhas_sw = []
-            for i, sw in enumerate(switches):
-                val_str = "✅ True" if sw.get("valor", True) else "❌ False"
-                linhas_sw.append(f"  [{i}] {sw['nome']} = {val_str}")
-            texto_sw = "\n".join(
-                linhas_sw) + "\n  (Clique num switch na lista de comandos para remover)"
+            linhas_switch = []
+            for i, switch in enumerate(switches):
+                val_str = "✅ True" if switch.get("valor", True) else "❌ False"
+                linhas_switch.append(f"  [{i}] {switch['nome']} = {val_str}")
+            texto_switch = "\n".join(
+                linhas_switch) + "\n  (Clique num switch na lista de comandos para remover)"
         else:
-            texto_sw = "  (nenhum)"
-        self.query_one("#lista-switches", Static).update(texto_sw)
+            texto_switch = "  (nenhum)"
+        self.query_one("#lista-switches", Static).update(texto_switch)
 
         # --- Variáveis ---
         variaveis = condicoes.get("variaveis", [])
@@ -205,9 +218,9 @@ class PropriedadesEventoFormScreen(ModalScreen[dict]):
         self.query_one("#lista-variaveis", Static).update(texto_var)
 
         # --- Self Switch ---
-        self_sw = condicoes.get("self_switch", "nenhum")
+        self_switch = condicoes.get("self_switch", "nenhum")
         select_ssw = self.query_one("#evt-self-switch", Select)
-        select_ssw.value = self_sw or "nenhum"
+        select_ssw.value = self_switch or "nenhum"
 
         # --- Item Requerido ---
         item_req = condicoes.get("item_requerido") or ""
@@ -218,9 +231,9 @@ class PropriedadesEventoFormScreen(ModalScreen[dict]):
         lista = self.query_one("#lista-comandos", ListView)
         lista.clear()
         comandos = self.paginas[self.pagina_atual_idx].get("comandos", [])
-        for i, cmd in enumerate(comandos):
-            dados_str = json.dumps(cmd['dados'], ensure_ascii=False, indent=2)
-            texto = f"[{i}] {cmd['tipo']}\n{dados_str}"
+        for i, comando in enumerate(comandos):
+            dados_str = json.dumps(comando['dados'], ensure_ascii=False, indent=2)
+            texto = f"[{i}] {comando['tipo']}\n{dados_str}"
             lista.append(ListItem(Label(texto), name=str(i)))
 
     # ==========================================
@@ -276,6 +289,7 @@ class PropriedadesEventoFormScreen(ModalScreen[dict]):
                 "id_pagina": len(self.paginas) + 1,
                 "condicoes": {},
                 "configuracao_visual": {"emoji": self.query_one("#evt-emoji").value},
+                "movimento": None,
                 "gatilho": "acao_jogador",
                 "comandos": []
             }
@@ -439,11 +453,12 @@ class PropriedadesEventoFormScreen(ModalScreen[dict]):
             "nome": self.query_one("#evt-nome").value,
             "emoji": self.query_one("#evt-emoji").value,
             "gatilho": self.query_one("#evt-gatilho").value,
-            "item-requerido": self.query_one("#evt-item-requerido").value,
+            "item-requerido": self.query_one("#evt-item-requerido").value,''
             "self-switch": self.query_one("#evt-self-switch").value,
             "lista-variaveis": self.query_one("#lista-variaveis").value,
             "lista-switches": self.query_one("#lista-switches").value,
             "lista-comandos": self.query_one("#lista-comandos").value,
+            "movimento": self.query_one("#evt-movimento").value, ''
             "mapa_teleporte": self.query_one("#cmd-tel-mapa").value,
             "linha_teleporte": self.query_one("#cmd-tel-y").value,
             "coluna_teleporte": self.query_one("#cmd-tel-x").value,
@@ -469,6 +484,8 @@ class PropriedadesEventoFormScreen(ModalScreen[dict]):
             "#lista-switches").value = dados.get("lista-switches", "")
         self.query_one(
             "#lista-comandos").value = dados.get("lista-comandos", "")
+        self.query_one(
+            "#evt-movimento").value = dados.get("movimento", "parado")
 
         self.query_one("#cmd-tel-y").value = str(linha_coletada)
         self.query_one("#cmd-tel-x").value = str(coluna_coletada)
@@ -631,10 +648,11 @@ class AdicionarComandoScreen(ModalScreen[dict]):
 
         elif tipo == "mudar_status_heroi":
             container.mount(Select(
-                [("Vida (HP)", "hp"), ("Mana (MP)", "mp")],
+                [("Vida (HP) atual", "hp"), ("Mana (MP) atual", "mp"),
+                 ("Vida (HP) máximo", "hp_max"), ("Mana (MP) máximo", "mp_max")],
                 value=dados.get("parametro", "hp"), id="cmd-stat-param"))
             container.mount(Select(
-                [("Recuperar (Add)", "add"), ("Causar Dano (Sub)", "sub")],
+                [("Aumentar (Add)", "add"), ("Diminuir (Sub)", "sub")],
                 value=dados.get("operacao", "add"), id="cmd-stat-op"))
             container.mount(Input(
                 placeholder="Valor Numérico",
@@ -694,6 +712,7 @@ class AdicionarComandoScreen(ModalScreen[dict]):
         # Intercepta botão de seleção de posição XY para teleporte
         if event.button.id == "btn-select-pos-xy":
             self.notify("Selecione a posição para teleporte")
+            
             dados_requisicao = {
                 "tipo": 'teleporte',
                 "acao_especial": "ativar_capitura_de_posicao",
@@ -701,7 +720,9 @@ class AdicionarComandoScreen(ModalScreen[dict]):
                 "dados": self._capturar_valores_campos_atuais(),
                 "mapa_teleporte": self.query_one("#cmd-tel-mapa").value
             }
-            self.dismiss(dados_requisicao)
+            self.push_screen(SecondaryMap(dados_requisicao),
+                             self.ao_posicao_selecionada)
+            #self.dismiss(dados_requisicao)
 
             
         elif event.button.id == "btn-save":

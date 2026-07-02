@@ -6,6 +6,8 @@ Esta regra dita a organização das camadas do projeto e o desacoplamento de res
 
 O código do projeto deve ser rigorosamente dividido em três camadas independentes:
 
+0. Código limpo: Os nomes devem ser claros, auto explicativos e por extenso mesmo para variáveis locais. O código python deve ser tipado adequadamente.
+
 1. **Domínio (Core):**
    - **Localização:** `rpg_api/app/core/` (incluindo `entities/` e `engine/`).
    - **Regra:** Não pode conter dependências ou importações de frameworks externos de banco de dados (como SQLAlchemy, exceto tipos básicos de JSON se estritamente necessários), bibliotecas de UI (Textual) ou frameworks Web (FastAPI).
@@ -26,7 +28,7 @@ O código do projeto deve ser rigorosamente dividido em três camadas independen
 ## 2. Domain-Driven Design (DDD) e o Padrão Mapper (Adapter)
 
 - **Entidades Ricas no Domínio:** Os modelos do domínio (`entities/*`) devem possuir o comportamento e as fórmulas lógicas associadas a eles (ex: `atacar()`, `lancar_magia()`, `atualizar_atributos_totais()`). Eles não devem simplesmente ser classes de transporte de dados anêmicas.
-- **Isolamento de Modelos DB:** Nunca passe instâncias das classes do banco de dados (ex: `PersonagemDB`) para dentro dos métodos do domínio.
+- **Isolamento de Modelos DB:** Isole instâncias das classes do banco de dados (ex: `PersonagemDB`) dos métodos do domínio.
 - **Função de Mapeamento (Mapper):** O controlador (`rpg_api/app/controllers/`) ou a CLI deve mapear as propriedades dos objetos do banco de dados para os construtores puros das entidades do domínio antes de invocar a lógica de simulação ou regras de negócio:
   
   ```python
