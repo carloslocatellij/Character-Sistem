@@ -184,7 +184,7 @@ class GameEngineLoader:
                             p_logic.mao_esquerda.defesa, "defesa_extra", 0)
 
                     pos_inicial = mapa_db.configs.get(
-                        "coordenadas_iniciais", [42, 42]) if mapa_db.configs else [42, 42]
+                        "coordenadas_iniciais", '42,42') if mapa_db.configs else '42,42'
                     pos_inicial = pos_inicial.split(",") 
                     pos_inicial = [int(pos_inicial[1]), int(pos_inicial[0])]
                     try:
@@ -272,8 +272,9 @@ class GameEngineLoader:
                         nome=evt.nome, classe='', hp=10, max_hp=10, mp=0, max_mp=0, ataque_base=val_dano, defesa_base=2
                     ))
 
-
-            if "movimento" in parametros_base.get('paginas', [])[0] : # deve haver mecanismo de ativação paralela .get('paginas')[0] é para teste
+            if parametros_base.get('paginas', []):
+                pass
+            if "movimento" in parametros_base.get('paginas', []) : # deve haver mecanismo de ativação paralela .get('paginas')[0] é para teste
                 dados_de_movimento = parametros_base.get('paginas', [])[0].get('movimento', {})
                 esper.add_component(entidade_ecs_id, MovimentComponent(
                     movement_type=dados_de_movimento.get(

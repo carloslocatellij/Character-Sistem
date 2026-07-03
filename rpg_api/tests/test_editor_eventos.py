@@ -22,13 +22,18 @@ def editor_vazio():
 
 
 @pytest.fixture
-def form_novo_evento():
+def form_novo_evento(monkeypatch):
     """Instância do formulário de evento para um tile novo (sem dados existentes)."""
-    return PropriedadesEventoFormScreen(linha=3, coluna=7, emoji="👾")
+    form = PropriedadesEventoFormScreen(linha=3, coluna=7, emoji="👾")
+    monkeypatch.setattr(form, "atualizar_exibicao_condicoes", lambda: None)
+    monkeypatch.setattr(form, "atualizar_tela_pagina", lambda: None)
+    monkeypatch.setattr(form, "atualizar_lista_comandos", lambda: None)
+    monkeypatch.setattr(form, "notify", lambda *args, **kwargs: None)
+    return form
 
 
 @pytest.fixture
-def form_evento_existente():
+def form_evento_existente(monkeypatch):
     """Instância do formulário com dados pré-existentes de um evento salvo no banco."""
     dados_existentes = {
         "id": 42,
@@ -42,6 +47,7 @@ def form_evento_existente():
                     "condicoes": {"self_switch": "A"},
                     "configuracao_visual": {"emoji": "💂"},
                     "gatilho": "toque_jogador",
+                    "movimento": {"tipo": "aleatorio", "pontos": ["(40,40)", "(43,43)"]},
                     "comandos": [{"tipo": "mensagem", "dados": {"texto": "Pare!"}}]
                 },
                 {
@@ -54,16 +60,21 @@ def form_evento_existente():
             ]
         }
     }
-    return PropriedadesEventoFormScreen(linha=5, coluna=8, emoji="💂", dados_existentes=dados_existentes)
+    form = PropriedadesEventoFormScreen(linha=5, coluna=8, emoji="💂", dados_existentes=dados_existentes)
+    monkeypatch.setattr(form, "atualizar_exibicao_condicoes", lambda: None)
+    monkeypatch.setattr(form, "atualizar_tela_pagina", lambda: None)
+    monkeypatch.setattr(form, "atualizar_lista_comandos", lambda: None)
+    monkeypatch.setattr(form, "notify", lambda *args, **kwargs: None)
+    return form
 
 
 # ==============================================================================
 # TESTES EXISTENTES: Lógica de dados do MapManagerScreen
 # ==============================================================================
 
-def test_adicionar_evento_na_memoria(editor_vazio):
+def test_adicionar_evento_para_memoria(editor_vazio):
     """Garante que o editor consegue registar um evento complexo na coordenada correta."""
-    editor_vazio.adicionar_evento_memoria(
+    editor_vazio.adicionar_evento_para_memoria(
         linha=5,
         coluna=10,
         nome="monstro_1",
@@ -73,10 +84,10 @@ def test_adicionar_evento_na_memoria(editor_vazio):
     )
 
     # Verifica se a chave foi criada como tupla matemática
-    assert (5, 10) in editor_vazio.mapa_atual_eventos
+    assert (5, 10) in editor_vazio.eventos_do_mapa_atual
 
     # Verifica se os dados estão intactos
-    evento = editor_vazio.mapa_atual_eventos[(5, 10)]
+    evento = editor_vazio.eventos_do_mapa_atual[(5, 10)]
     assert evento["nome"] == "monstro_1"
     assert evento["emoji"] == "👾"
     assert evento["event_type"] == "monstro"
@@ -85,7 +96,7 @@ def test_adicionar_evento_na_memoria(editor_vazio):
 
 def test_empacotar_eventos_para_banco(editor_vazio):
     """Garante que o dicionário de memória é convertido para uma lista de registos para o BD."""
-    editor_vazio.adicionar_evento_memoria(
+    editor_vazio.adicionar_evento_para_memoria(
         linha=2, coluna=3, nome="bau_magico", emoji="📦",
         event_type="bau", parametros={"item": "pocao"}
     )
@@ -115,10 +126,10 @@ def test_desempacotar_eventos_do_banco(editor_vazio):
     editor_vazio._desempacotar_eventos_do_banco(dados_do_banco)
 
     # Deve estar disponível na memória pela tupla de coordenadas
-    assert (7, 8) in editor_vazio.mapa_atual_eventos
-    assert editor_vazio.mapa_atual_eventos[(7, 8)]["nome"] == "guarda"
+    assert (7, 8) in editor_vazio.eventos_do_mapa_atual
+    assert editor_vazio.eventos_do_mapa_atual[(7, 8)]["nome"] == "guarda"
     # O ID deve ser preservado para sabermos que é um evento que já existia no banco
-    assert editor_vazio.mapa_atual_eventos[(7, 8)]["id"] == 1
+    assert editor_vazio.eventos_do_mapa_atual[(7, 8)]["id"] == 1
 
 
 # ==============================================================================
