@@ -37,6 +37,8 @@ class PropriedadesEventoFormScreen(ModalScreen[dict]):
     MapManagerScreen persistir na memória e no banco de dados.
     '''
 
+    BINDING = [('esq', 'self.dismiss(None)', '')]
+
     def __init__(self, linha: int, coluna: int, emoji: str, dados_existentes: dict = None):
         super().__init__()
         self.linha_y_do_evento = linha
@@ -113,10 +115,19 @@ class PropriedadesEventoFormScreen(ModalScreen[dict]):
             yield Select([('Parado', 'parado'), 
                           ('Aleatório', 'aleatorio'),
                           ('Seguir Herói', 'seguir_heroi'),
-                          ('Fugir do Herói', 'fugir_heroi')], 
+                          ('Fugir do Herói', 'fugir_heroi'),
+                          ('Roteiro de Movimento', 'roteiro')],
                          value=self.paginas[self.pagina_atual_idx].get('movimento', {}).get('tipo', 'parado'),
                          id='evt-movimento')
-            
+            yield Label('Roteiro:')
+            with Horizontal(classes='linha-dupla', id='container-roteiro'):
+                yield Button('⏫ ', id='btn-roteiro-up', flat=True, variant='warning', classes='btn-pequeno')
+                yield Button('⏩ ', id='btn-roteiro-right', flat=True, variant='warning', classes='btn-pequeno')
+                yield Button('⏬ ', id='btn-roteiro-down', flat=True, variant='warning', classes='btn-pequeno')
+                yield Button('⏪ ', id='btn-roteiro-left', flat=True, variant='warning', classes='btn-pequeno')
+                yield Input(placeholder='Direções do Roteiro', disabled=True ,id='id_roteiro_mv',
+                            value=','.join(self.paginas[self.pagina_atual_idx].get('movimento', {}).get('roteiro', '')))
+                yield Button('⛔Limpa', id='btn-roteiro-limpa', flat=True, variant='warning', classes='btn-pequeno')
 
             # ==========================================
             # SEÇÃO DE CONDIÇÕES DA PÁGINA
@@ -157,6 +168,8 @@ class PropriedadesEventoFormScreen(ModalScreen[dict]):
                 yield Button('Salvar Evento', id='btn-evt-salvar', variant='success')
 
     def on_mount(self):
+        self.query_one("#container-roteiro").display = False
+        
         self.atualizar_tela_pagina()
 
     # ==========================================
@@ -259,6 +272,18 @@ class PropriedadesEventoFormScreen(ModalScreen[dict]):
     def on_movimento_changed(self, event: Select.Changed):
         if event.value != Select.BLANK:
             self.paginas[self.pagina_atual_idx]['movimento'] = {'tipo': event.value}
+            
+        if event.value == 'roteiro':
+            self.query_one("#container-roteiro").display = True
+        else:
+            self.query_one("#container-roteiro").display = False
+    
+            
+    @on(Select.Changed, '#evt-emoji')
+    def on_emoji_changed(self, event: Select.Changed):
+        if event.value != Select.BLANK:
+            self.paginas[self.pagina_atual_idx]['configuracao_visual'] = {
+                'emoiji': event.value}
 
     @on(Select.Changed, '#evt-self-switch')
     def on_self_switch_changed(self, event: Select.Changed):
@@ -345,7 +370,34 @@ class PropriedadesEventoFormScreen(ModalScreen[dict]):
         elif event.button.id and event.button.id.startswith('btn-del-var-'):
             idx_var = int(event.button.id.replace('btn-del-var-', ''))
             self._remover_variavel(idx_var)
+            
+        elif event.button.id == 'btn-roteiro-up':
+            roteiro_atual = self.query_one('#id_roteiro_mv').value
+            self.query_one('#id_roteiro_mv').value = roteiro_atual + ', cima'  if len(roteiro_atual) > 0 else 'cima'
+            self.paginas[self.pagina_atual_idx]['movimento']['roteiro'] =  [dir for dir in self.query_one(
+                '#id_roteiro_mv').value.split(',')]
+            
+        elif event.button.id == 'btn-roteiro-down':
+            roteiro_atual = self.query_one('#id_roteiro_mv').value
+            self.query_one('#id_roteiro_mv').value = roteiro_atual + ', baixo'  if len(roteiro_atual) > 0 else 'baixo'
+            self.paginas[self.pagina_atual_idx]['movimento']['roteiro'] =  [dir for dir in self.query_one(
+                '#id_roteiro_mv').value.split(',')]
+            
+        elif event.button.id == 'btn-roteiro-right':
+            roteiro_atual = self.query_one('#id_roteiro_mv').value
+            self.query_one('#id_roteiro_mv').value = roteiro_atual + ', direita' if len(roteiro_atual) > 0 else 'direita'
+            self.paginas[self.pagina_atual_idx]['movimento']['roteiro'] =  [dir for dir in self.query_one(
+                '#id_roteiro_mv').value.split(',')]
+            
+        elif event.button.id == 'btn-roteiro-left':
+            roteiro_atual = self.query_one('#id_roteiro_mv').value
+            self.query_one('#id_roteiro_mv').value = roteiro_atual + ', esquerda' if len(roteiro_atual) > 0 else 'esquerda'
+            self.paginas[self.pagina_atual_idx]['movimento']['roteiro'] = [dir for dir in self.query_one(
+                '#id_roteiro_mv').value.split(',')]
 
+        elif event.button.id == 'btn-roteiro-limpa':
+            self.query_one('#id_roteiro_mv').value = ''
+            
         elif event.button.id == 'btn-evt-salvar':
             nome = self.query_one('#evt-nome').value
             emoji = self.query_one('#evt-emoji').value
@@ -588,9 +640,18 @@ class AdicionarVariavelScreen(ModalScreen[dict]):
 # ==============================================================================
 # SUB-MODAL: SISTEMA DE MOVIMENTO DO EVENTO
 # ==============================================================================
-class AtribuirMovimentoScreen(ModalScreen[dict]):
-    '''Sub-formulário para atribuição de movimentação propria ao evento.'''
+# class AtribuirMovimentoScreen(ModalScreen[dict]):
+#     '''Sub-formulário para atribuição de movimentação propria ao evento.'''
     
+#     def compose(self):
+#         with Vertical(id='add-cmd-caixa'):
+#             yield Label('🔂 Configurar Movimentação', classes='titulo-secao')
+#             yield Label('Tipo de Movimento:')
+#             yield Input(placeholder='seguir_heroi, fugir_heroi', id='id_tipo_mv')
+#             yield Label('Roteiro:')
+#             yield Input(placeholder='Ex: reputacao', id='id_tipo_mv')
+
+            
 
 # ==============================================================================
 # SUB-MODAL: ADICIONAR / EDITAR COMANDO

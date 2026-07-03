@@ -403,7 +403,9 @@ class EventSystem:
             variaveis = condicoes.get("variaveis", [])
             if len(variaveis) > 0:
                 for var in variaveis:
-                    atual = self.game_state.get_variable(var["nome"], 0)
+                    atual = self.game_state.get_variable(var["nome"], None)
+                    if not atual:
+                        return False
                     op = var.get("operador", "igual")
                     
                     val_esperado = var.get("valor", 0)

@@ -10,11 +10,11 @@ cffi==2.0.0
 click==8.3.2
 colorama==0.4.6
 esper==3.7
-fastapi==0.109.0
+fastapi==0.139.0
 frozenlist==1.8.0
 greenlet==3.4.0
 h11==0.16.0
-idna==3.11
+idna>=3.15
 iniconfig==2.3.0
 inquirerpy==0.3.4
 Jinja2==3.1.6
@@ -24,7 +24,7 @@ markdown-it-py==4.0.0
 MarkupSafe==3.0.3
 mdit-py-plugins==0.5.0
 mdurl==0.1.2
-msgpack==1.1.2
+msgpack>=1.2.1
 multidict==6.7.1
 packaging==26.0
 pfzy==0.3.4
@@ -33,7 +33,7 @@ pluggy==1.6.0
 prompt_toolkit==3.0.52
 propcache==0.5.2
 pycparser==3.0
-pydantic==2.13.0
+pydantic>=2.7.0,<3.0.0
 pydantic_core==2.46.0
 pyfiglet==1.0.4
 Pygments==2.20.0
@@ -42,7 +42,7 @@ python-dotenv==1.2.2
 rich==15.0.0
 shellingham==1.5.4
 SQLAlchemy==2.1.0b1
-starlette==0.35.1
+starlette>=1.1.0
 textual==8.2.4
 textual-dev==1.8.0
 textual-serve==1.1.3

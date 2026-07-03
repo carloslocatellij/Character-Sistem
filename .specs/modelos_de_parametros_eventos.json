@@ -53,7 +53,7 @@
             "gatilho": "paralelo",
             "movimento": {
                 "tipo": "roteiro",
-                "direcoes": [
+                "roteiro": [
                     "direita",
                     "direita",
                     "baixo",
