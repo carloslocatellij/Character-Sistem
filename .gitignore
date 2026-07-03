@@ -30,7 +30,7 @@ wheels/
 # FastAPI / SQLAlchemy / Testes
 # ==========================================
 # Arquivos de banco de dados SQLite
-*.db
+*teste.db
 *.sqlite
 *.sqlite3
 

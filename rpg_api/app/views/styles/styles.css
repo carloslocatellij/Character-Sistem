@@ -1,5 +1,22 @@
 Screen { align: center middle; background: $background; }
 
+Switch {
+    height: auto;
+    width: auto;
+    border: green;
+}
+
+.label {
+    height: auto;
+    width: auto;
+    border: deepskyblue;
+}
+
+.container {
+    height: auto;
+    width: auto;
+}
+
 #main-menu { width: 45; padding: 2; border: tall $accent; background: $surface; }
 #main-title { width: 100%; text-align: center; text-style: bold; margin-bottom: 2; color: $secondary; }
 Button { width: 100%; margin-bottom: 1; }
@@ -37,7 +54,6 @@ DataTable {
     border: thick $success;
     background: $surface;
 }
-
 
 /* --- ETILOS DO EDITOR DE MAPA --- */
 /* --- BARRA SUPERIOR (NOSSO HEADER CUSTOMIZADO) --- */
@@ -106,8 +122,19 @@ DataTable {
     /* Remova a linha 'align: center middle' se existir, para o mapa começar no topo/esquerda */
 }
 
+#sec-map-area {
+    width: 85%;
+    height: 95%;
+    padding: 1;
+    overflow: auto;
+    align: center middle;
+    /* MÁGICA: Cria barras de rolagem se o mapa crescer! */
+    /* Remova a linha 'align: center middle' se existir, para o mapa começar no topo/esquerda */
+}
+
 #mapa-view {
     width: auto;
+    overflow: auto;
     /* Permite que o componente cresça além do tamanho da tela sem quebrar as linhas */
     height: auto;
 }
@@ -190,8 +217,8 @@ PropriedadesFormScreen {
 }
 
 #prop-caixa {
-    width: 40;
-    height: auto;
+    width: 60;
+    height: 80%;
     padding: 1 2;
     background: $surface;
     border: solid blue;
@@ -401,3 +428,4 @@ GamePlayScreen {
         background: transparent;
     }
 }
+

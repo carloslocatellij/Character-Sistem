@@ -30,7 +30,7 @@ class SimuladorCombate:
                 "desempate": random.random() # Evita empates absolutos
             })
             
-        # Ordena: Maior Resultado -> Maior Agilidade -> Desempate aleatório
+        # Ordena: Maior Resultado -> Maior Agilidade -> Desempate aleatorio
         iniciativas.sort(key=lambda x: (x["resultado"], x["agilidade"], x["desempate"]), reverse=True)
         ordem = [item["personagem"] for item in iniciativas]
         detalhes_iniciativa = [{"nome": item["personagem"].nome, "rolagem": item["rolagem"],
@@ -85,7 +85,7 @@ class SimuladorCombate:
                     vencedor = "Aliados"
                     break
                     
-                # Escolher alvo aleatório (se for aliado ataca oponente, e vice-versa)
+                # Escolher alvo aleatorio (se for aliado ataca oponente, e vice-versa)
                 is_aliado = any(a.nome == atacante.nome for a in aliados)
                 inimigos = oponentes_vivos if is_aliado else aliados_vivos
                 alvo = random.choice(inimigos)

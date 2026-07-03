@@ -6,11 +6,11 @@ from textual.events import Key
 from textual import on
 from app.views.components.choice_box import ChoiceBox
 from app.db.database import SessionLocal
+from app.models.mapas_db import MapaDB
 from app.core.engine.systems import (MovementSystem, InteractionSystem, AISystem,
                                      RenderSystem, InventarySystem, EventSystem)
 from app.core.engine.engine_loader import GameEngineLoader
-from app.core.engine.components import (PositionComponent, RenderComponent, 
-                                        PlayerControlComponent, StatsComponent,
+from app.core.engine.components import (PositionComponent, StatsComponent,
                                         InventoryComponent, EquipmentComponent                                       
 )
 from app.core.engine.game_state import GameStateManager
@@ -22,7 +22,7 @@ logging.basicConfig(level=logging.INFO, filename="log.log", filemode="a")
 class GamePlayScreen(Screen):
     CSS_PATH = "styles/game_styles.css"
     
-    def __init__(self, mapa_id: int, personagem_id: int = 1):
+    def __init__(self, mapa_id: int = 1, personagem_id: int = 1):
         super().__init__()
         self.mapa_id = mapa_id
         self.personagem_id = personagem_id
@@ -77,14 +77,21 @@ class GamePlayScreen(Screen):
         
         try:
             with SessionLocal() as db_session:
+                from sqlalchemy import select
+                sql_coord_ini = select(MapaDB).where(
+                    MapaDB.configs.contains("coordenadas_iniciais"))
+                self.mapa_id = db_session.scalars(sql_coord_ini).first().id
                 # Carregamento autêntico sem simulações!
+                # coords_iniciais = db_session.scalars(
+                #     sql_coord_ini).first().configs.get("coordenadas_iniciais", {})
                 
                 self.engine_manager = self.loader.carregar_engine_do_banco(
                     db_session,
                         usuario_id=1, # ID do jogador ativo
                         cenario_id=1,                  # ID do jogo/campanha escolhida
                         slot_numero=1,                  # Slot selecionado
-                        default_mapa_id=1
+                        default_mapa_id=self.mapa_id,
+                    #coords_iniciais=coords_iniciais
                                             )
                 
             self.mapa_matriz = self.loader.matriz_terrenos
@@ -116,7 +123,7 @@ class GamePlayScreen(Screen):
             self.set_interval(0.33, self.game_tick)
             
             self.log_mensagem(
-                "[bold green]>>> Engine Pronta! Use setas para andar, ENTER para interagir ou use o Terminal de comandos abaixo.[/]")
+                "[bold green]>>> Engine Pronta!.[/]")
             self.atualizar_tudo()
 
         except Exception as e:
@@ -194,7 +201,7 @@ class GamePlayScreen(Screen):
         # 4. Atualiza a tela para o jogador ver o novo cenário imediatamente
         self.atualizar_tudo()
             
-    def log_mensagem(self, texto: str, estilo=None, velocidade: float = 0.05, notif=False):
+    def log_mensagem(self, texto: str, estilo=None, velocidade: float = 0.01, notif=False):
         """Injeta mensagens formatadas no painel lateral de logs."""
         if notif:
             try:
@@ -343,7 +350,7 @@ class GamePlayScreen(Screen):
         if not texto: return
 
         # Mostra o comando ecoado no log
-        self.log_mensagem(f"[dim]>>> {texto}[/]")
+        #self.log_mensagem(f"[dim]>>> {texto}[/]")
 
         # 1. Separar o comando do argumento. Ex: "/usar poção" -> comando="/usar", argumento="poção"
         partes = texto.split(" ", 1)
@@ -471,16 +478,17 @@ class GamePlayScreen(Screen):
             moveu = self.movimento_sys.mover_entidade(1, "direita")
             self.centralizar_camera_no_jogador()
         elif key == "enter":
-            # Se o foco estiver no prompt do terminal, deixa o submit do input agir e ignora o raio
+            # Se o foco estiver no p
+            # rompt do terminal, deixa o submit do input agir e ignora o raio
+            achou_evento = None
             if self.focused == self.query_one("#terminal-prompt"):
                 telamapa = self.query_one("#tela-mapa", Static)
                 telamapa.focus()
-            
-            achou_evento = self.interacao_sys.interagir(1, self.direcao_olhar)
-            
-            if not achou_evento:
-                self.log_mensagem(
-                    "[gray]Não há nada para acionar aqui na sua frente.[/]")
+            else:
+                achou_evento = self.interacao_sys.interagir(1, self.direcao_olhar)
+                if not achou_evento:
+                    self.log_mensagem(
+                        "[gray]Não há nada para acionar aqui na sua frente.[/]")
             self.atualizar_tudo()
             return
         

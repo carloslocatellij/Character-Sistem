@@ -4,13 +4,15 @@ import random
 from rich.text import Text
 from app.core.engine.components import (
     PositionComponent, InteractableComponent, RenderComponent,
-    StatsComponent, AIComponent, InventoryComponent
+    StatsComponent, MovimentComponent, InventoryComponent
 )
-#from app.core.engine.event_bus import EventBus as event_bus
 from app.core.entities.emojis import CatalogoTiles
 bloqueantes = CatalogoTiles.TERRENOS_BLOQUEANTES
 import logging
 logging.basicConfig(level=logging.INFO, filename="log.log", filemode="a")
+from typing import Literal
+
+Direcoes: Literal["cima", "baixo", "esquerda", "direita", None]
 
 class RenderSystem:
     """Sistema responsável por compilar as camadas de Terreno, Objetos e Esper ECS em um único frame Text."""
@@ -115,12 +117,13 @@ class AISystem:
             "esquerda": (-1, 0),
             "direita": (1, 0)
         }
+        opcoes: list[str] = ["cima", "baixo", "esquerda", "direita", None]
         
-        for ent_id, (pos_comp, ai_comp) in esper.get_components(PositionComponent, AIComponent):
-            # Só processa monstros com movimento aleatório por enquanto
-            if ai_comp.movement_type == "aleatório":
+        for ent_id, (pos_comp, ai_comp) in esper.get_components(PositionComponent, MovimentComponent):
+            
+            # Processa monstros com movimento aleatorio
+            if ai_comp.movement_type == "aleatorio":
                 # Escolhe uma direção aleatória (4 direções + ficar parado)
-                opcoes = ["cima", "baixo", "esquerda", "direita", None]
                 direcao = random.choice(opcoes)
 
                 if not direcao:
@@ -141,7 +144,8 @@ class AISystem:
                             esper.dispatch_event("ataque_monstro", {
                                 "parametros": ai_comp.action_on_touch})
 
-            if ai_comp.movement_type == "perseguir_heroi":
+            # Perseguir heroi
+            if ai_comp.movement_type == "seguir_heroi":
                 pos_heroi = esper.component_for_entity(1, PositionComponent)
                 if pos_heroi:
                     dx = pos_heroi.x - pos_comp.x
@@ -170,10 +174,18 @@ class AISystem:
                         self.movement_system.mover_entidade(ent_id, direcao)
 
             if ai_comp.movement_type == "patrulha":
-                if not ai_comp.patrol_path:
+                direcoes = ["cima", "esquerda", "baixo", "direita"]
+                if not ai_comp.pontos:
                     continue
+                pontos_convertidos = []
+                for ponto in ai_comp.pontos:
+                    ponto = ponto.replace('(','').replace(')','')
+                    px, py = ponto.split(',')
+                    pontos_convertidos.append((int(px),int(py)))
+
+                current_patrol_index = 0
                 # Move para o próximo ponto do caminho de patrulha
-                proximo_ponto = ai_comp.patrol_path[ai_comp.current_patrol_index]
+                proximo_ponto = pontos_convertidos[current_patrol_index]
                 dx = proximo_ponto[0] - pos_comp.x
                 dy = proximo_ponto[1] - pos_comp.y
                 direcao = None
@@ -184,11 +196,16 @@ class AISystem:
 
                 if direcao:
                     moveu = self.movement_system.mover_entidade(ent_id, direcao)
-                    if moveu and pos_comp.x == proximo_ponto[0] and pos_comp.y == proximo_ponto[1]:
-                        # Avança para o próximo ponto do caminho de patrulha
-                        ai_comp.current_patrol_index = (ai_comp.current_patrol_index + 1) % len(ai_comp.patrol_path)
-
-
+                    if moveu: 
+                        if pos_comp.x == proximo_ponto[0] and pos_comp.y == proximo_ponto[1]:
+                            # Avança para o próximo ponto do caminho de patrulha
+                            current_patrol_index = (
+                                current_patrol_index + 1) % len(pontos_convertidos)
+                    else:
+                        outra_op = direcoes[direcoes.index(
+                            direcao) + 1 % len(direcoes)]
+                        self.movement_system.mover_entidade(ent_id, outra_op)
+                            
     def update(self):
         """Processa movimento autônomo de monstros/NPCs a cada tick."""
         self.processar_movimento_autonomo()
@@ -323,7 +340,7 @@ class EventSystem:
 
 
     def processar_evento_interacao(self, payload: dict):
-        """Callback disparado pelo EventBus assim que o jogador interage com um bloco."""
+        """Callback disparado pelo esper event_handler  assim que o jogador interage com um bloco."""
 
         logging.info(f" foi por processar_evento_interacao")
         try:

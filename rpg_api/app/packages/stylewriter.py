@@ -147,16 +147,16 @@ class TestApp(App):
         log = self.query_one("#log-eventos", ChatLog)
 
         # Exemplo 1: Imprimindo título estilizado com Pyfiglet (ajustado velocidade para o timer)
-        log.escrever("RPG API v1.0", estilo="slant", velocidade=0.2)
-        log.escrever("Desenvolvida por CharlesDev",
+        log.write("RPG API v1.0", estilo="slant", velocidade=0.2)
+        log.write("Desenvolvida por CharlesDev",
                      estilo="slant", velocidade=0.1)
 
         await asyncio.sleep(1.5)  # Pausa dramática para a animação rodar
 
         # Exemplo 2: Imprimindo texto normal com formatação de cores Rich
-        log.escrever(
+        log.write(
             "[bold yellow]Sistema:[/] Conexão estabelecida com sucesso.", velocidade=0.03)
-        log.escrever(
+        log.write(
             "Você acorda em uma taverna escura. O cheiro de hidromel paira no ar...", velocidade=0.02)
 
     async def on_input_submitted(self, event: Input.Submitted) -> None:
@@ -165,12 +165,12 @@ class TestApp(App):
         input_campo = self.query_one("#entrada-usuario", Input)
 
         if event.value.strip():
-            log.escrever(f"[bold cyan]> {event.value}[/]", velocidade=0.01)
+            log.write(f"[bold cyan]> {event.value}[/]", velocidade=0.01)
             input_campo.value = ""
 
             # Resposta simulada do jogo
             await asyncio.sleep(1)
-            log.escrever(
+            log.write(
                 "[bold red]Comando desconhecido.[/] Tente novamente.", velocidade=0.02)
 
 

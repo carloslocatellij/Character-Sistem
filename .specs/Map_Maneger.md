@@ -12,7 +12,7 @@
 |Mapas______|							 |
 |			|							 |
 |Mundo		|							 |
-||\			|			mundo.csv		 |
+||\			|			mundo_db		 |
 |\_Cidade1	|							 |
 || \_loja1	|							 |
 || \_loja2	|							 |
@@ -42,7 +42,7 @@ Musica: vai permitir gerenciar músicas.
 
 A Paleta permite a seleção de tiles para colocar no mapa.
 
-[x] Mapas é uma árvore de mapas criados, aninhados pela propriedade mapa_pai e que podem ser selecionados paara edição.
+[x] Mapas é uma árvore de mapas criados, aninhados pela propriedade mapa_pai e que podem ser selecionados para edição.
 
 
 #===========================================
@@ -61,7 +61,9 @@ temos algo como:
 Emojis objeto tem fundo transparente, o que só é compativel com "  " pois é o mesmo fundo do terminal.
 Por tanto, devemos:
 1 - Dividir os emojis em categorias. Para isso devemos estabelescer como será atribuido esta característica no sistema.
+[x] - Temos as categorias: Terreno, Objetos e Eventos
 2 - Estabelescer como tratar sobreposição de objeto e chão: Se haverão 2 camadas ou outra forma.
+[x] A sobreposição foi tratada com o mapeamento da cor do tile anterior e repreenchimento no background do emoji
 
 ===============
 
@@ -71,3 +73,5 @@ A jogabilidade (possibilidade de jogar) no mapa com um "char", um personagem que
 Assim, em um futuro, vem a implementação de um motor que execute os recursos orquestrados como um jogo em 
 uma tela que atualize o movimento, permite acesso ao um menu e interação com eventos.
 Quais as implicações de seguir este caminho? Qual a arquitetura ideal para game engines deste tipo?
+[x] Arquitetura ECS: Event Component System
+[x] Maquina de Estados: Um sistema de Interação com Eventos do mapa ao verificar o 'tile' a sua frente.
