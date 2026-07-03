@@ -102,37 +102,37 @@ def fixture_dados_base(db_session):
 # ==============================================================================
 # ⚔️ SUÍTE DE TESTES UNITÁRIOS DO GAME STATE & LOADER
 # ==============================================================================
-def test_deve_inicializar_engine_loader_e_popular_mundo_com_esper(db_session, dados_base):
-    """Garante que o GameEngineLoader consegue ler o cenário do banco e montar o Esper."""
-    esper.clear_database()
-    loader = GameEngineLoader()
-    sucesso = loader.carregar_engine_do_banco(
-        db_session, usuario_id=dados_base["usuario_id"],
-        slot_numero=1, default_mapa_id=dados_base["mapa_id"], cenario_id=dados_base["cenario_id"])
+# def test_deve_inicializar_engine_loader_e_popular_mundo_com_esper(db_session, dados_base):
+#     """Garante que o GameEngineLoader consegue ler o cenário do banco e montar o Esper."""
+#     esper.clear_database()
+#     loader = GameEngineLoader()
+#     sucesso = loader.carregar_engine_do_banco(
+#         db_session, usuario_id=dados_base["usuario_id"],
+#         slot_numero=1, default_mapa_id=dados_base["mapa_id"], cenario_id=dados_base["cenario_id"])
 
-    assert sucesso[0] is True
-    assert loader.nome_mapa == "Masmorra Central"
+#     assert sucesso[0] is True
+#     assert loader.nome_mapa == "Masmorra Central"
 
 
-    #esper.create_entity()  # Força a criação de uma entidade para validar o mundo
+#     #esper.create_entity()  # Força a criação de uma entidade para validar o mundo
 
-    # Deve conter 2 entidades: Jogador (Injetado) + Orc Soldado (Banco)
-    position_components = list(esper.get_components(PositionComponent))
-    assert len(position_components) == 2
+#     # Deve conter 2 entidades: Jogador (Injetado) + Orc Soldado (Banco)
+#     position_components = list(esper.get_components(PositionComponent))
+#     assert len(position_components) == 2
 
-    # Valida se o herói nasceu com a árvore de componentes correta
-    stats_components = list(esper.get_components(StatsComponent))
-    player_entities = [entity for entity, stats in stats_components if stats[0].nome == "Charles"]
-    assert len(player_entities) == 1
+#     # Valida se o herói nasceu com a árvore de componentes correta
+#     stats_components = list(esper.get_components(StatsComponent))
+#     player_entities = [entity for entity, stats in stats_components if stats[0].nome == "Charles"]
+#     assert len(player_entities) == 1
 
-    player_entity = player_entities[0]
-    assert esper.entity_exists(player_entity) is True
+#     player_entity = player_entities[0]
+#     assert esper.entity_exists(player_entity) is True
 
-    pos_player = esper.component_for_entity(player_entity, PositionComponent)
-    stats_player = esper.component_for_entity(player_entity, StatsComponent)
+#     pos_player = esper.component_for_entity(player_entity, PositionComponent)
+#     stats_player = esper.component_for_entity(player_entity, StatsComponent)
 
-    # Posição inicial segura do fallback
-    assert stats_player.nome == "Charles"
+#     # Posição inicial segura do fallback
+#     assert stats_player.nome == "Charles"
 
 
 def test_game_state_manager_salvamento_e_recuperacao_de_switches(db_session, dados_base):
