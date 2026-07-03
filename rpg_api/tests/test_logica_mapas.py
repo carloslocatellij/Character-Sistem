@@ -102,7 +102,7 @@ def test_empacotar_objetos_para_banco():
     tela = MapManagerScreen()
     
     # Simulamos o utilizador a colocar dois objetos no mapa
-    tela.mapa_atual_objetos = {
+    tela.objetos_do_mapa_atual = {
         (5, 10): "🪑",
         (0, 0): "💀"
     }

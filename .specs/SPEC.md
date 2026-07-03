@@ -1,7 +1,12 @@
 # Especificação Técnica: Sistema de RPG de Mesa
 1. Visão Geral
 
-Este projeto é um motor (engine) para criação de personagens e simulação de batalhas de RPG de mesa baseado em turnos. Desenvolvido em Python, o sistema adota princípios de Arquitetura Limpa (Clean Architecture) e Domain-Driven Design (DDD), garantindo total desacoplamento entre as regras do jogo, a persistência de dados (Banco de Dados) e a interface do utilizador.
+Este projeto é um motor (engine) online para criação de jogos de RPG por meio da geração de Cenários completos compartilhaveis. Desenvolvido em Python, o sistema adota princípios de Arquitetura Limpa (Clean Architecture) e Domain-Driven Design (DDD) Test-Driven Design (TDD), garantindo total desacoplamento entre as regras do jogo, a persistência de dados (Banco de Dados) e a interface do utilizador.
+
+- Criação de Mapas aninhados
+- Criação de Personagens (Raças, Classes, Itens, Habilidades)
+- Simulação de batalhas de RPG de mesa baseado em turnos
+- Jogar
 
 2. Arquitetura do Sistema
 
@@ -42,9 +47,10 @@ Sistema baseado em herança a partir de uma classe base Item.
 
     Escudo (herda Item): Adiciona pontuação de defesa_extra.
 
+
 3.4. Personagem (Entidade Central)
 
-Entidade geradora do jogo. Utiliza composição para agregar Raça e Classe.
+Entidade acionadora do jogo. Utiliza composição para agregar Raça e Classe.
 
     Atributos Base vs Totais: Armazena os atributos puros (0 a 5: Força, Agilidade, Resistência, Percepção, Exuberância) e calcula os "Atributos Totais" somando os bônus da Raça e Classe.
 
@@ -53,6 +59,34 @@ Entidade geradora do jogo. Utiliza composição para agregar Raça e Classe.
     Inventário e Slots: Possui campos específicos para equipamentos equipados: mao_direita, mao_esquerda e armadura, além de listas para inventário geral.
 
     Estado: Controla listas dinâmicas de efeitos_ativos (venenos, buffs) processados a cada turno e magias_conhecidas.
+
+
+3.5. Mapas (A base do ambiente de jogo)
+
+Entidade composta pela camada de terreno, camada de objetos e conjuntos de eventos ligados a cada mapa, Os mapas podem ser aninhados pelo campo 'mapa_pai'.
+
+    Existem terrenos que permitem caminhar (chão) e outros bloqueam a passagem (paredes, água, etc).
+
+    A camada de objetos bloqueia a passagem. Um truque de background faz parecer que está a cima da camada de terrenos.
+
+    Eventos ficam no EventosDB e são instancidos juntos com o mapa, sobrepostos a ele e são acionaveis por meio de seus parametros. Assim como os objetos, eles aparentam estar acima da camada de terrenos.
+
+
+3.6. Eventos (Centro da Mecânica do Jogo)
+
+Entidades representadas por emojis posicionados no mapa mas com parametros que são passados ao motor de eventos EventSystem quando são acionados.
+
+    Os parametros permitem uma criação e programação visual completa do evento como uma entidade única do jogo.
+
+    Enventos classicos são:
+        - teleporte (portas, entradas, cidades, entrada de cavernas): muda de mapa.
+        - baús: eventos que modificam o inventário do personagem
+        - Npcs: disparam mensagens, escolha de opções dadas, mudam variáveis, etc...
+
+    Exemplos de possibilidades podem ser vistas no arquivo `modelo_de_parametros_eventos.json`
+
+    
+
 
 4. Regras de Negócio e Mecânicas
 4.1. Validação de Magias e Habilidades

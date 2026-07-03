@@ -3,12 +3,15 @@
 ## Crie seus próprios mundos com cenários completos, personagens, magias, monstros.
 ## Jogue seu jogo e compartilhe com amigos.
 ### Graficos totalmente feitos com emojis graças ao Textual: https://textual.textualize.io/
+### Motor ECS https://esper.readthedocs.io/
 
 - O usuário pode, até o momento, criar personagens informando seu Nome, Nivel, Classe, Raça e os atributos, também uma lista de habilidades, caminhos de magia (água, ar, fogo, terra, trevas e luz). Criar e equipar itens, simular batalhas.
 
 - Agora temos um editor de mapas que pode gerar masmorras, cavernas e cidades aleatórias e preencher com emojis de várias coisas.
 
 - A Jogabilidade já está em fase de testes ( Você pode andar pelo mapa de "id 1" e interagir com eventos )
+
+- Consulte o contexto de desenvolvimento em `.specs/*.md`
 
 - Consulte o MANUAL.md em caso de dúvidas.
 
@@ -34,11 +37,24 @@ windos `.\.venv\Scripts\activate` linux `source .venv/bin/activate`
 `python ./rpg_api/main_cli.py`
 
 
-##### Obs.
-Estou testando ele no Gnome Terminal v.3.52 e Windows Terminal 
+# Contexto do Projeto
+- **Framework Principal:** Textual (TUI)
+- **Gerenciador de Estado:** Python esper (ECS)
+- **Persistência:** SQLAlchemy + Supabase
+- **Padrão de Código:** Componentização estrita. O Textual gerencia a View; o esper gerencia o estado/lógica.
 
-### Acreditamos que o projeto tenha potencial para se tornar um MMORPG de linha de comando!
+# Contexto do Projeto - Fase 2: Integração Cloud
+- **Status Atual:** Módulos TUI (Textual) e Motor (esper ECS) operando localmente com testes robustos.
+- **Próximo Objetivo:** Migrar persistência local/em memória para o Supabase de forma assíncrona.
+- **Restrição Arquitetural Crítica:** Chamadas de rede da API do Supabase NÃO podem bloquear o loop de eventos principal do Textual (`asyncio`).
+- **Padrão de Integração:** O Supabase deve ser injetado via SQLAlchemy (AsyncSession) ou client assíncrono dentro dos Systems do `esper` ou em threads gerenciadas por Workers do Textual.
+
+
+##### Obs.
+Testado no Gnome Terminal v.3.52 e Windows Terminal 
+
+### Este projeto tem potencial para se tornar um MMORPG de linha de comando!
 Caso tenha sujestões ou deseje participar fique a vontade para me contactar por meio das redes da bios.
 
-##### Colabore com um pix de qualquer quantia para o projeto pela chave:
+##### Apoie o projeto pela chave pix:
 3679f002-4e36-4fa3-ac40-5067b2750a9a

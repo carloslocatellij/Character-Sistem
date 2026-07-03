@@ -32,18 +32,34 @@ class GameStateManager:
 
     def modificar_variavel(self, nome: str, operacao: str, valor: any):
         atual = self.get_variable(nome, 0)
+        if isinstance(atual, str) and atual.isdigit():
+            atual = int(atual)
+            
+        if isinstance(valor, str) and valor.isdigit():
+            valor = int(valor)
+        
+            
         if operacao == "=":
             self.variables[nome] = valor
-            return
+            return self.variables[nome]
+        
         if isinstance(atual, (int, float)) and isinstance(valor, (int, float)):
             if operacao == "+":
                 self.variables[nome] = atual + valor
+                return self.variables[nome]
+            
             elif operacao == "-":
                 self.variables[nome] = atual - valor
-            elif operacao == "*":
+                return self.variables[nome]
+            
+            elif operacao == "*":    
                 self.variables[nome] = atual * valor
+                return self.variables[nome]
+            
             elif operacao == "/":
                 self.variables[nome] = atual / valor if valor != 0 else atual
+                return self.variables[nome]
+            
             else:
                 raise ValueError(f"Operação inválida: {operacao}")
         else:

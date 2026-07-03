@@ -16,7 +16,6 @@ class GameLoader:
         self.mapa_objetos = {}
         self.mapa_eventos = {}
         
-        
-    def 
+    
         
 

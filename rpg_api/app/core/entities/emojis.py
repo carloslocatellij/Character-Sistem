@@ -5,7 +5,7 @@ class CatalogoTiles:
     """Registo central que define as categorias e propriedades visuais dos emojis."""
     
     # Listas para construir as abas
-    TERRENOS = ["  ", "⬛", "🔲", "⬜", "🟫", "🟩", "🟦", "🟧", "🈸", "🈴", "🔯" ]
+    TERRENOS = [ "🔳", "🔲", "⬜", "🟫", "🟩", "🟦", "🟧", "🈸", "🈴", "🔯" ]
     TERRENOS_BLOQUEANTES = ["⬛", "🔳", "🧱", "🔲", "🟦", "🟧"]
     
     OBJETOS = [ "🌲", "🌳", "🌴", "🌵", "🎄","🍄",
@@ -33,7 +33,7 @@ class CatalogoTiles:
         "🟫": "#B45428",
         "🟩": "#228B22",
         "🔳": "#808080",
-        "🟦": "#0000FF"
+        "🟦": "#3161FF"
     }
     
     
@@ -43,6 +43,8 @@ class CatalogoTiles:
         tile_limpo = tile.strip()
         if tile_limpo in cls.TERRENOS:
             return "terreno"
+        if tile_limpo in cls.EVENTOS and tile_limpo in cls.OBJETOS:
+            return 'obj/evt'
         if tile_limpo in cls.EVENTOS:
             return "evento" # <- NOVA CATEGORIA DETECTADA!
         return "objeto"
