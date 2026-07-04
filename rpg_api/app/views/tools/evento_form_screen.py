@@ -18,7 +18,7 @@ from app.views.tools.painting_tools import  MapaInterativo
 import logging
 logging.basicConfig(level=logging.INFO, filename='log.log', filemode='a')
 from typing import Literal
-
+import emoji
 
 Modo_de_Captura = Literal["config_ini", None]
 #CSS_PATH = 'styles/styles.css'
@@ -87,7 +87,7 @@ class PropriedadesEventoFormScreen(ModalScreen[dict]):
                 yield Select(
                     [(v, v) for v in coletanea_emoji] +
                     [(self.emoji, self.emoji)],
-                    value=self.paginas[self.pagina_atual_idx].get("configuracao_visual",{}).get("emoji", self.emoji),
+                    value=emoji.emojize(self.paginas[self.pagina_atual_idx].get("configuracao_visual",{}).get("emoji", self.emoji)),
                     id='evt-emoji')
 
             with Horizontal(classes='linha-dupla'):
@@ -188,8 +188,8 @@ class PropriedadesEventoFormScreen(ModalScreen[dict]):
         select_movimento.value = self.paginas[self.pagina_atual_idx].get(
             'movimento', {}).get('tipo', 'parado')
         select_emoji = self.query_one('#evt-emoji', Select)
-        select_emoji.value = self.paginas[self.pagina_atual_idx].get(
-            'configuracao_visual', {}).get('emoji', self.emoji)
+        select_emoji.value = emoji.emojize(self.paginas[self.pagina_atual_idx].get(
+            'configuracao_visual', {}).get('emoji', self.emoji))
         
 
         self.atualizar_exibicao_condicoes()

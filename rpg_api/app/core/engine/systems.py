@@ -107,6 +107,7 @@ class MovementSystem:
 class AISystem:
     def __init__(self, movement_system):
         self.movement_system = movement_system
+        self.roteiro = []
         
     def processar_movimento_autonomo(self):
         """Processa movimento autônomo de monstros/NPCs a cada tick."""
@@ -119,10 +120,10 @@ class AISystem:
         }
         opcoes: list[str] = ["cima", "baixo", "esquerda", "direita", None]
         
-        for ent_id, (pos_comp, ai_comp) in esper.get_components(PositionComponent, MovimentComponent):
+        for ent_id, (pos_comp, mov_comp) in esper.get_components(PositionComponent, MovimentComponent):
             
             # Processa monstros com movimento aleatorio
-            if ai_comp.movement_type == "aleatorio":
+            if mov_comp.movement_type == "aleatorio":
                 # Escolhe uma direção aleatória (4 direções + ficar parado)
                 direcao = random.choice(opcoes)
 
@@ -142,10 +143,10 @@ class AISystem:
                         alvo_y = pos_comp.y + dy
                         if pos_heroi.x == alvo_x and pos_heroi.y == alvo_y:
                             esper.dispatch_event("ataque_monstro", {
-                                "parametros": ai_comp.action_on_touch})
+                                "parametros": mov_comp.action_on_touch})
 
             # Perseguir heroi
-            if ai_comp.movement_type == "seguir_heroi":
+            if mov_comp.movement_type == "seguir_heroi":
                 pos_heroi = esper.component_for_entity(1, PositionComponent)
                 if pos_heroi:
                     dx = pos_heroi.x - pos_comp.x
@@ -159,7 +160,7 @@ class AISystem:
                     if direcao:
                         self.movement_system.mover_entidade(ent_id, direcao)
 
-            if ai_comp.movement_type == "fugir_heroi":
+            if mov_comp.movement_type == "fugir_heroi":
                 pos_heroi = esper.component_for_entity(1, PositionComponent)
                 if pos_heroi:
                     dx = pos_heroi.x - pos_comp.x
@@ -173,38 +174,21 @@ class AISystem:
                     if direcao:
                         self.movement_system.mover_entidade(ent_id, direcao)
 
-            if ai_comp.movement_type == "patrulha":
-                direcoes = ["cima", "esquerda", "baixo", "direita"]
-                if not ai_comp.pontos:
-                    continue
-                pontos_convertidos = []
-                for ponto in ai_comp.pontos:
-                    ponto = ponto.replace('(','').replace(')','')
-                    px, py = ponto.split(',')
-                    pontos_convertidos.append((int(px),int(py)))
 
-                current_patrol_index = 0
-                # Move para o próximo ponto do caminho de patrulha
-                proximo_ponto = pontos_convertidos[current_patrol_index]
-                dx = proximo_ponto[0] - pos_comp.x
-                dy = proximo_ponto[1] - pos_comp.y
-                direcao = None
-                if abs(dx) > abs(dy):
-                    direcao = "direita" if dx > 0 else "esquerda"
-                elif dy != 0:
-                    direcao = "baixo" if dy > 0 else "cima"
+            if mov_comp.movement_type == "roteiro":
+                if len(self.roteiro) > 0:
+                    roteiro = self.roteiro
+                    roteiro.insert(0, roteiro[-1])
+                    self.movement_system.mover_entidade(ent_id, roteiro[0])
+                    self.roteiro = roteiro[:-1]
+                else:
+                    roteiro = mov_comp.roteiro
+                    self.movement_system.mover_entidade(ent_id, roteiro[0])
+                    roteiro.insert(0, roteiro[-1])
+                    self.roteiro = roteiro[:-1]
 
-                if direcao:
-                    moveu = self.movement_system.mover_entidade(ent_id, direcao)
-                    if moveu: 
-                        if pos_comp.x == proximo_ponto[0] and pos_comp.y == proximo_ponto[1]:
-                            # Avança para o próximo ponto do caminho de patrulha
-                            current_patrol_index = (
-                                current_patrol_index + 1) % len(pontos_convertidos)
-                    else:
-                        outra_op = direcoes[direcoes.index(
-                            direcao) + 1 % len(direcoes)]
-                        self.movement_system.mover_entidade(ent_id, outra_op)
+                logging.info(f"Roteiro do NPC {ent_id}: {roteiro}")
+                         
                             
     def update(self):
         """Processa movimento autônomo de monstros/NPCs a cada tick."""

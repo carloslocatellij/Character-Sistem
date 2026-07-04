@@ -34,8 +34,7 @@ class PlayerControlComponent:
 class MovimentComponent:
     """Define o comportamento autônomo (NPCs, Monstros, Pets)."""
     movement_type: str  # Ex: "aleatorio", "patrulha", "seguir"
-    direcoes: list  
-    pontos: list
+    roteiro: list
     ciclos: int
     action_on_touch: dict    # O que faz se esbarrar em alguém
 
