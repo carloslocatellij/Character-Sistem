@@ -7,7 +7,7 @@ separadas do MapManagerScreen para manter a responsabilidade única de cada mód
 import copy
 import json
 from textual.screen import ModalScreen
-from textual.widgets import Label, Button, Input, Select, ListView, ListItem, Static
+from textual.widgets import Label, Button, Input, Select, ListView, ListItem, Static, RichLog
 from textual.containers import Horizontal, Vertical, Container
 from textual import on
 from rich.text import Text
@@ -126,6 +126,7 @@ class PropriedadesEventoFormScreen(ModalScreen[dict]):
                 yield Button('⏬ ', id='btn-roteiro-down', flat=True, variant='warning', classes='btn-pequeno')
                 yield Button('⏪ ', id='btn-roteiro-left', flat=True, variant='warning', classes='btn-pequeno')
                 yield Input(placeholder='Direções do Roteiro', disabled=True ,id='id_roteiro_mv',
+                            valid_empty=False,
                             value=','.join(self.paginas[self.pagina_atual_idx].get('movimento', {}).get('roteiro', '')))
                 yield Button('⛔Limpa', id='btn-roteiro-limpa', flat=True, variant='warning', classes='btn-pequeno')
 

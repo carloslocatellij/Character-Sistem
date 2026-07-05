@@ -37,6 +37,7 @@ class MovimentComponent:
     roteiro: list
     ciclos: int
     action_on_touch: dict    # O que faz se esbarrar em alguém
+    roteiro_idx: int = 0
 
 @dataclass
 class StatsComponent:

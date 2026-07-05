@@ -107,11 +107,11 @@ class MovementSystem:
 class AISystem:
     def __init__(self, movement_system):
         self.movement_system = movement_system
-        self.roteiro = []
+        self.roteiro = 0
         
-    def processar_movimento_autonomo(self):
+    def processar_movimento_autonomo(self, tick_de_movimento):
         """Processa movimento autônomo de monstros/NPCs a cada tick."""
-        
+            
         deltas = {
             "cima": (0, -1),
             "baixo": (0, 1),
@@ -121,6 +121,7 @@ class AISystem:
         opcoes: list[str] = ["cima", "baixo", "esquerda", "direita", None]
         
         for ent_id, (pos_comp, mov_comp) in esper.get_components(PositionComponent, MovimentComponent):
+            #logging.info(f"roteiro: {mov_comp.roteiro}")
             
             # Processa monstros com movimento aleatorio
             if mov_comp.movement_type == "aleatorio":
@@ -160,6 +161,7 @@ class AISystem:
                     if direcao:
                         self.movement_system.mover_entidade(ent_id, direcao)
 
+            # Fugir do heroi
             if mov_comp.movement_type == "fugir_heroi":
                 pos_heroi = esper.component_for_entity(1, PositionComponent)
                 if pos_heroi:
@@ -176,23 +178,42 @@ class AISystem:
 
 
             if mov_comp.movement_type == "roteiro":
-                if len(self.roteiro) > 0:
-                    roteiro = self.roteiro
-                    roteiro.insert(0, roteiro[-1])
-                    self.movement_system.mover_entidade(ent_id, roteiro[0])
-                    self.roteiro = roteiro[:-1]
+                pos_heroi = esper.component_for_entity(1, PositionComponent)
+                
+                direcao = None
+                if mov_comp.roteiro:
+                    direcao = mov_comp.roteiro[mov_comp.roteiro_idx]
+                    
+                    if isinstance(direcao, str):
+                        direcao = direcao.strip().lower()
+                
+                if direcao == 'cima':
+                    logging.info(f"Roteiro do NPC {tick_de_movimento}: {direcao}")
+                    moveu = self.movement_system.mover_entidade(ent_id, 'cima')
+                elif direcao == 'baixo':
+                    logging.info(f"Roteiro do NPC {tick_de_movimento}: {direcao}")
+                    moveu = self.movement_system.mover_entidade(ent_id, 'baixo')
+                elif direcao == 'direita':
+                    logging.info(f"Roteiro do NPC {tick_de_movimento}: {direcao}")
+                    moveu = self.movement_system.mover_entidade(ent_id, 'direita')
                 else:
-                    roteiro = mov_comp.roteiro
-                    self.movement_system.mover_entidade(ent_id, roteiro[0])
-                    roteiro.insert(0, roteiro[-1])
-                    self.roteiro = roteiro[:-1]
+                    logging.info(f"Roteiro do NPC {tick_de_movimento}: {direcao}")
+                    moveu = self.movement_system.mover_entidade(ent_id, 'esquerda')
 
-                logging.info(f"Roteiro do NPC {ent_id}: {roteiro}")
-                         
+                if mov_comp.roteiro:
+                    mov_comp.roteiro_idx = (mov_comp.roteiro_idx + 1) % len(mov_comp.roteiro)
+                
+                if not moveu:
+                    logging.info(
+                        f"Erro ao mover: {tick_de_movimento}: {direcao}")
+                
                             
-    def update(self):
+    def update(self, tick):
         """Processa movimento autônomo de monstros/NPCs a cada tick."""
-        self.processar_movimento_autonomo()
+        
+        self.processar_movimento_autonomo(tick)
+                            
+                            
                             
 class InventarySystem():
     """ Gerencia estoques de baús e o inventário do personagem. 

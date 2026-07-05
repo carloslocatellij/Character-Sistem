@@ -40,6 +40,7 @@ class GamePlayScreen(Screen):
         self.render_sys = RenderSystem()
         self.invSys = InventarySystem()
         
+        self.contador_de_ticks: int = 0
     
 
     BINDINGS = [('/', 'focus_in_command_bar', '')]
@@ -120,7 +121,7 @@ class GamePlayScreen(Screen):
             esper.set_handler('INTERACTION_SUCCESS', self.on_evento_interacao)
             esper.set_handler('disparar_bifurcacao', self.disparar_bifurcacao_visual)
             
-            self.set_interval(0.33, self.game_tick)
+            self.game_loop()
             
             self.log_mensagem(
                 '[bold green]>>> Engine Pronta!.[/]')
@@ -196,7 +197,7 @@ class GamePlayScreen(Screen):
         esper.set_handler(
             'ataque_monstro', self.ao_levar_ataque)
 
-        self.set_interval(0.33, self.game_tick)
+        self.game_loop()
 
         # 4. Atualiza a tela para o jogador ver o novo cenário imediatamente
         self.atualizar_tudo()
@@ -215,10 +216,24 @@ class GamePlayScreen(Screen):
                 logging.error(f'Erro ao escrever mensagem no log: {e}')
             
 
+    # ==========================================
+    # GAME LOOP
+    # ==========================================
+    def game_loop(self):
+        self.set_interval(0.01, self.game_tick)
+        
+        
     def game_tick(self):
-        if self.ai_sys:
-            self.ai_sys.update()
-            self.atualizar_tudo()
+        self.contador_de_ticks += 1
+        
+        if self.contador_de_ticks % 30 == 0:    
+            print(self.contador_de_ticks)
+            
+            tick_de_movimento = self.contador_de_ticks // 30
+            
+            if self.ai_sys:
+                self.ai_sys.update(tick_de_movimento)
+                self.atualizar_tudo()
 
 
     def action_focus_in_command_bar(self):
