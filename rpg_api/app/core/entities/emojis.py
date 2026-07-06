@@ -5,7 +5,7 @@ class CatalogoTiles:
     """Registo central que define as categorias e propriedades visuais dos emojis."""
     
     # Listas para construir as abas
-    TERRENOS = [ "🔳", "🔲", "⬜", "🟫", "🟩", "🟦", "🟧", "🈸", "🈴", "🔯" ]
+    TERRENOS = [ "🔳", "🔲", "⬜", "🟫", "🟩", "🟦", "🟧", "🈸", "🈴", "🔯", "  " ]
     TERRENOS_BLOQUEANTES = ["⬛", "🔳", "🧱", "🔲", "🟦", "🟧"]
     
     OBJETOS = [ "🌲", "🌳", "🌴", "🌵", "🎄","🍄",
@@ -29,7 +29,7 @@ class CatalogoTiles:
     
     # Mapeamento de cores de fundo para os terrenos
     CORES_BG = {
-        "⬛": "#221F1F",
+        "  " : "#454545",
         "🟫": "#B45428",
         "🟩": "#228B22",
         "🔳": "#808080",
@@ -123,7 +123,7 @@ def padronizar_largura_tile(tile_string: str) -> str:
     Verifica a largura visual do caractere e adapta o preenchimento
     com base nas peculiaridades do emulador de terminal atual.
     """
-    tile_limpo = tile_string.strip()
+    tile_limpo = tile_string.strip() if tile_string != "  " else "  "
     eh_gnome_ou_linux = "VTE_VERSION" in os.environ or "GNOME_TERMINAL_SCREEN" in os.environ or os.name == "posix"
 
     # 2. Calcula a largura teórica pela biblioteca Rich

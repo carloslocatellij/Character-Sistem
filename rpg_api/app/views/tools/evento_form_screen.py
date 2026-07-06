@@ -295,7 +295,7 @@ class PropriedadesEventoFormScreen(ModalScreen[dict]):
     def on_emoji_changed(self, event: Select.Changed):
         if event.value != Select.BLANK:
             self.paginas[self.pagina_atual_idx]['configuracao_visual'] = {
-                'emoiji': event.value}
+                'emoji': event.value}
 
     @on(Select.Changed, '#evt-self-switch')
     def on_self_switch_changed(self, event: Select.Changed):
@@ -567,7 +567,7 @@ class PropriedadesEventoFormScreen(ModalScreen[dict]):
             self.query_one(
                 '#evt-movimento').value = dados.get('movimento', 'parado').get('tipo', 'parado')
         except Exception as e:
-            raise(f'Erro: não consegue obter o tipo: {e}')
+            raise RuntimeError(f'Erro: não consegue obter o tipo: {e}')
 
         self.query_one('#cmd-tel-y').value = str(linha_coletada)
         self.query_one('#cmd-tel-x').value = str(coluna_coletada)
@@ -892,7 +892,8 @@ class AcoesComandoScreen(ModalScreen[str]):
             yield Button('Editar Comando', id='btn-editar', variant='success')
             if self.comando['tipo'] == 'bifurcacao_condicional':
                 for op in self.comando['dados'].get('opcoes', []):
-                    id_op = op.replace(" ", "_").replace(",", "-").replace(".", "")
+                    id_op = op.replace(" ", "_").replace(
+                        ",", "-").replace(".", "").replace('!', '_')
                     id_op = unicodedata.normalize('NFD', id_op)
                     id_op = id_op.encode('ASCII', 'ignore').decode('ASCII')
                     yield Button(f'Editar Ramo: "{op}"', id=f'ramo_{id_op}', variant='primary')

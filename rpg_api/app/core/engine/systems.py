@@ -563,7 +563,7 @@ class EventSystem:
             for idx, opcao in enumerate(opcoes, start=1):
                 
                 id_op = opcao.replace(' ', '_').replace(
-                    ',', '-').replace('.', '')
+                    ',', '-').replace('.', '').replace('!','_')
                 id_op = unicodedata.normalize("NFD", id_op)
                 id_op = id_op.encode("ASCII", "ignore").decode("ASCII")
                 

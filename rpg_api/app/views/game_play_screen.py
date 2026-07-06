@@ -99,19 +99,10 @@ class GamePlayScreen(Screen):
             self.mapa_objetos = self.loader.camada_objetos
             self.mapa_id = self.loader.mapa_id
             
-            # Inicia SISTEMAS:
-            # # Inicia sistema de eventos
-            # self.event_sys = EventSystem(
-            #     self.invSys, self.game_state, self.log_mensagem, self.loader.event_bus)
-            # # Interações com o Esper
-            # self.interacao_sys = InteractionSystem(self.loader.event_bus)
             self.movimento_sys = MovementSystem(self.loader)
-            
-            self.event_sys = EventSystem(
-                self.invSys, self.game_state, self.log_mensagem)
+            self.event_sys = EventSystem(self.invSys, self.game_state, self.log_mensagem)
             self.interacao_sys = InteractionSystem()
             self.ai_sys = AISystem(self.movimento_sys)
-            
             
             esper.remove_handler('mudar_mapa', self.ao_mudar_de_mapa)
             esper.remove_handler('INTERACTION_SUCCESS', self.on_evento_interacao)
@@ -123,12 +114,22 @@ class GamePlayScreen(Screen):
             
             self.game_loop()
             
+            
             self.log_mensagem(
                 '[bold green]>>> Engine Pronta!.[/]')
             self.atualizar_tudo()
 
         except Exception as e:
             self.log_mensagem(f'[bold red]❌ Erro crítico: {e}[/]')
+    
+    def on_unmount(self) -> None:
+        """Limpa as escutas de eventos do Esper ao fechar a tela."""
+        
+        # Remova cada handler que você registrou no on_mount ou no loader
+        esper.remove_handler("mudar_mapa", self.ao_mudar_de_mapa)
+        esper.remove_handler("INTERACTION_SUCCESS", self.on_evento_interacao)
+        esper.remove_handler('disparar_bifurcacao',
+                             self.disparar_bifurcacao_visual)
             
 
     def ao_mudar_de_mapa(self, dados_teleporte):
@@ -250,6 +251,8 @@ class GamePlayScreen(Screen):
     
     def on_evento_interacao(self, payload: dict):
         '''Processador de Eventos Universal - Pipeline de 4 Etapas.'''
+        if not self.is_mounted:  # Evita consultar widgets em telas inativas
+            return
         self.event_sys.processar_evento_interacao(payload)
         self.atualizar_tudo()
 
@@ -490,8 +493,7 @@ class GamePlayScreen(Screen):
             moveu = self.movimento_sys.mover_entidade(1, 'direita')
             self.centralizar_camera_no_jogador()
         elif key == 'enter':
-            # Se o foco estiver no p
-            # rompt do terminal, deixa o submit do input agir e ignora o raio
+            # Se o foco estiver no prompt do terminal, deixa o submit do input agir e ignora o raio
             achou_evento = None
             if self.focused == self.query_one('#terminal-prompt'):
                 telamapa = self.query_one('#tela-mapa', Static)

@@ -263,7 +263,7 @@ class MapManagerScreen(Screen):
             try:
                 self.exibir_mapa_na_tela()
             except Exception as e:
-                raise(f"Erro ao exibir o mapa ao carregar: {e} ")
+                raise RuntimeError(f"Erro ao exibir o mapa ao carregar: {e} ")
             self.notify(
                 f"Mapa '{mapa_db_carregado.nome}' e eventos carregados!")
 
@@ -342,7 +342,8 @@ class MapManagerScreen(Screen):
                         balde_de_tinta(self.matriz_do_mapa_atual,
                             linha, coluna, self.tile_selecionado)
                     except Exception as e:
-                        raise(f"Erro ao aplicar balde_de_tinta: {e}")
+                        raise RuntimeError(
+                            f"Erro ao aplicar balde_de_tinta: {e}")
                     
                     # Atualiza o estado de modificação e renderiza a tela
                     self.tem_alteracoes = True
@@ -382,7 +383,8 @@ class MapManagerScreen(Screen):
                                     linha, coluna, dados)
                             )
                         except Exception as e:
-                            raise(f"Erro em lançar o form de evento na pintura de evento: {e} ")
+                            raise RuntimeError(
+                                f"Erro em lançar o form de evento na pintura de evento: {e} ")
                         
                         self.salvar_estado_historico()
                     return
@@ -485,7 +487,8 @@ class MapManagerScreen(Screen):
                 configs=configs_completas 
             )
         except Exception as e:
-            raise (f"Erro no processo de Gerar mapa pelo GestorDeMapas: {e}")
+            raise RuntimeError(
+                f"Erro no processo de Gerar mapa pelo GestorDeMapas: {e}")
         
         # 4. Exibe o mapa na tela e avisa o utilizador!
         self.exibir_mapa_na_tela()
@@ -514,7 +517,8 @@ class MapManagerScreen(Screen):
             if "coordenadas_iniciais" in dados_de_propridades_alteradas:
                 self.dados_do_mapa_atual["configs"]["coordenadas_iniciais"] =  dados_de_propridades_alteradas["coordenadas_iniciais"]
         except KeyError as ke:
-            raise(f"KeyError ao obter dados_de_propridades_alteradas: {ke}")
+            raise RuntimeError(
+                f"KeyError ao obter dados_de_propridades_alteradas: {ke}")
         
         
         self.tem_alteracoes = True
@@ -641,7 +645,8 @@ class MapManagerScreen(Screen):
                     lambda dados_para_reenvio_de_propriedades: self.ao_terminar_propriedades(dados_para_reenvio_de_propriedades)
                     )
             except Exception as e:
-                raise(f"Erro ao lançar tela de Propriedades do mapa: {e}")
+                raise RuntimeError(
+                    f"Erro ao lançar tela de Propriedades do mapa: {e}")
         
         else:
             try:
@@ -652,7 +657,8 @@ class MapManagerScreen(Screen):
                     evento_atual=self.eventos_do_mapa_atual.get((linha_coletada, coluna_coletada))
                 )
             except Exception as e:
-                raise(f"Erro ao instanciar tela  Form de Evento: {e}")
+                raise RuntimeError(
+                    f"Erro ao instanciar tela  Form de Evento: {e}")
             
             # 🌟 Restaura a memória do formulário e passa a coordenada mapeada ao alvo correspondente
             try:
@@ -663,14 +669,15 @@ class MapManagerScreen(Screen):
                     id_alvo=id_alvo
                 )
             except Exception as e:
-                raise (f"Erro ao restaurar_valores_dos_campos do evento: {e}")
+                raise RuntimeError(
+                    f"Erro ao restaurar_valores_dos_campos do evento: {e}")
             try:
                 self.app.push_screen(
                     form_screen,
                     lambda dados: self.ao_terminar_configurar_evento(linha_coletada, coluna_coletada, dados)
                 )
             except Exception as e:
-                raise (f"Erro ao re-lançar tela do evento: {e}")
+                raise RuntimeError(f"Erro ao re-lançar tela do evento: {e}")
         
         # Limpa as flags e buffers de contexto
         self.buffer_de_dados_do_formulario = {}
