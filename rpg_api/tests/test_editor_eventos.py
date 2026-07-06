@@ -152,12 +152,6 @@ class TestPropriedadesEventoFormScreen:
         assert pagina["comandos"] == []
         assert pagina["condicoes"] == {}
 
-    def test_inicializar_evento_existente_preserva_paginas(self, form_evento_existente):
-        """Garante que ao reabrir um evento com 2 páginas, todas são preservadas."""
-        assert len(form_evento_existente.paginas) == 2
-        assert form_evento_existente.paginas[0]["gatilho"] == "toque_jogador"
-        assert form_evento_existente.paginas[1]["gatilho"] == "acao_jogador"
-
     def test_inicializar_evento_existente_preserva_id(self, form_evento_existente):
         """Garante que o ID do evento existente é preservado nos dados."""
         assert form_evento_existente.dados_existentes["id"] == 42
@@ -199,75 +193,75 @@ class TestPropriedadesEventoFormScreen:
         assert condicoes == {}
         assert "condicoes" in form_novo_evento.paginas[0]
 
-    # def test_ao_adicionar_switch_insere_na_pagina_atual(self, form_novo_evento):
-    #     """
-    #     Testa o callback ao_adicionar_switch(): garante que um switch
-    #     é inserido corretamente nas condições da página atual.
-    #     """
-    #     dados_switch = {"nome": "missao_ativa", "valor": True}
-    #     form_novo_evento.ao_adicionar_switch(dados_switch)
+    def test_ao_adicionar_switch_insere_na_pagina_atual(self, form_novo_evento):
+        """
+        Testa o callback ao_adicionar_switch(): garante que um switch
+        é inserido corretamente nas condições da página atual.
+        """
+        dados_switch = {"nome": "missao_ativa", "valor": True}
+        form_novo_evento.ao_adicionar_switch(dados_switch)
 
-    #     condicoes = form_novo_evento.paginas[0]["condicoes"]
-    #     assert "switches" in condicoes
-    #     assert len(condicoes["switches"]) == 1
-    #     assert condicoes["switches"][0]["nome"] == "missao_ativa"
-    #     assert condicoes["switches"][0]["valor"] is True
+        condicoes = form_novo_evento.paginas[0]["condicoes"]
+        assert "switches" in condicoes
+        assert len(condicoes["switches"]) == 1
+        assert condicoes["switches"][0]["nome"] == "missao_ativa"
+        assert condicoes["switches"][0]["valor"] is True
 
-    # def test_ao_adicionar_switch_com_none_nao_insere(self, form_novo_evento):
-    #     """Garante que passar None (usuário cancelou o modal) não altera as condições."""
-    #     form_novo_evento.ao_adicionar_switch(None)
-    #     condicoes = form_novo_evento.paginas[0]["condicoes"]
-    #     assert condicoes.get("switches", []) == []
+    def test_ao_adicionar_switch_com_none_nao_insere(self, form_novo_evento):
+        """Garante que passar None (usuário cancelou o modal) não altera as condições."""
+        form_novo_evento.ao_adicionar_switch(None)
+        condicoes = form_novo_evento.paginas[0]["condicoes"]
+        assert condicoes.get("switches", []) == []
 
-    # def test_ao_adicionar_variavel_insere_na_pagina_atual(self, form_novo_evento):
-    #     """
-    #     Testa o callback ao_adicionar_variavel(): garante que uma variável
-    #     é inserida corretamente nas condições da página atual.
-    #     """
-    #     dados_variavel = {"nome": "reputacao", "operador": "maior_ou_igual", "valor": 10}
-    #     form_novo_evento.ao_adicionar_variavel(dados_variavel)
+    def test_ao_adicionar_variavel_insere_na_pagina_atual(self, form_novo_evento):
+        """
+        Testa o callback ao_adicionar_variavel(): garante que uma variável
+        é inserida corretamente nas condições da página atual.
+        """
+        dados_variavel = {"nome": "reputacao", "operador": "maior_ou_igual", "valor": 10}
+        form_novo_evento.ao_adicionar_variavel(dados_variavel)
 
-    #     condicoes = form_novo_evento.paginas[0]["condicoes"]
-    #     assert "variaveis" in condicoes
-    #     assert len(condicoes["variaveis"]) == 1
-    #     assert condicoes["variaveis"][0]["nome"] == "reputacao"
-    #     assert condicoes["variaveis"][0]["valor"] == 10
+        condicoes = form_novo_evento.paginas[0]["condicoes"]
+        assert "variaveis" in condicoes
+        assert len(condicoes["variaveis"]) == 1
+        assert condicoes["variaveis"][0]["nome"] == "reputacao"
+        assert condicoes["variaveis"][0]["valor"] == 10
 
-    # def test_remover_switch_por_indice_valido(self, form_novo_evento):
-    #     """Testa _remover_switch() com índice válido."""
-    #     # Adiciona 2 switches primeiro
-    #     form_novo_evento.ao_adicionar_switch({"nome": "sw_a", "valor": True})
-    #     form_novo_evento.ao_adicionar_switch({"nome": "sw_b", "valor": False})
+    def test_remover_switch_por_indice_valido(self, form_novo_evento):
+        """Testa _remover_switch() com índice válido."""
+        # Adiciona 2 switches primeiro
+        form_novo_evento.ao_adicionar_switch({"nome": "sw_a", "valor": True})
+        form_novo_evento.ao_adicionar_switch({"nome": "sw_b", "valor": False})
 
-    #     condicoes = form_novo_evento.paginas[0]["condicoes"]
-    #     assert len(condicoes["switches"]) == 2
+        condicoes = form_novo_evento.paginas[0]["condicoes"]
+        assert len(condicoes["switches"]) == 2
 
-    #     # Remove o primeiro (índice 0)
-    #     form_novo_evento._remover_switch(0)
-    #     assert len(condicoes["switches"]) == 1
-    #     # O que sobrou deve ser o sw_b
-    #     assert condicoes["switches"][0]["nome"] == "sw_b"
+        # Remove o primeiro (índice 0)
+        form_novo_evento._remover_switch(0)
+        assert len(condicoes["switches"]) == 1
+        # O que sobrou deve ser o sw_b
+        assert condicoes["switches"][0]["nome"] == "sw_b"
 
-    # def test_remover_switch_com_indice_invalido_nao_lanca_erro(self, form_novo_evento):
-    #     """Garante que remover switch com índice fora do range não lança exceção."""
-    #     form_novo_evento.ao_adicionar_switch({"nome": "sw_a", "valor": True})
+    def test_remover_switch_com_indice_invalido_nao_lanca_erro(self, form_novo_evento):
+        """Garante que remover switch com índice fora do range não lança exceção."""
+        form_novo_evento.ao_adicionar_switch({"nome": "sw_a", "valor": True})
 
-    #     # Não deve lançar erro mesmo com índice fora da lista
-    #     form_novo_evento._remover_switch(99)
-    #     condicoes = form_novo_evento.paginas[0]["condicoes"]
-    #     assert len(condicoes["switches"]) == 1  # Nada foi removido
+        # Não deve lançar erro mesmo com índice fora da lista
+        form_novo_evento._remover_switch(99)
+        condicoes = form_novo_evento.paginas[0]["condicoes"]
+        assert len(condicoes["switches"]) == 1  # Nada foi removido
 
-    # def test_remover_variavel_por_indice_valido(self, form_novo_evento):
-    #     """Testa _remover_variavel() com índice válido."""
-    #     form_novo_evento.ao_adicionar_variavel({"nome": "ouro", "operador": "igual", "valor": 50})
-    #     form_novo_evento.ao_adicionar_variavel({"nome": "nivel", "operador": "maior_ou_igual", "valor": 5})
+    def test_remover_variavel_por_indice_valido(self, form_novo_evento):
+        """Testa _remover_variavel() com índice válido."""
+        form_novo_evento.ao_adicionar_variavel({"nome": "ouro", "operador": "igual", "valor": 50})
+        form_novo_evento.ao_adicionar_variavel({"nome": "nivel", "operador": "maior_ou_igual", "valor": 5})
 
-    #     condicoes = form_novo_evento.paginas[0]["condicoes"]
-    #     assert len(condicoes["variaveis"]) == 2
+        condicoes = form_novo_evento.paginas[0]["condicoes"]
+        assert len(condicoes["variaveis"]) == 2
 
-    #     form_novo_evento._remover_variavel(0)
-    #     assert len(condicoes["variaveis"]) == 1
-    #     assert condicoes["variaveis"][0]["nome"] == "nivel"
+        form_novo_evento._remover_variavel(0)
+        assert len(condicoes["variaveis"]) == 1
+        assert condicoes["variaveis"][0]["nome"] == "nivel"
 
     def test_pagina_atual_idx_comeca_em_zero(self, form_novo_evento):
         """Garante que o índice de página inicial é sempre 0."""

@@ -100,7 +100,7 @@ def fixture_dados_base(db_session):
         pos_x=1,
         pos_y=0,
         event_type="monstro",
-        parametros={}
+        parametros={"paginas": [{"gatilho": "acao_jogador", "movimento": {"tipo": "direcional", "roteiro": ["esquerda"]}}]}
     )
     db_session.add(evento_monstro)
     db_session.commit()
@@ -115,59 +115,59 @@ def fixture_dados_base(db_session):
     }
 
 
-# def test_deve_executar_carregar_engine_do_banco_com_esper(db_session, dados_base):
-#     """Garante que o método e'sperado pela tela limpa o mundo e popula as entidades."""
+def test_deve_executar_carregar_engine_do_banco_com_esper(db_session, dados_base):
+    """Garante que o método e'sperado pela tela limpa o mundo e popula as entidades."""
 
-#     mapa = dados_base.get('mapa_id')
-#     db = db_session
+    mapa = dados_base.get('mapa_id')
+    db = db_session
     
-#     # 2. AÇÃO: Executa o método esperado pela UI
-#     loader = GameEngineLoader()
-#     sucesso = loader.carregar_engine_do_banco(
-#         db, usuario_id=1, default_mapa_id=mapa, slot_numero=1, cenario_id=dados_base.get('cenario_id'))
+    # 2. AÇÃO: Executa o método esperado pela UI
+    loader = GameEngineLoader()
+    sucesso = loader.carregar_engine_do_banco(
+        db, usuario_id=1, default_mapa_id=mapa, slot_numero=1, cenario_id=dados_base.get('cenario_id'))
 
-#     # 3. VALIDAÇÕES COERENTES COM O MOTOR COMPLETO
-#     assert sucesso[0] is True
-#     assert loader.nome_mapa == "Caverna do Esper"
+    # 3. VALIDAÇÕES COERENTES COM O MOTOR COMPLETO
+    assert sucesso[0] is True
+    assert loader.nome_mapa == "Caverna do Esper"
 
-#     # O Esper agora possui 2 entidades com posição (O Jogador injetado + o Goblin do banco)
-#     entidades = esper.get_components(PositionComponent)
-#     # Atualizado: Jogador (ID 1) + Goblin (Injetado depois)
-#     assert len(entidades) == 2
+    # O Esper agora possui 2 entidades com posição (O Jogador injetado + o Goblin do banco)
+    entidades = esper.get_components(PositionComponent)
+    # Atualizado: Jogador (ID 1) + Goblin (Injetado depois)
+    assert len(entidades) == 2
 
-#     # Para testar rigorosamente o Goblin do banco sem ser afetado pelo jogador fixo,
-#     # vamos varrer as entidades do Esper procurando quem possui o RenderComponent com o emoji "👹"
-#     achou_goblin = False
-#     for ent_id, (pos, ren) in esper.get_components(PositionComponent, RenderComponent):
-#         if ren.emoji == "👹":
-#             achou_goblin = True
-#             assert pos.x == 1
-#             assert pos.y == 0
+    # Para testar rigorosamente o Goblin do banco sem ser afetado pelo jogador fixo,
+    # vamos varrer as entidades do Esper procurando quem possui o RenderComponent com o emoji "👹"
+    achou_goblin = False
+    for ent_id, (pos, ren) in esper.get_components(PositionComponent, RenderComponent):
+        if ren.emoji == "👹":
+            achou_goblin = True
+            assert pos.x == 1
+            assert pos.y == 0
 
-#     assert achou_goblin is True, "O Goblin vindo do banco de dados não foi encontrado no Esper ECS."
+    assert achou_goblin is True, "O Goblin vindo do banco de dados não foi encontrado no Esper ECS."
 
 
-# def test_deve_atribuir_status_e_inventario_ao_jogador_no_esper(db_session, dados_base):
-#     esper.switch_world(esper.list_worlds()[0])
+def test_deve_atribuir_status_e_inventario_ao_jogador_no_esper(db_session, dados_base):
+    esper.switch_world(esper.list_worlds()[0])
 
-#     mapa_id = dados_base.get("mapa_id")
+    mapa_id = dados_base.get("mapa_id")
 
-#     loader = GameEngineLoader()
-#     loader.carregar_engine_do_banco(db_session, usuario_id=1, default_mapa_id=mapa_id, slot_numero=1, cenario_id=1)
+    loader = GameEngineLoader()
+    loader.carregar_engine_do_banco(db_session, usuario_id=1, default_mapa_id=mapa_id, slot_numero=1, cenario_id=1)
 
-#     player_entity = None
-#     for ent_id, (stats,) in esper.get_components(StatsComponent):
-#         if stats.nome == "Charles":
-#             player_entity = ent_id
-#             break
+    player_entity = None
+    for ent_id, (stats,) in esper.get_components(StatsComponent):
+        if stats.nome == "Charles":
+            player_entity = ent_id
+            break
 
-#     assert player_entity is not None
-#     stats = esper.component_for_entity(player_entity, StatsComponent)
-#     inv = esper.component_for_entity(player_entity, InventoryComponent)
-#     eqp = esper.component_for_entity(player_entity, EquipmentComponent)
+    assert player_entity is not None
+    stats = esper.component_for_entity(player_entity, StatsComponent)
+    inv = esper.component_for_entity(player_entity, InventoryComponent)
+    eqp = esper.component_for_entity(player_entity, EquipmentComponent)
 
-#     assert stats.nome == "Charles"
-#     assert stats.classe == "mago"
-#     assert stats.ataque_base == 2
-#     assert isinstance(inv.itens, dict)
-#     assert eqp.arma is None
+    assert stats.nome == "Charles"
+    assert stats.classe == "mago"
+    assert stats.ataque_base == 2
+    assert isinstance(inv.itens, dict)
+    assert eqp.arma is None
