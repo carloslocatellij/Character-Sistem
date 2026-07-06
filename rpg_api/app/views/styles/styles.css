@@ -177,11 +177,14 @@ NovoMapaFormScreen {
 /* Organização dos campos lado a lado para economizar espaço vertical */
 .linha-dupla {
     layout: horizontal;
+    border-bottom: solid blue;
+    background: rgb(42, 42, 42);
     height: auto;
 }
 
 .linha-dupla Input {
     width: 1fr;
+    background: rgb(42, 42, 42);
     /* Divide o espaço igualmente */
 }
 
@@ -344,7 +347,7 @@ PropriedadesEventoFormScreen {
     overflow: auto;
     width: 50;
     height: auto;
-    padding: 1 2;
+    padding: 1 1;
     background: $surface;
     border: solid rgb(255, 165, 0);
     /* Laranja para destacar que é um evento */
@@ -355,8 +358,37 @@ PropriedadesEventoFormScreen {
     text-style: bold;
 }
 
-#secao-condicoes{
+
+#lista-comandos{
     overflow: auto;
+    width: 100%;
+    background: rgb(42, 42, 42);
+    border: solid rgb(255, 165, 0);
+}
+
+#secao-condicoes{
+    background: rgb(42, 42, 42);
+    overflow: auto;
+    border: solid rgb(255, 165, 0);
+}
+
+#lista-variaveis{
+    overflow: auto;
+    width: 70%;
+    height: auto;
+    background: rgb(33, 33, 33);
+}
+
+#lista-switches{
+    overflow: auto;
+    width: 70%;
+    height: auto;
+    background: rgb(33, 33, 33);
+}
+
+.linha-condicional-item {
+    background: rgb(22, 22, 22);
+    height: 1;
 }
 
 #evt-botoes {
@@ -382,7 +414,7 @@ PropriedadesEventoFormScreen {
     width: 90;
     height: 90%;
     padding: 1 2;
-    background: $surface;
+    background: $background 50%;
     border: solid rgb(255, 165, 0);
 }
 
@@ -390,7 +422,7 @@ PropriedadesEventoFormScreen {
     width: 60;
     height: auto;
     padding: 1 2;
-    background: $surface;
+    background: $background 50%;
     border: solid cyan;
 }
 
@@ -398,7 +430,7 @@ PropriedadesEventoFormScreen {
     width: 40;
     height: auto;
     padding: 1 2;
-    background: $surface;
+    background: $background 50%;
     border: solid red;
 }
 

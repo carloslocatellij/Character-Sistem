@@ -197,8 +197,6 @@ class GamePlayScreen(Screen):
         esper.set_handler(
             'ataque_monstro', self.ao_levar_ataque)
 
-        self.game_loop()
-
         # 4. Atualiza a tela para o jogador ver o novo cenário imediatamente
         self.atualizar_tudo()
             
@@ -220,7 +218,8 @@ class GamePlayScreen(Screen):
     # GAME LOOP
     # ==========================================
     def game_loop(self):
-        self.set_interval(0.01, self.game_tick)
+        if not hasattr(self, "_game_timer"):
+            self._game_timer = self.set_interval(0.01, self.game_tick)
         
         
     def game_tick(self):
