@@ -254,9 +254,7 @@ class GamePlayScreen(Screen):
         self.atualizar_tudo()
 
     def ao_levar_ataque(self, dados_ataque):
-        log = self.query_one('#area-interacao', ChatLog)
         dano = dados_ataque.get('mudar_hp', {}).get('valor', 1)
-        
         stats = esper.component_for_entity(1, StatsComponent)
         if stats:
             # Desconta o dano mitigado pela defesa real do personagem
