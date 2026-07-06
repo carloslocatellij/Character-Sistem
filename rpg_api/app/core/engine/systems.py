@@ -107,10 +107,11 @@ class MovementSystem:
 class AISystem:
     def __init__(self, movement_system):
         self.movement_system = movement_system
+        self.roteiro = 0
         
-    def processar_movimento_autonomo(self):
+    def processar_movimento_autonomo(self, tick_de_movimento):
         """Processa movimento autônomo de monstros/NPCs a cada tick."""
-        
+            
         deltas = {
             "cima": (0, -1),
             "baixo": (0, 1),
@@ -119,10 +120,11 @@ class AISystem:
         }
         opcoes: list[str] = ["cima", "baixo", "esquerda", "direita", None]
         
-        for ent_id, (pos_comp, ai_comp) in esper.get_components(PositionComponent, MovimentComponent):
+        for ent_id, (pos_comp, mov_comp) in esper.get_components(PositionComponent, MovimentComponent):
+            #logging.info(f"roteiro: {mov_comp.roteiro}")
             
             # Processa monstros com movimento aleatorio
-            if ai_comp.movement_type == "aleatorio":
+            if mov_comp.movement_type == "aleatorio":
                 # Escolhe uma direção aleatória (4 direções + ficar parado)
                 direcao = random.choice(opcoes)
 
@@ -142,10 +144,10 @@ class AISystem:
                         alvo_y = pos_comp.y + dy
                         if pos_heroi.x == alvo_x and pos_heroi.y == alvo_y:
                             esper.dispatch_event("ataque_monstro", {
-                                "parametros": ai_comp.action_on_touch})
+                                "parametros": mov_comp.action_on_touch})
 
             # Perseguir heroi
-            if ai_comp.movement_type == "seguir_heroi":
+            if mov_comp.movement_type == "seguir_heroi":
                 pos_heroi = esper.component_for_entity(1, PositionComponent)
                 if pos_heroi:
                     dx = pos_heroi.x - pos_comp.x
@@ -159,7 +161,8 @@ class AISystem:
                     if direcao:
                         self.movement_system.mover_entidade(ent_id, direcao)
 
-            if ai_comp.movement_type == "fugir_heroi":
+            # Fugir do heroi
+            if mov_comp.movement_type == "fugir_heroi":
                 pos_heroi = esper.component_for_entity(1, PositionComponent)
                 if pos_heroi:
                     dx = pos_heroi.x - pos_comp.x
@@ -173,42 +176,44 @@ class AISystem:
                     if direcao:
                         self.movement_system.mover_entidade(ent_id, direcao)
 
-            if ai_comp.movement_type == "patrulha":
-                direcoes = ["cima", "esquerda", "baixo", "direita"]
-                if not ai_comp.pontos:
-                    continue
-                pontos_convertidos = []
-                for ponto in ai_comp.pontos:
-                    ponto = ponto.replace('(','').replace(')','')
-                    px, py = ponto.split(',')
-                    pontos_convertidos.append((int(px),int(py)))
 
-                current_patrol_index = 0
-                # Move para o próximo ponto do caminho de patrulha
-                proximo_ponto = pontos_convertidos[current_patrol_index]
-                dx = proximo_ponto[0] - pos_comp.x
-                dy = proximo_ponto[1] - pos_comp.y
+            if mov_comp.movement_type == "roteiro":
+                pos_heroi = esper.component_for_entity(1, PositionComponent)
+                
                 direcao = None
-                if abs(dx) > abs(dy):
-                    direcao = "direita" if dx > 0 else "esquerda"
-                elif dy != 0:
-                    direcao = "baixo" if dy > 0 else "cima"
+                if mov_comp.roteiro:
+                    direcao = mov_comp.roteiro[mov_comp.roteiro_idx]
+                    
+                    if isinstance(direcao, str):
+                        direcao = direcao.strip().lower()
+                
+                if direcao == 'cima':
+                    logging.info(f"Roteiro do NPC {tick_de_movimento}: {direcao}")
+                    moveu = self.movement_system.mover_entidade(ent_id, 'cima')
+                elif direcao == 'baixo':
+                    logging.info(f"Roteiro do NPC {tick_de_movimento}: {direcao}")
+                    moveu = self.movement_system.mover_entidade(ent_id, 'baixo')
+                elif direcao == 'direita':
+                    logging.info(f"Roteiro do NPC {tick_de_movimento}: {direcao}")
+                    moveu = self.movement_system.mover_entidade(ent_id, 'direita')
+                else:
+                    logging.info(f"Roteiro do NPC {tick_de_movimento}: {direcao}")
+                    moveu = self.movement_system.mover_entidade(ent_id, 'esquerda')
 
-                if direcao:
-                    moveu = self.movement_system.mover_entidade(ent_id, direcao)
-                    if moveu: 
-                        if pos_comp.x == proximo_ponto[0] and pos_comp.y == proximo_ponto[1]:
-                            # Avança para o próximo ponto do caminho de patrulha
-                            current_patrol_index = (
-                                current_patrol_index + 1) % len(pontos_convertidos)
-                    else:
-                        outra_op = direcoes[direcoes.index(
-                            direcao) + 1 % len(direcoes)]
-                        self.movement_system.mover_entidade(ent_id, outra_op)
+                if mov_comp.roteiro:
+                    mov_comp.roteiro_idx = (mov_comp.roteiro_idx + 1) % len(mov_comp.roteiro)
+                
+                if not moveu:
+                    logging.info(
+                        f"Erro ao mover: {tick_de_movimento}: {direcao}")
+                
                             
-    def update(self):
+    def update(self, tick):
         """Processa movimento autônomo de monstros/NPCs a cada tick."""
-        self.processar_movimento_autonomo()
+        
+        self.processar_movimento_autonomo(tick)
+                            
+                            
                             
 class InventarySystem():
     """ Gerencia estoques de baús e o inventário do personagem. 
@@ -403,7 +408,9 @@ class EventSystem:
             variaveis = condicoes.get("variaveis", [])
             if len(variaveis) > 0:
                 for var in variaveis:
-                    atual = self.game_state.get_variable(var["nome"], 0)
+                    atual = self.game_state.get_variable(var["nome"], None)
+                    if not atual:
+                        return False
                     op = var.get("operador", "igual")
                     
                     val_esperado = var.get("valor", 0)

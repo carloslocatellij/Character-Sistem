@@ -7,7 +7,7 @@ separadas do MapManagerScreen para manter a responsabilidade única de cada mód
 import copy
 import json
 from textual.screen import ModalScreen
-from textual.widgets import Label, Button, Input, Select, ListView, ListItem, Static
+from textual.widgets import Label, Button, Input, Select, ListView, ListItem, Static, RichLog
 from textual.containers import Horizontal, Vertical, Container
 from textual import on
 from rich.text import Text
@@ -18,7 +18,7 @@ from app.views.tools.painting_tools import  MapaInterativo
 import logging
 logging.basicConfig(level=logging.INFO, filename='log.log', filemode='a')
 from typing import Literal
-
+import emoji
 
 Modo_de_Captura = Literal["config_ini", None]
 #CSS_PATH = 'styles/styles.css'
@@ -36,6 +36,8 @@ class PropriedadesEventoFormScreen(ModalScreen[dict]):
     Ao confirmar, retorna um dicionário com os dados consolidados para o
     MapManagerScreen persistir na memória e no banco de dados.
     '''
+
+    BINDING = [('esq', 'self.dismiss(None)', '')]
 
     def __init__(self, linha: int, coluna: int, emoji: str, dados_existentes: dict = None):
         super().__init__()
@@ -72,51 +74,61 @@ class PropriedadesEventoFormScreen(ModalScreen[dict]):
             [*itens_set, *racas_set, *efeitos_set, *CatalogoTiles.OBJETOS])
 
         with Vertical(id='evt-caixa-full'):
-            titulo = f'🛠️ Evento em [{self.linha_y_do_evento},{self.coluna_x_do_evento}]'
-            yield Label(titulo, classes='titulo-secao')
-
+            #titulo = f'🛠️ Evento em [{self.linha_y_do_evento},{self.coluna_x_do_evento}]'
+            #yield Label( titulo, classes='titulo-secao')
+            # with Horizontal(classes='linha-dupla'):
+            #     yield Label('Nome do Evento:', classes='campo-rotulo')
+            #     yield Label('Emoji:', classes='campo-rotulo')
             with Horizontal(classes='linha-dupla'):
-                yield Label('Nome:', classes='campo-rotulo')
+
                 yield Input(
                     value=self.dados_existentes.get(
                         'nome', f'ev_{self.linha_y_do_evento}_{self.coluna_x_do_evento}'),
                     id='evt-nome')
-                yield Label('Emoji:', classes='campo-rotulo')
                 yield Select(
                     [(v, v) for v in coletanea_emoji] +
                     [(self.emoji, self.emoji)],
-                    value=self.paginas[self.pagina_atual_idx].get("configuracao_visual",{}).get("emoji", self.emoji),
+                    value=emoji.emojize(self.paginas[self.pagina_atual_idx].get("configuracao_visual",{}).get("emoji", self.emoji)),
                     id='evt-emoji')
-
-            with Horizontal(classes='linha-dupla'):
-                yield Label('Página:', classes='campo-rotulo')
+                #yield Label('Página:', classes='campo-rotulo')
                 yield Button('<', id='btn-pag-ant', classes='btn-pequeno')
                 yield Label(f' {self.pagina_atual_idx + 1} / {len(self.paginas)} ', id='lbl-pag-atual')
                 yield Button('>', id='btn-pag-prox', classes='btn-pequeno')
                 yield Button('+ Pág', id='btn-add-pag', variant='primary', classes='btn-pequeno')
                 yield Button('- Pág', id='btn-del-pag', variant='error', classes='btn-pequeno')
 
-            yield Label('Gatilho:', classes='campo-rotulo')
-            yield Select([
-                ('Ação do Jogador (Pressionar Botão)', 'acao_jogador'),
-                ('Toque do Jogador (Pisar)', 'toque_jogador'),
-                ('Toque do Evento (Bater no herói)', 'toque_evento'),
-                ('Processo Automático', 'processo_automatico'),
-                ('Processo Paralelo', 'processo_paralelo')
-            ], value=self.paginas[self.pagina_atual_idx].get('gatilho', 'acao_jogador'), id='evt-gatilho')
+            with Horizontal(classes='linha-dupla'):
+                #yield Label('Movimento do Evento:', classes='campo-rotulo')
+                yield Select([('Parado', 'parado'), 
+                            ('Aleatório', 'aleatorio'),
+                            ('Seguir Herói', 'seguir_heroi'),
+                            ('Fugir do Herói', 'fugir_heroi'),
+                            ('Roteiro de Movimento', 'roteiro')],
+                            value=self.paginas[self.pagina_atual_idx].get('movimento', {}).get('tipo', 'parado'),
+                            id='evt-movimento')
+                    
+                #yield Label('Gatilho:', classes='campo-rotulo')
+                yield Select([
+                    ('Ação do Jogador (Pressionar Botão)', 'acao_jogador'),
+                    ('Toque do Jogador (Pisar)', 'toque_jogador'),
+                    ('Toque do Evento (Bater no herói)', 'toque_evento'),
+                    ('Processo Automático', 'processo_automatico'),
+                    ('Processo Paralelo', 'processo_paralelo')
+                ], value=self.paginas[self.pagina_atual_idx].get('gatilho', 'acao_jogador'), id='evt-gatilho')
 
-            # ==================
-            # MOVIMENTO
-            # ==================
-            # 'tipo': 'aleat\u00f3rio', 'pontos': ['(40,40)', '(43,43)'], 'direcoes': [], 'ciclos': 0
-            yield Label('Movimento do Evento:', classes='campo-rotulo')
-            yield Select([('Parado', 'parado'), 
-                          ('Aleatório', 'aleatorio'),
-                          ('Seguir Herói', 'seguir_heroi'),
-                          ('Fugir do Herói', 'fugir_heroi')], 
-                         value=self.paginas[self.pagina_atual_idx].get('movimento', {}).get('tipo', 'parado'),
-                         id='evt-movimento')
-            
+            with Container(classes='container-roteiro'):
+                with Vertical():
+                    with Horizontal(classes='linha-dupla'):
+                        yield Button('⏫ ', id='btn-roteiro-up', flat=True, variant='warning', classes='btn-pequeno')
+                        yield Button('⏩ ', id='btn-roteiro-right', flat=True, variant='warning', classes='btn-pequeno')
+                        yield Button('⏬ ', id='btn-roteiro-down', flat=True, variant='warning', classes='btn-pequeno')
+                        yield Button('⏪ ', id='btn-roteiro-left', flat=True, variant='warning', classes='btn-pequeno')
+                        yield Button('⛔Limpa', id='btn-roteiro-limpa', flat=True, variant='warning', classes='btn-pequeno')
+                    
+                    yield Input(placeholder='Direções do Roteiro', disabled=True ,id='id_roteiro_mv',
+                                valid_empty=False,
+                                value=','.join(self.paginas[self.pagina_atual_idx].get('movimento', {}).get('roteiro', '')))
+                
 
             # ==========================================
             # SEÇÃO DE CONDIÇÕES DA PÁGINA
@@ -127,13 +139,13 @@ class PropriedadesEventoFormScreen(ModalScreen[dict]):
                 with Horizontal(classes='linha-dupla'):
                     yield Label('Switches:', classes='campo-rotulo')
                     yield Button('+ Switch', id='btn-add-switch', variant='primary', classes='btn-pequeno')
-                yield Static('', id='lista-switches')
+                    yield ListView(id='lista-switches')
 
                 # --- Variáveis ---
                 with Horizontal(classes='linha-dupla'):
                     yield Label('Variáveis:', classes='campo-rotulo')
                     yield Button('+ Variável', id='btn-add-variavel', variant='primary', classes='btn-pequeno')
-                yield Static('', id='lista-variaveis')
+                    yield ListView( id='lista-variaveis')
 
                 # --- Self Switch ---
                 with Horizontal(classes='linha-dupla'):
@@ -144,7 +156,6 @@ class PropriedadesEventoFormScreen(ModalScreen[dict]):
                     ], value='nenhum', id='evt-self-switch')
 
                 # --- Item Requerido ---
-                with Horizontal(classes='linha-dupla'):
                     yield Label('Item Requerido:', classes='campo-rotulo')
                     yield Input(placeholder='(vazio = sem requisito)', id='evt-item-requerido', value='')
 
@@ -157,6 +168,8 @@ class PropriedadesEventoFormScreen(ModalScreen[dict]):
                 yield Button('Salvar Evento', id='btn-evt-salvar', variant='success')
 
     def on_mount(self):
+        self.query_one(".container-roteiro").display = False
+        
         self.atualizar_tela_pagina()
 
     # ==========================================
@@ -175,8 +188,8 @@ class PropriedadesEventoFormScreen(ModalScreen[dict]):
         select_movimento.value = self.paginas[self.pagina_atual_idx].get(
             'movimento', {}).get('tipo', 'parado')
         select_emoji = self.query_one('#evt-emoji', Select)
-        select_emoji.value = self.paginas[self.pagina_atual_idx].get(
-            'configuracao_visual', {}).get('emoji', self.emoji)
+        select_emoji.value = emoji.emojize(self.paginas[self.pagina_atual_idx].get(
+            'configuracao_visual', {}).get('emoji', self.emoji))
         
 
         self.atualizar_exibicao_condicoes()
@@ -197,35 +210,47 @@ class PropriedadesEventoFormScreen(ModalScreen[dict]):
         '''Popula os widgets de condições com os dados da página atual.'''
         condicoes = self._obter_condicoes_pagina_atual()
 
+
         # --- Switches ---
         switches = condicoes.get('switches', [])
-        if switches:
-            linhas_switch = []
+        lista_sw = self.query_one('#lista-switches', ListView)
+        lista_sw.clear()
+        if len(switches) > 0:
             for i, switch in enumerate(switches):
                 val_str = '✅ True' if switch.get('valor', True) else '❌ False'
-                linhas_switch.append(f'  [{i}] {switch["nome"]} = {val_str}')
-            texto_switch = '\n'.join(
-                linhas_switch) + '\n  (Clique num switch na lista de comandos para remover)'
-        else:
-            texto_switch = '  (nenhum)'
-        self.query_one('#lista-switches', Static).update(texto_switch)
+                texto_switch = ListItem(Horizontal(
+                    Label(f'  [{i}] {switch["nome"]} = {val_str}'),
+                    Button(
+                        "X", name=f"btn-del-sw-{i}", variant="error", classes="btn-pequeno"),
+                    classes="linha-condicional-item"))
+                lista_sw.append(texto_switch)
+
 
         # --- Variáveis ---
         variaveis = condicoes.get('variaveis', [])
-        if variaveis:
-            linhas_var = []
+        conteiner_vars = self.query_one('#lista-variaveis', ListView)
+        conteiner_vars.clear()
+        if len(variaveis) > 0:
             op_simbolos = {
                 'maior_ou_igual': '>=', 'menor_ou_igual': '<=',
                 'igual': '==', 'diferente': '!='
             }
+            
+            # 2. Iteramos criando uma linha visual para cada variável
             for i, var in enumerate(variaveis):
                 op = op_simbolos.get(var.get('operador', 'igual'), '==')
-                linhas_var.append(
-                    f'  [{i}] {var["nome"]} {op} {var.get("valor", 0)}')
-            texto_var = '\n'.join(linhas_var)
-        else:
-            texto_var = '  (nenhuma)'
-        self.query_one('#lista-variaveis', Static).update(texto_var)
+                texto_linha = f'[{i}] {var["nome"]} {op} {var.get("valor", 0)}'
+                
+                linha_layout = ListItem(Horizontal(
+                    Label(texto_linha, classes="texto-var"),
+                    Button(
+                        "X", name=f"btn-del-var-{i}", variant="error", classes="btn-pequeno"),
+                ), classes="linha-condicional-item")
+                conteiner_vars.append(linha_layout)
+        # else:
+        #     conteiner_vars.append(
+        #         ListItem(Label('  (nenhuma)'), classes="linha-condicional-item"))
+
 
         # --- Self Switch ---
         self_switch = condicoes.get('self_switch', 'nenhum')
@@ -259,6 +284,18 @@ class PropriedadesEventoFormScreen(ModalScreen[dict]):
     def on_movimento_changed(self, event: Select.Changed):
         if event.value != Select.BLANK:
             self.paginas[self.pagina_atual_idx]['movimento'] = {'tipo': event.value}
+            
+        if event.value == 'roteiro':
+            self.query_one(".container-roteiro").display = True
+        else:
+            self.query_one(".container-roteiro").display = False
+    
+            
+    @on(Select.Changed, '#evt-emoji')
+    def on_emoji_changed(self, event: Select.Changed):
+        if event.value != Select.BLANK:
+            self.paginas[self.pagina_atual_idx]['configuracao_visual'] = {
+                'emoiji': event.value}
 
     @on(Select.Changed, '#evt-self-switch')
     def on_self_switch_changed(self, event: Select.Changed):
@@ -338,14 +375,41 @@ class PropriedadesEventoFormScreen(ModalScreen[dict]):
             self.app.push_screen(AdicionarVariavelScreen(),
                                  self.ao_adicionar_variavel)
 
-        elif event.button.id and event.button.id.startswith('btn-del-sw-'):
-            idx_sw = int(event.button.id.replace('btn-del-sw-', ''))
+        elif event.button.name and event.button.name.startswith('btn-del-sw-'):
+            idx_sw = int(event.button.name.replace('btn-del-sw-', ''))
             self._remover_switch(idx_sw)
 
-        elif event.button.id and event.button.id.startswith('btn-del-var-'):
-            idx_var = int(event.button.id.replace('btn-del-var-', ''))
+        elif event.button.name and event.button.name.startswith('btn-del-var-'):
+            idx_var = int(event.button.name.replace('btn-del-var-', ''))
             self._remover_variavel(idx_var)
+            
+        elif event.button.id == 'btn-roteiro-up':
+            roteiro_atual = self.query_one('#id_roteiro_mv').value
+            self.query_one('#id_roteiro_mv').value = roteiro_atual + ', cima'  if len(roteiro_atual) > 0 else 'cima'
+            self.paginas[self.pagina_atual_idx]['movimento']['roteiro'] =  [dir for dir in self.query_one(
+                '#id_roteiro_mv').value.split(',')]
+            
+        elif event.button.id == 'btn-roteiro-down':
+            roteiro_atual = self.query_one('#id_roteiro_mv').value
+            self.query_one('#id_roteiro_mv').value = roteiro_atual + ', baixo'  if len(roteiro_atual) > 0 else 'baixo'
+            self.paginas[self.pagina_atual_idx]['movimento']['roteiro'] =  [dir for dir in self.query_one(
+                '#id_roteiro_mv').value.split(',')]
+            
+        elif event.button.id == 'btn-roteiro-right':
+            roteiro_atual = self.query_one('#id_roteiro_mv').value
+            self.query_one('#id_roteiro_mv').value = roteiro_atual + ', direita' if len(roteiro_atual) > 0 else 'direita'
+            self.paginas[self.pagina_atual_idx]['movimento']['roteiro'] =  [dir for dir in self.query_one(
+                '#id_roteiro_mv').value.split(',')]
+            
+        elif event.button.id == 'btn-roteiro-left':
+            roteiro_atual = self.query_one('#id_roteiro_mv').value
+            self.query_one('#id_roteiro_mv').value = roteiro_atual + ', esquerda' if len(roteiro_atual) > 0 else 'esquerda'
+            self.paginas[self.pagina_atual_idx]['movimento']['roteiro'] = [dir for dir in self.query_one(
+                '#id_roteiro_mv').value.split(',')]
 
+        elif event.button.id == 'btn-roteiro-limpa':
+            self.query_one('#id_roteiro_mv').value = ''
+            
         elif event.button.id == 'btn-evt-salvar':
             nome = self.query_one('#evt-nome').value
             emoji = self.query_one('#evt-emoji').value
@@ -583,14 +647,7 @@ class AdicionarVariavelScreen(ModalScreen[dict]):
                 self.notify('Selecione um operador!', severity='error')
                 return
             self.dismiss({'nome': nome, 'operador': operador, 'valor': valor})
-
-
-# ==============================================================================
-# SUB-MODAL: SISTEMA DE MOVIMENTO DO EVENTO
-# ==============================================================================
-class AtribuirMovimentoScreen(ModalScreen[dict]):
-    '''Sub-formulário para atribuição de movimentação propria ao evento.'''
-    
+            
 
 # ==============================================================================
 # SUB-MODAL: ADICIONAR / EDITAR COMANDO
@@ -742,21 +799,25 @@ class AdicionarComandoScreen(ModalScreen[dict]):
 
         # Intercepta botão de seleção de posição XY para teleporte
         if event.button.id == 'btn-select-pos-xy':
-            self.notify('Selecione a posição para teleporte')
-            
-            dados_requisicao = {
-                'tipo': "teleporte",
-                'acao_especial': 'ativar_capitura_de_posicao',
-                #'estado_formulario_atual': self._capturar_valores_campos_atuais(),
-                'dados': self._capturar_valores_campos_atuais(),
-                'mapa_teleporte': self.query_one('#cmd-tel-mapa').value
-            }
-            self.app.push_screen(SecondaryMap(dados_requisicao["mapa_teleporte"],
-                                              dados_requisicao["acao_especial"]),
-                                 lambda dados_coords: self._ao_obter_coordenadas_teleporte(
-                                     dados_coords)
-                             )
-
+            if not self.query_one('#cmd-tel-mapa').value in [Select.BLANK, None, '']:
+                
+                self.notify('Selecione a posição para teleporte')
+                
+                dados_requisicao = {
+                    'tipo': "teleporte",
+                    'acao_especial': 'ativar_capitura_de_posicao',
+                    #'estado_formulario_atual': self._capturar_valores_campos_atuais(),
+                    'dados': self._capturar_valores_campos_atuais(),
+                    'mapa_teleporte': self.query_one('#cmd-tel-mapa').value
+                }
+                self.app.push_screen(SecondaryMap(dados_requisicao["mapa_teleporte"],
+                                                dados_requisicao["acao_especial"]),
+                                    lambda dados_coords: self._ao_obter_coordenadas_teleporte(
+                                        dados_coords)
+                                )
+            else:
+                self.notify('Primeiro selecione o mapa para o teleporte')
+                
             
         elif event.button.id == 'btn-save':
             tipo = self.query_one('#cmd-tipo').value

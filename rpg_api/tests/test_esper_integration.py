@@ -100,7 +100,7 @@ def fixture_dados_base(db_session):
         pos_x=1,
         pos_y=0,
         event_type="monstro",
-        parametros={}
+        parametros={"paginas": [{"gatilho": "acao_jogador", "movimento": {"tipo": "direcional", "roteiro": ["esquerda"]}}]}
     )
     db_session.add(evento_monstro)
     db_session.commit()

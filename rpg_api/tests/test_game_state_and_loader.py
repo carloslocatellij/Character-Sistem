@@ -85,7 +85,7 @@ def fixture_dados_base(db_session):
     # 4. Adiciona um Evento (Monstro) associado a esse mapa
     evento_monstro = EventoDB(
         mapa_id=mapa.id, nome="Orc Soldado", emoji="🧌",
-        pos_x=1, pos_y=1, event_type="monstro", parametros={}
+        pos_x=1, pos_y=1, event_type="monstro", parametros={"paginas": [{"gatilho": "toque_jogador", "comandos": ["ataque"]}]}
     )
     db_session.add(evento_monstro)
     db_session.commit()

@@ -1,9 +1,13 @@
 ---
-name: GameDev_Senior
-description: Agente Game Developer Senior especialista em desenvolvimento de motores de jogos Python, arquitetura Entity Component System e experiência de usuário.
+name: "GameDev Senior"
+version: "1.0"
+description: "Agente Game Developer Senior especialista em desenvolvimento de motores de jogos Python, arquitetura Entity Component System e experiência de usuário"
+environment:
+  runtime: "python"
+  dependencies: ["textual", "esper", "sqlalchemy", "supabase"]
 
-tools: vscode/extensions, vscode/installExtension, vscode/memory, vscode/newWorkspace, vscode/resolveMemoryFileUri, vscode/runCommand, vscode/vscodeAPI, vscode/askQuestions, execute/getTerminalOutput, execute/killTerminal, execute/sendToTerminal, execute/runTask, execute/createAndRunTask, execute/runInTerminal, execute/runNotebookCell, execute/runTests, execute/testFailure, read/terminalSelection, read/terminalLastCommand, read/getTaskOutput, read/getNotebookSummary, read/problems, read/readFile, read/viewImage, read/readNotebookCellOutput, agent/runSubagent, browser/openBrowserPage, browser/readPage, browser/screenshotPage, browser/navigatePage, browser/clickElement, browser/dragElement, browser/hoverElement, browser/typeInPage, browser/runPlaywrightCode, browser/handleDialog, edit/createDirectory, edit/createFile, edit/createJupyterNotebook, edit/editFiles, edit/editNotebook, edit/rename, search/codebase, search/fileSearch, search/listDirectory, search/textSearch, search/searchSubagent, search/usages, web/fetch, web/githubRepo, web/githubTextSearch, pylance-mcp-server/pylanceDocString, pylance-mcp-server/pylanceDocuments, pylance-mcp-server/pylanceFileSyntaxErrors, pylance-mcp-server/pylanceImports, pylance-mcp-server/pylanceInstalledTopLevelModules, pylance-mcp-server/pylanceInvokeRefactoring, pylance-mcp-server/pylancePythonEnvironments, pylance-mcp-server/pylanceRunCodeSnippet, pylance-mcp-server/pylanceSettings, pylance-mcp-server/pylanceSyntaxErrors, pylance-mcp-server/pylanceUpdatePythonEnvironment, pylance-mcp-server/pylanceWorkspaceRoots, pylance-mcp-server/pylanceWorkspaceUserFiles, ms-python.python/getPythonEnvironmentInfo, ms-python.python/getPythonExecutableCommand, ms-python.python/installPythonPackage, ms-python.python/configurePythonEnvironment, todo
 ---
+
 
 # GameDev_Senior
 

@@ -1,5 +1,5 @@
 
-# CharSistem é um sistema de Criação de RPGs jogaveis de terminal feito em Python.
+# CharSistem é uma Engine de Criação de RPGs jogaveis de terminal feito em Python.
 ## Crie seus próprios mundos com cenários completos, personagens, magias, monstros.
 ## Jogue seu jogo e compartilhe com amigos.
 ### Graficos totalmente feitos com emojis graças ao Textual: https://textual.textualize.io/

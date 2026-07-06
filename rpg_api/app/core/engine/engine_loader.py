@@ -274,15 +274,13 @@ class GameEngineLoader:
 
             if parametros_base.get('paginas', []):
                 pass
-            if "movimento" in parametros_base.get('paginas', []) : # deve haver mecanismo de ativação paralela .get('paginas')[0] é para teste
+            if "movimento" in parametros_base.get('paginas', [])[0]: # deve haver mecanismo de ativação paralela .get('paginas')[0] é para teste
                 dados_de_movimento = parametros_base.get('paginas', [])[0].get('movimento', {})
                 esper.add_component(entidade_ecs_id, MovimentComponent(
                     movement_type=dados_de_movimento.get(
                         "tipo", "aleatorio"),
-                    direcoes=dados_de_movimento.get(
-                        "direcoes", []),
-                    pontos=dados_de_movimento.get(
-                        "pontos", []),
+                    roteiro=dados_de_movimento.get(
+                        "roteiro", []),
                     ciclos=dados_de_movimento.get(
                         "ciclos", 0),
                     action_on_touch=parametros_base.get("ação", {})

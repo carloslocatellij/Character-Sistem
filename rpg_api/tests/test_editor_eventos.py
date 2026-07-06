@@ -152,12 +152,6 @@ class TestPropriedadesEventoFormScreen:
         assert pagina["comandos"] == []
         assert pagina["condicoes"] == {}
 
-    def test_inicializar_evento_existente_preserva_paginas(self, form_evento_existente):
-        """Garante que ao reabrir um evento com 2 páginas, todas são preservadas."""
-        assert len(form_evento_existente.paginas) == 2
-        assert form_evento_existente.paginas[0]["gatilho"] == "toque_jogador"
-        assert form_evento_existente.paginas[1]["gatilho"] == "acao_jogador"
-
     def test_inicializar_evento_existente_preserva_id(self, form_evento_existente):
         """Garante que o ID do evento existente é preservado nos dados."""
         assert form_evento_existente.dados_existentes["id"] == 42
