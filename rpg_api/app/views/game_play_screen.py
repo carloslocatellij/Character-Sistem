@@ -446,6 +446,12 @@ class GamePlayScreen(Screen):
             
         # Força a interface a recalcular e redesenhar os novos valores obtidos
         elif comando in ['/sair', '/q', '/exit', '/quit']:
+            esper.switch_world('default')
+            esper.clear_database()
+            esper.clear_cache()
+            for world in esper.list_worlds():
+                if world != 'default':
+                    esper.delete_world(world)
             self.app.pop_screen()
         else:
             self.log_mensagem(

@@ -2,6 +2,7 @@
 name: "GameDev Senior"
 version: "1.0"
 description: "Agente Game Developer Senior especialista em desenvolvimento de motores de jogos Python, arquitetura Entity Component System e experiência de usuário"
+tools: ["terminal", "file_system", "read", "edit", "search", "web", "agent", "todo"]
 environment:
   runtime: "python"
   dependencies: ["textual", "esper", "sqlalchemy", "supabase"]

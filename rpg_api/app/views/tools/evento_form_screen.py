@@ -665,7 +665,7 @@ class AdicionarComandoScreen(ModalScreen[dict]):
             yield Label('Escolha o tipo de Comando', classes='titulo-secao')
             yield Select([
                 ('Mensagem no prompt (Texto)', 'mensagem'),
-                ('Notificação na tela (Texto)', 'noficacao'),
+                ('Notificação na tela (Texto)', 'notificacao'),
                 ('Teleporte (Mudar Mapa/Posição)', 'teleporte'),
                 ('Inventário (Add/Sub)', 'mudar_inventario'),
                 ('Status do Herói (HP/MP)', 'mudar_status_heroi'),
