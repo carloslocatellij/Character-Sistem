@@ -16,7 +16,7 @@ from app.controllers.game_controller import GameController, simular_arena
 from musics.audio_player import music
 from app.models.mapas_db import MapaDB
 from app.views.map_manager_screen import MapManagerScreen
-from app.views.game_play_screen import GamePlayScreen
+from app.views.new_game_play_screen import GamePlayScreen
 
 # Garante que as tabelas existem
 Base.metadata.create_all(bind=engine)
