@@ -397,20 +397,8 @@ class EventSystem(esper.Processor):
     def _avaliar_condicoes(self, condicoes: dict, entidade_id: int) -> bool:
         world = self.world if (hasattr(self, "world") and self.world is not None) else esper
         try:
-            item_req = condicoes.get("item_requerido")
-            if item_req:
-                logging.info(f"requer o item {item_req}")
-                inv = world.component_for_entity(1, InventoryComponent) if world.entity_exists(1) and world.has_component(1, InventoryComponent) else None
-                if not inv or not self.inv_sys._inventory_has_item(inv, item_req):
-                    logging.info(f"mas não tem o item")
-                    return False
-
-            switches = condicoes.get("switches", [])
-            for sw in switches:
-                if self.game_state.get_switch(sw["nome"]) != sw.get("valor", True):
-                    logging.info(f"A switch {sw} não está ligada")
-                    return False
-
+            # Ordem de Prioridade ao avaliar condições:
+            #Primeiro avalia variaveis
             variaveis = condicoes.get("variaveis", [])
             if len(variaveis) > 0:
                 for var in variaveis:
@@ -432,6 +420,14 @@ class EventSystem(esper.Processor):
                     logging.info(f"Verificando variável: {var.get('nome', '[Ops: Nada com este nome]')} com o valor: {val_esperado}")
                 logging.info(f"Verificou variaveis e o valor é {atual}")
 
+            #Segundo avalia switches
+            switches = condicoes.get("switches", [])
+            for sw in switches:
+                if self.game_state.get_switch(sw["nome"]) != sw.get("valor", True):
+                    logging.info(f"A switch {sw} não está ligada")
+                    return False
+
+            #Terceiro avalia Self-Switches
             self_sw = condicoes.get("self_switch")
             if self_sw:
                 logging.info(f"requer que a auto condição {self_sw}_Ligada seja verdadeira")
@@ -439,7 +435,17 @@ class EventSystem(esper.Processor):
                     logging.info(f"mas a condição [{self_sw}]_Ligada é falsa")
                     return False
 
+            #Quarto e último avalia se possúi o item.
+            item_req = condicoes.get("item_requerido")
+            if item_req:
+                logging.info(f"requer o item {item_req}")
+                inv = world.component_for_entity(1, InventoryComponent) if world.entity_exists(1) and world.has_component(1, InventoryComponent) else None
+                if not inv or not self.inv_sys._inventory_has_item(inv, item_req):
+                    logging.info(f"mas não tem o item")
+                    return False
+                
             return True
+
         except Exception as e:
             logging.info(f"Erro em _avaliar_condicoes: {e}")
             return False
@@ -585,7 +591,7 @@ class EventSystem(esper.Processor):
 
     def avancar_ramo_evento(self, opcao_escolhida: str):
         entrada_limpa = str(opcao_escolhida).strip().lower()
-        entrada_limpa = entrada_limpa.replace(' ', '_').replace(',', '-').replace('.', '')
+        entrada_limpa = entrada_limpa.replace(' ', '_').replace(',', '-').replace('.', '').replace('!','_')
         entrada_limpa = unicodedata.normalize("NFD", entrada_limpa)
         entrada_limpa = entrada_limpa.encode("ASCII", "ignore").decode("ASCII")
 

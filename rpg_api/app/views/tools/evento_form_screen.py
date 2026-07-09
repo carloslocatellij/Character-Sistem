@@ -13,6 +13,7 @@ from textual import on
 from rich.text import Text
 from app.db.database import SessionLocal
 from app.models.mapas_db import MapaDB
+from app.models.equipamentos_db import ItemDB
 from app.core.entities.emojis import CatalogoTiles, dict_item_emoji, dict_emoji_efeito, dict_emoji_racas
 from app.views.tools.painting_tools import  MapaInterativo
 import logging
@@ -70,8 +71,10 @@ class PropriedadesEventoFormScreen(ModalScreen[dict]):
                         for k, v in sub_dict.items()])
         racas_set = set([v for _, v in dict_emoji_racas.items()])
         efeitos_set = set([v for _, v in dict_emoji_efeito.items()])
-        coletanea_emoji = list(
-            [*itens_set, *racas_set, *efeitos_set, *CatalogoTiles.OBJETOS])
+        paleta_set = set(CatalogoTiles.OBJETOS + CatalogoTiles.TERRENOS + CatalogoTiles.TERRENOS_BLOQUEANTES + CatalogoTiles.EVENTOS )
+        sem_repetidos = set(
+            [*itens_set, *racas_set, *efeitos_set, *paleta_set])
+        coletanea_emoji = list(sem_repetidos)
 
         with Vertical(id='evt-caixa-full'):
             #titulo = f'🛠️ Evento em [{self.linha_y_do_evento},{self.coluna_x_do_evento}]'
@@ -137,27 +140,55 @@ class PropriedadesEventoFormScreen(ModalScreen[dict]):
             with Vertical(id='secao-condicoes'):
                 # --- Switches ---
                 with Horizontal(classes='linha-dupla'):
-                    yield Label('Switches:', classes='campo-rotulo')
-                    yield Button('+ Switch', id='btn-add-switch', variant='primary', classes='btn-pequeno')
+                    yield Label('Interruptores:', classes='campo-rotulo')
+                    yield Button(' + ', id='btn-add-switch', variant='primary', 
+                                 tooltip=str('''Um nome chave(Ligada/Desligada) 
+                                             que quando atribuída, passa a ser
+                                             a condição, que deve ser acionada 
+                                             por um evento, para que esta página
+                                             possa ser acionada.
+                                             Exemplo:  Evento A: comando
+                                             [0] controle_switch {
+                                                 "nome": "falou_para_mago",
+                                                 "valor": "Ligar(true)"} 
+                                            Significa que a variável: 
+                                            falou_para_mago passa a ser Verdadeira.
+                                 '''), classes='btn-pequeno')
                     yield ListView(id='lista-switches')
 
                 # --- Variáveis ---
                 with Horizontal(classes='linha-dupla'):
                     yield Label('Variáveis:', classes='campo-rotulo')
-                    yield Button('+ Variável', id='btn-add-variavel', variant='primary', classes='btn-pequeno')
+                    yield Button(' + ', id='btn-add-variavel', variant='primary',
+                                 tooltip=str('''Um nome para um valor que pode variar
+                                             e que quando atribuída nos comandos
+                                             de um evento acionado, passa a ser o valor
+                                             condição para esta página poder ser acionada.
+                                             Exemplo:  Evento A: comando
+                                             [0] controle_variavel {
+                                                 "nome": "quantos_cafes_tomou",
+                                                 "operador": "+",
+                                                 "valor": "1"} 
+                                            adiciona 1 ao valor de "quantos_cafes_tomou"
+                                 '''), classes='btn-pequeno')
                     yield ListView( id='lista-variaveis')
 
                 # --- Self Switch ---
                 with Horizontal(classes='linha-dupla'):
-                    yield Label('Self Switch:', classes='campo-rotulo')
+                    yield Label('Interruptor Próprio:', classes='campo-rotulo')
                     yield Select([
                         ('Nenhum', 'nenhum'),
                         ('A', 'A'), ('B', 'B'), ('C', 'C'), ('D', 'D')
-                    ], value='nenhum', id='evt-self-switch')
+                    ], value='nenhum',
+                        tooltip=str('''Uma valor de chave própria(A, B, C, D) que quando atribuída nos comandos de
+                                    um evento acionado, passa a ser determinante para esta página poder 
+                                    ser acionada. Exemplo:  Evento A: comando
+                                    [0] controle_de_self_switch {"letra": "A", "valor": true (Ligar)}
+                                 '''), id='evt-self-switch')
 
                 # --- Item Requerido ---
                     yield Label('Item Requerido:', classes='campo-rotulo')
-                    yield Input(placeholder='(vazio = sem requisito)', id='evt-item-requerido', value='')
+                    yield Select([], id='evt-item-requerido')
 
             yield Label('Comandos da Página:', classes='campo-rotulo')
             yield ListView(id='lista-comandos')
@@ -168,6 +199,11 @@ class PropriedadesEventoFormScreen(ModalScreen[dict]):
                 yield Button('Salvar Evento', id='btn-evt-salvar', variant='success')
 
     def on_mount(self):
+        with SessionLocal() as db:
+            itens = db.query(ItemDB).all()
+            self.query_one("#evt-item-requerido", Select).set_options([
+                (str(i.nome), str(i.id)) for i in itens
+            ] + [('nada','')])
         self.query_one(".container-roteiro").display = False
         
         self.atualizar_tela_pagina()
@@ -221,7 +257,7 @@ class PropriedadesEventoFormScreen(ModalScreen[dict]):
                 texto_switch = ListItem(Horizontal(
                     Label(f'  [{i}] {switch["nome"]} = {val_str}'),
                     Button(
-                        "X", name=f"btn-del-sw-{i}", variant="error", classes="btn-pequeno"),
+                        " - ", name=f"btn-del-sw-{i}", variant="error", classes="btn-pequeno"),
                     classes="linha-condicional-item"))
                 lista_sw.append(texto_switch)
 
@@ -244,7 +280,7 @@ class PropriedadesEventoFormScreen(ModalScreen[dict]):
                 linha_layout = ListItem(Horizontal(
                     Label(texto_linha, classes="texto-var"),
                     Button(
-                        "X", name=f"btn-del-var-{i}", variant="error", classes="btn-pequeno"),
+                        " - ", name=f"btn-del-var-{i}", variant="error", classes="btn-pequeno"),
                 ), classes="linha-condicional-item")
                 conteiner_vars.append(linha_layout)
         # else:
@@ -259,7 +295,7 @@ class PropriedadesEventoFormScreen(ModalScreen[dict]):
 
         # --- Item Requerido ---
         item_req = condicoes.get('item_requerido') or ''
-        self.query_one('#evt-item-requerido', Input).value = item_req
+        self.query_one('#evt-item-requerido', Select).value = item_req
 
     def atualizar_lista_comandos(self):
         '''Renderiza a lista de comandos da página atual.'''
@@ -308,8 +344,8 @@ class PropriedadesEventoFormScreen(ModalScreen[dict]):
         else:
             condicoes['self_switch'] = event.value
 
-    @on(Input.Changed, '#evt-item-requerido')
-    def on_item_requerido_changed(self, event: Input.Changed):
+    @on(Select.Changed, '#evt-item-requerido')
+    def on_item_requerido_changed(self, event: Select.Changed):
         '''Sincroniza o item_requerido da página atual quando o Input muda.'''
         condicoes = self._obter_condicoes_pagina_atual()
         valor = event.value.strip()

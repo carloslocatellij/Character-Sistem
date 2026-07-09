@@ -17,6 +17,7 @@ from rich.text import Text
 from app.views.tools.painting_tools import balde_de_tinta, MapaInterativo
 from app.views.tools.evento_form_screen import PropriedadesEventoFormScreen
 from app.db.database import SessionLocal
+from app.core.engine.systems import EventSystem
 import logging
 logging.basicConfig(level=logging.INFO, filename="log.log", filemode="a")
 from typing import Literal
@@ -726,6 +727,7 @@ class MapManagerScreen(Screen):
         from app.db.database import SessionLocal # Ajuste o import conforme o seu projeto
         mapa_id_atual = self.dados_do_mapa_atual.get("id") if self.dados_do_mapa_atual else None
         nome_mapa = self.dados_do_mapa_atual.get("nome") if self.dados_do_mapa_atual else None
+        
         
         try:
             with SessionLocal() as db:
