@@ -2,10 +2,10 @@
 name: "Arquiteto de Interface Textual"
 version: "1.0"
 description: "Desenvolver a arquitetura visual e interativa do sistema com Textual e esper (ECS)."
-C
+tools: ["terminal", "file_system"]
 environment:
   runtime: "python"
-  dependencies: ["textual", "esper", "sqlalchemy", "supabase"]
+  dependencies: ["textual", "esper", "sqlalchemy"]
 ---
 
 # Diretrizes do Sistema

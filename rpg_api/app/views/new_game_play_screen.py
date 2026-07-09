@@ -472,7 +472,14 @@ class GamePlayScreen(Screen):
             self.centralizar_camera_no_jogador()
         elif key == 'enter':
             achou_evento = None
-            if self.focused == self.query_one('#terminal-prompt'):
+            prompt = self.query_one('#terminal-prompt')
+            if self.focused == prompt and prompt.value == '':
+                event.prevent_default()
+                achou_evento = self.interacao_sys.interagir(
+                    1, self.direcao_olhar)
+                if not achou_evento:
+                    self.log_mensagem(
+                        '[gray]Não há nada para acionar aqui na sua frente.[/]')
                 telamapa = self.query_one('#tela-mapa', Static)
                 telamapa.focus()
             else:
