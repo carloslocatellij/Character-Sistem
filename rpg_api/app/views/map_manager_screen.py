@@ -17,7 +17,6 @@ from rich.text import Text
 from app.views.tools.painting_tools import balde_de_tinta, MapaInterativo
 from app.views.tools.evento_form_screen import PropriedadesEventoFormScreen
 from app.db.database import SessionLocal
-from app.core.engine.systems import EventSystem
 import logging
 logging.basicConfig(level=logging.INFO, filename="log.log", filemode="a")
 from typing import Literal

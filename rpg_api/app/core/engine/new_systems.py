@@ -382,73 +382,14 @@ class EventSystem(esper.Processor):
 
     def _filtrar_pagina_valida(self, paginas: list, entidade_id: int) -> dict:
         logging.info(f"Filtrando paginas")
-        try:
-            paginas_ordenadas = sorted(paginas, key=lambda p: p.get("id_pagina", 0), reverse=True)
-            for pagina in paginas_ordenadas:
-                condicoes = pagina.get("condicoes", {})
-                if self._avaliar_condicoes(condicoes, entidade_id):
-                    logging.info(f"temos uma pagina")
-                    return pagina
-            return None
-        except Exception as e:
-            logging.info(f"Erro em _filtrar_pagina_valida: {e}")
-            return None
+        from app.core.engine.event_evaluator import obter_pagina_ativa
+        world = self.world if (hasattr(self, "world") and self.world is not None) else esper
+        return obter_pagina_ativa(paginas, entidade_id, self.game_state, world)
 
     def _avaliar_condicoes(self, condicoes: dict, entidade_id: int) -> bool:
+        from app.core.engine.event_evaluator import avaliar_condicoes
         world = self.world if (hasattr(self, "world") and self.world is not None) else esper
-        try:
-            # Ordem de Prioridade ao avaliar condições:
-            #Primeiro avalia variaveis
-            variaveis = condicoes.get("variaveis", [])
-            if len(variaveis) > 0:
-                for var in variaveis:
-                    atual = self.game_state.get_variable(var["nome"], None)
-                    if not atual:
-                        return False
-                    op = var.get("operador", "igual")
-                    val_esperado = var.get("valor", 0)
-
-                    if str(atual).isdigit():
-                        atual = int(atual)
-                        if op == "maior_ou_igual" and not (atual >= val_esperado): return False
-                        if op == "menor_ou_igual" and not (atual <= val_esperado): return False
-                        if op == "igual" and not (atual == val_esperado): return False
-                        if op == "diferente" and not (atual != val_esperado): return False
-                    else:
-                        if op == "igual" and not (atual == val_esperado): return False
-                        if op == "diferente" and not (atual != val_esperado):  return False
-                    logging.info(f"Verificando variável: {var.get('nome', '[Ops: Nada com este nome]')} com o valor: {val_esperado}")
-                logging.info(f"Verificou variaveis e o valor é {atual}")
-
-            #Segundo avalia switches
-            switches = condicoes.get("switches", [])
-            for sw in switches:
-                if self.game_state.get_switch(sw["nome"]) != sw.get("valor", True):
-                    logging.info(f"A switch {sw} não está ligada")
-                    return False
-
-            #Terceiro avalia Self-Switches
-            self_sw = condicoes.get("self_switch")
-            if self_sw:
-                logging.info(f"requer que a auto condição {self_sw}_Ligada seja verdadeira")
-                if not self.game_state.get_switch(f"evento_{entidade_id}_{self_sw}"):
-                    logging.info(f"mas a condição [{self_sw}]_Ligada é falsa")
-                    return False
-
-            #Quarto e último avalia se possúi o item.
-            item_req = condicoes.get("item_requerido")
-            if item_req:
-                logging.info(f"requer o item {item_req}")
-                inv = world.component_for_entity(1, InventoryComponent) if world.entity_exists(1) and world.has_component(1, InventoryComponent) else None
-                if not inv or not self.inv_sys._inventory_has_item(inv, item_req):
-                    logging.info(f"mas não tem o item")
-                    return False
-                
-            return True
-
-        except Exception as e:
-            logging.info(f"Erro em _avaliar_condicoes: {e}")
-            return False
+        return avaliar_condicoes(condicoes, entidade_id, self.game_state, world)
 
     def _processar_comandos_sequenciais(self, comandos: list, entidade_id: int):
         try:
@@ -541,7 +482,9 @@ class EventSystem(esper.Processor):
         elif tipo == "controle_self_switch":
             letra = dados.get("letra")
             valor = dados.get("valor")
-            self.game_state.set_switch(f"evento_{entidade_id}_{letra}", valor)
+            from app.core.engine.event_evaluator import obter_id_referencia_evento
+            id_ref = obter_id_referencia_evento(entidade_id, world)
+            self.game_state.set_switch(f"evento_{id_ref}_{letra}", valor)
 
         elif tipo == "controle_variavel":
             nome = dados.get("nome")

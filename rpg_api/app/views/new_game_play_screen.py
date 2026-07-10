@@ -90,6 +90,7 @@ class GamePlayScreen(Screen):
                     cenario_id=1,                  # ID do jogo/campanha escolhida
                     slot_numero=1,                  # Slot selecionado
                     default_mapa_id=self.mapa_id,
+                    game_state=self.game_state,
                 )
                 
             self.mapa_matriz = self.loader.matriz_terrenos
@@ -152,7 +153,8 @@ class GamePlayScreen(Screen):
                     usuario_id=1,
                     cenario_id=1,
                     slot_numero=1,
-                    default_mapa_id=mapa_alvo
+                    default_mapa_id=mapa_alvo,
+                    game_state=self.game_state,
                 )
             except Exception as e:
                 self.log_mensagem(f'Erro: {e}')

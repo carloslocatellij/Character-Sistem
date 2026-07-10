@@ -7,13 +7,13 @@ from textual import on
 from app.views.components.choice_box import ChoiceBox
 from app.db.database import SessionLocal
 from app.models.mapas_db import MapaDB
-from app.core.engine.systems import (MovementSystem, InteractionSystem, AISystem,
+from rpg_api.appgacy.systems import (MovementSystem, InteractionSystem, AISystem,
                                      RenderSystem, InventarySystem, EventSystem)
-from app.core.engine.engine_loader import GameEngineLoader
-from app.core.engine.components import (PositionComponent, StatsComponent,
+from rpg_api.appgacy.engine_loader import GameEngineLoader
+from rpg_api.appgacy.components import (PositionComponent, StatsComponent,
                                         InventoryComponent, EquipmentComponent                                       
 )
-from app.core.engine.game_state import GameStateManager
+from rpg_api.appgacy.game_state import GameStateManager
 from app.packages.stylewriter import ChatLog
 import logging
 logging.basicConfig(level=logging.INFO, filename='log.log', filemode='a')

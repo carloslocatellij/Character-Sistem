@@ -1,7 +1,7 @@
 import pytest
 import esper
-from app.core.engine.engine_loader import GameEngineLoader
-from app.core.engine.components import PositionComponent, RenderComponent
+from app.core.engine.new_engine_loader import GameEngineLoader
+from app.core.engine.new_components import PositionComponent, RenderComponent
 
 def test_fluxo_completo_engine_manager():
     manager = GameEngineLoader()

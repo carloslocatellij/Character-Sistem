@@ -1,14 +1,16 @@
 import esper
+from typing import Any
 from sqlalchemy.orm import Session
 from app.models.mapas_db import MapaDB
 from app.models.eventos_db import EventoDB
 from app.models.plataforma_db import SaveDB
 from app.controllers.game_controller import GameController
 from app.core.engine.new_components import (
-    PositionComponent, InteractableComponent, RenderComponent,
-    StatsComponent, MovimentComponent, EquipmentComponent, InventoryComponent,
+    PositionComponent, RenderComponent,
+    StatsComponent, EquipmentComponent, InventoryComponent,
     CollisionComponent, NetworkPlayerComponent
 )
+from app.core.engine.entity_factory import EntityFactory
 import logging
 logging.basicConfig(level=logging.INFO, filename="log.log", filemode="a")
 
@@ -36,9 +38,10 @@ class GameEngineLoader:
         self.master_event_registry = getattr(esper, "event_registry", {})
 
     def carregar_engine_do_banco(self, db_session: Session, usuario_id: int, cenario_id: int, 
-                                slot_numero: int = 1, default_mapa_id: int = None) -> tuple[bool, list[list[str]], dict, int]:
+                                slot_numero: int = 1, default_mapa_id: int = None,
+                                game_state: Any = None) -> tuple[bool, list[list[str]], dict, int]:
         """
-        Alterna ou inicializa o mundo do mapa alvo, sincronizando snapshots em RAM e persistência de SaveDB.
+        Alterna ou inicializa o mundo do mapa alvo, sincronizando snapshots in RAM e persistência de SaveDB.
         """
         # ==========================================
         # STEP 1: RESOLUÇÃO DO ID DO MAPA ALVO
@@ -50,6 +53,11 @@ class GameEngineLoader:
         ).first()
 
         has_save = save_db is not None
+
+        if has_save and game_state is not None:
+            dados = save_db.dados_sessao or {}
+            game_state.switches = dados.get("switches", {})
+            game_state.variables = dados.get("variables", {})
 
         if default_mapa_id is not None:
             target_mapa_id = default_mapa_id
@@ -142,37 +150,24 @@ class GameEngineLoader:
                 player_data = snapshot_entidades.get("1", {})
 
                 if player_data:
-                    components_data = player_data.get("components", player_data) # Retrocompatibilidade
-                    pos_d = components_data.get("PositionComponent", {
-                                            "x": 2, "y": 2, "direcao_olhar": "baixo"})
-                    stats_d = components_data.get("StatsComponent", {})
-                    inv_d = components_data.get("InventoryComponent", {"itens": {}})
-                    eqp_d = components_data.get("EquipmentComponent", {
-                                            "arma": {}, "armadura": {}})
+                    componentes_salvos = player_data.get("components", player_data)  # Retrocompatibilidade
+                    pos_salva = componentes_salvos.get("PositionComponent", {
+                        "x": 2, "y": 2, "direcao_olhar": "baixo"})
+                    stats_salvo = componentes_salvos.get("StatsComponent", {})
+                    inventario_salvo = componentes_salvos.get("InventoryComponent", {"itens": {}})
+                    equipamento_salvo = componentes_salvos.get("EquipmentComponent", {
+                        "arma": {}, "armadura": {}})
 
-                    esper.add_component(1, PositionComponent(
-                        x=pos_d["x"], y=pos_d["y"], direcao_olhar=pos_d["direcao_olhar"]))
-                    esper.add_component(1, RenderComponent(emoji="🧙"))
-                    esper.add_component(1, CollisionComponent(solido=True))
-                    esper.add_component(1, InventoryComponent(
-                        itens=inv_d.get("itens", {})))
-
-                    comp_eqp = EquipmentComponent()
-                    comp_eqp.arma = eqp_d.get("arma")
-                    comp_eqp.armadura = eqp_d.get("armadura")
-                    esper.add_component(1, comp_eqp)
-
-                    if stats_d:
-                        esper.add_component(1, StatsComponent(
-                            nome=stats_d.get("nome", "Herói"),
-                            classe='mago',
-                            hp=stats_d.get("hp", 50),
-                            max_hp=stats_d.get("max_hp", 50),
-                            mp=stats_d.get("mp", 10),
-                            max_mp=stats_d.get("max_mp", 10),
-                            ataque_base=stats_d.get("ataque_base", 10),
-                            defesa_base=stats_d.get("defesa_base", 5)
-                        ))
+                    EntityFactory.criar_entidade_jogador_de_save(
+                        entity_id=1,
+                        pos_x=pos_salva["x"],
+                        pos_y=pos_salva["y"],
+                        direcao_olhar=pos_salva.get("direcao_olhar", "baixo"),
+                        emoji="🧙",
+                        stats_dict=stats_salvo,
+                        inv_dict=inventario_salvo,
+                        eqp_dict=equipamento_salvo,
+                    )
             else:
                 p_db = GameController.obter_personagem_por_id(db_session, usuario_id)
 
@@ -183,41 +178,37 @@ class GameEngineLoader:
                         defesa_extra_calculada = getattr(
                             p_logic.mao_esquerda.defesa, "defesa_extra", 0)
 
-                    pos_inicial = mapa_db.configs.get(
-                        "coordenadas_iniciais", '42,42') if mapa_db.configs else '42,42'
-                    pos_inicial = pos_inicial.split(",") 
-                    pos_inicial = [int(pos_inicial[1]), int(pos_inicial[0])]
+                    pos_inicial_str = mapa_db.configs.get(
+                        "coordenadas_iniciais", "42,42") if mapa_db.configs else "42,42"
+                    partes_pos_inicial = pos_inicial_str.split(",")
+                    pos_x_inicial = int(partes_pos_inicial[1])
+                    pos_y_inicial = int(partes_pos_inicial[0])
+
                     try:
-                        esper.add_component(1, PositionComponent(
-                            x=pos_inicial[0], y=pos_inicial[1], direcao_olhar="baixo"))
+                        EntityFactory.criar_entidade_jogador_novo(
+                            entity_id=1,
+                            pos_x=pos_x_inicial,
+                            pos_y=pos_y_inicial,
+                            personagem_dominio=p_logic,
+                            defesa_extra_calculada=defesa_extra_calculada,
+                        )
                     except KeyError:
                         esper.clear_database()
                         esper.create_entity()
-                        esper.add_component(1, PositionComponent(
-                            x=pos_inicial[0], y=pos_inicial[1], direcao_olhar="baixo"))
-                        
-                    esper.add_component(1, RenderComponent(
-                        emoji=str(p_logic.raca if hasattr(p_logic, 'raca') else "🧙")))
-                    esper.add_component(1, CollisionComponent(solido=True))
-                    esper.add_component(1, InventoryComponent(itens={}))
-                    esper.add_component(1, EquipmentComponent())
-                    esper.add_component(1, StatsComponent(
-                        nome=p_logic.nome,
-                        classe='mago',
-                        hp=int(p_logic.pv_atual),
-                        max_hp=int(p_logic.max_hp),
-                        mp=int(p_logic.pm_atual),
-                        max_mp=int(p_logic.max_mp),
-                        ataque_base=int(p_logic.mod_atq_corpo or 0),
-                        defesa_base=int(defesa_extra_calculada)
-                    ))
+                        EntityFactory.criar_entidade_jogador_novo(
+                            entity_id=1,
+                            pos_x=pos_x_inicial,
+                            pos_y=pos_y_inicial,
+                            personagem_dominio=p_logic,
+                            defesa_extra_calculada=defesa_extra_calculada,
+                        )
 
         # ==========================================
         # STEP 6: HIDRATAÇÃO DOS EVENTOS DO CENÁRIO
         # ==========================================
         eventos_db = db_session.query(EventoDB).filter(
             EventoDB.mapa_id == target_mapa_id).all()
-        
+
         snapshot_entidades = save_db.dados_sessao.get(
             "entidades", {}) if has_save else {}
 
@@ -227,68 +218,22 @@ class GameEngineLoader:
             parametros_base = evt.parametros if evt.parametros else {}
             parametros_base["id_virtual_evento"] = id_virtual_do_banco
 
-            evt_salvo = snapshot_entidades.get(str(id_virtual_do_banco), {})
+            # Dados persistidos no SaveDB para esta entidade (pode ser None)
+            dados_salvos_do_evento = snapshot_entidades.get(str(id_virtual_do_banco)) or None
 
-            if evt_salvo:
-                components_data = evt_salvo.get("components", evt_salvo)
-                pos_d = components_data.get("PositionComponent", {
-                                    "x": evt.pos_x, "y": evt.pos_y})
-                interact_d = components_data.get(
-                    "InteractableComponent", {"is_active": True})
-                stats_d = components_data.get("StatsComponent", {})
-
-                esper.add_component(entidade_ecs_id, PositionComponent(
-                    x=pos_d["x"], y=pos_d["y"]))
-                esper.add_component(
-                    entidade_ecs_id, RenderComponent(emoji=evt.emoji))
-                esper.add_component(entidade_ecs_id, CollisionComponent(solido=True))
-                esper.add_component(entidade_ecs_id, InteractableComponent(
-                    event_type=evt.event_type,
-                    parametros=parametros_base,
-                ))
-
-                if stats_d:
-                    esper.add_component(entidade_ecs_id, StatsComponent(
-                        nome=stats_d.get("nome", evt.nome),
-                        classe='',
-                        hp=stats_d.get("hp", 10),
-                        max_hp=stats_d.get("max_hp", 10),
-                        mp=stats_d.get("mp", 0),
-                        max_mp=stats_d.get("max_mp", 0),
-                        ataque_base=stats_d.get("ataque_base", 2),
-                        defesa_base=stats_d.get("defesa_base", 2)
-                    ))
-            else:
-                esper.add_component(
-                    entidade_ecs_id, PositionComponent(x=evt.pos_x, y=evt.pos_y))
-                esper.add_component(
-                    entidade_ecs_id, RenderComponent(emoji=evt.emoji))
-                esper.add_component(entidade_ecs_id, CollisionComponent(solido=True))
-                esper.add_component(entidade_ecs_id, InteractableComponent(
-                    event_type=evt.event_type,
-                    parametros=parametros_base
-                ))
-
-                if evt.event_type == "monstro":
-                    val_dano = parametros_base.get("ação", {}).get(
-                        "mudar_hp", {}).get("valor", 2)
-                    esper.add_component(entidade_ecs_id, StatsComponent(
-                        nome=evt.nome, classe='', hp=10, max_hp=10, mp=0, max_mp=0, ataque_base=val_dano, defesa_base=2
-                    ))
-
-            if parametros_base.get('paginas', []):
-                pass
-            if "movimento" in parametros_base.get('paginas', [])[0]: 
-                dados_de_movimento = parametros_base.get('paginas', [])[0].get('movimento', {})
-                esper.add_component(entidade_ecs_id, MovimentComponent(
-                    movement_type=dados_de_movimento.get(
-                        "tipo", "aleatorio"),
-                    roteiro=dados_de_movimento.get(
-                        "roteiro", []),
-                    ciclos=dados_de_movimento.get(
-                        "ciclos", 0),
-                    action_on_touch=parametros_base.get("ação", {})
-                ))
+            # Delega toda a construção de componentes à EntityFactory
+            EntityFactory.criar_entidade_evento(
+                entity_id=entidade_ecs_id,
+                event_type=evt.event_type,
+                nome=evt.nome,
+                emoji=evt.emoji,
+                pos_x=evt.pos_x,
+                pos_y=evt.pos_y,
+                parametros_base=parametros_base,
+                dados_salvos=dados_salvos_do_evento,
+                game_state=game_state,
+                world=esper,
+            )
 
         return True, self.matriz_terrenos, self.camada_objetos, self.mapa_id
 
