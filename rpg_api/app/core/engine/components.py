@@ -60,9 +60,13 @@ class InventoryComponent:
 @dataclass
 class EquipmentComponent:
     """Armazena o que está atualmente equipado no herói influenciando seus atributos."""
-    arma: Optional[Dict[str, Any]
-                   # Ex: {"nome": "Espada de Ferro", "bonus_atk": 10}
-                   ] = None
-    # Ex: {"nome": "Cota de Malha", "bonus_def": 5}
+    arma: Optional[Dict[str, Any]] = None
     armadura: Optional[Dict[str, Any]] = None
     escudo: Optional[Dict[str, Any]] = None
+
+@dataclass
+class NetworkPlayerComponent:
+    """Identificador para jogadores que estão conectados via rede (multiplayer)."""
+    username: str
+    connection_id: str
+    latency_ms: int = 0

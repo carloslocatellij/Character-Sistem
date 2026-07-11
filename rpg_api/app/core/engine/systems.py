@@ -4,7 +4,8 @@ import random
 from rich.text import Text
 from app.core.engine.components import (
     PositionComponent, InteractableComponent, RenderComponent,
-    StatsComponent, MovimentComponent, InventoryComponent
+    StatsComponent, MovimentComponent, InventoryComponent,
+    CollisionComponent, NetworkPlayerComponent
 )
 from app.core.entities.emojis import CatalogoTiles
 bloqueantes = CatalogoTiles.TERRENOS_BLOQUEANTES
@@ -14,8 +15,12 @@ from typing import Literal
 
 Direcoes: Literal["cima", "baixo", "esquerda", "direita", None]
 
-class RenderSystem:
+class RenderSystem(esper.Processor):
     """Sistema responsável por compilar as camadas de Terreno, Objetos e Esper ECS em um único frame Text."""
+    
+    def __init__(self, game_state=None):
+        super().__init__()
+        self.game_state = game_state
 
     def renderizar_frame(self, mapa_matriz: list[list[str]], dict_objetos: dict) -> Text:
         if not mapa_matriz:
@@ -24,9 +29,11 @@ class RenderSystem:
         texto_final = Text(no_wrap=True)
         altura, largura = len(mapa_matriz), len(mapa_matriz[0])
 
+        world = self.world if (hasattr(self, "world") and self.world is not None) else esper
+
         # 🧠 Query eficiente no Esper: Coleta a posição de todas as entidades com aparência
         posicoes_entidades = {}
-        for ent_id, (pos, render) in esper.get_components(PositionComponent, RenderComponent):
+        for ent_id, (pos, render) in world.get_components(PositionComponent, RenderComponent):
             posicoes_entidades[(pos.y, pos.x)] = render.emoji
 
         # Montagem do Buffer Visual aplicando o Z-Index de renderização
@@ -50,12 +57,27 @@ class RenderSystem:
             texto_final.append("\n")
 
         return texto_final
-    
 
-class MovementSystem:
+    def process(self, *args, **kwargs):
+        from app.core.engine.event_evaluator import obter_pagina_ativa
+        for ent_id, interact_comp in esper.get_component(InteractableComponent):
+            if interact_comp.parametros and "paginas" in interact_comp.parametros:
+                pagina_ativa = obter_pagina_ativa(
+                    interact_comp.parametros["paginas"], ent_id, self.game_state, esper)
+
+            if pagina_ativa and pagina_ativa.get("configuracao_visual"):
+                emoji_evt = pagina_ativa.get("configuracao_visual", {}).get("emoji", "❓")
+                emoji_comp = RenderComponent(
+                    emoji=emoji_evt
+                )
+                esper.add_component(ent_id, emoji_comp)
+
+
+class MovementSystem(esper.Processor):
     """Sistema lógico encarregado de validar a física e colisões de movimentos."""
 
-    def __init__(self, map_loader):
+    def __init__(self, map_loader=None):
+        super().__init__()
         # Guardamos a referência do loader para inspecionar os terrenos e objetos estáveis
         self.map_loader = map_loader
         # Lista de emojis que representam barreiras intransponíveis no jogo
@@ -66,9 +88,13 @@ class MovementSystem:
         Calcula a nova posição de uma entidade e aplica se for válida.
         Retorna True se moveu, ou False se colidiu.
         """
-        # 1. Recupera o componente de posição da entidade no Esper
-        pos = esper.component_for_entity(entidade_id, PositionComponent)
+        world = self.world if (hasattr(self, "world") and self.world is not None) else esper
 
+        # 1. Recupera o componente de posição da entidade no Esper
+        if not world.entity_exists(entidade_id) or not world.has_component(entidade_id, PositionComponent):
+            return False
+
+        pos = world.component_for_entity(entidade_id, PositionComponent)
         proximo_x, proximo_y = pos.x, pos.y
 
         if direcao == "cima":           proximo_y -= 1
@@ -77,41 +103,81 @@ class MovementSystem:
         elif direcao == "direita":      proximo_x += 1
 
         # 2. Validação contra os limites lógicos do mapa
-        if not (0 <= proximo_y < self.map_loader.altura and 0 <= proximo_x < self.map_loader.largura):
-            return False
+        if self.map_loader:
+            if not (0 <= proximo_y < self.map_loader.altura and 0 <= proximo_x < self.map_loader.largura):
+                return False
 
-        # 3. Validação contra a Camada de Terrenos (Paredes lidas do BD)
-        tile_alvo = self.map_loader.matriz_terrenos[proximo_y][proximo_x]
-        if tile_alvo in self.tiles_bloqueantes:
-            return False
+            # 3. Validação contra a Camada de Terrenos (Paredes lidas do BD)
+            tile_alvo = self.map_loader.matriz_terrenos[proximo_y][proximo_x]
+            if tile_alvo in self.tiles_bloqueantes:
+                return False
 
-        # 4. Validação contra a Camada de Objetos Estáticos
-        if (proximo_y, proximo_x) in self.map_loader.camada_objetos:
-            return False
+            # 4. Validação contra a Camada de Objetos Estáticos
+            if (proximo_y, proximo_x) in self.map_loader.camada_objetos:
+                return False
 
-        # 5. Validação contra Outras Entidades do Esper (Evita sobreposição com NPCs/Monstros)
-        for outra_ent, outra_pos in esper.get_component(PositionComponent):
+        # 5. Validação contra Outras Entidades do Esper (Evita sobreposição com NPCs/Monstros/Jogadores de rede)
+        for outra_ent, outra_pos in world.get_component(PositionComponent):
             if outra_ent != entidade_id:
-                if outra_pos.x == proximo_x and outra_pos.y == proximo_y:
+                is_solid = True
+                if world.has_component(outra_ent, CollisionComponent):
+                    is_solid = world.component_for_entity(outra_ent, CollisionComponent).solido
+                if is_solid and outra_pos.x == proximo_x and outra_pos.y == proximo_y:
                     return False
 
         # Se passou em todas as regras, o movimento é consolidado na memória
         pos.x = proximo_x
         pos.y = proximo_y
+        pos.direcao_olhar = direcao
         return True
-    
-    
+
+    def process(self, *args, **kwargs):
+        pass
 
 
-
-class AISystem:
-    def __init__(self, movement_system):
-        self.movement_system = movement_system
+class AISystem(esper.Processor):
+    def __init__(self, game_state=None):
+        super().__init__()
         self.roteiro = 0
-        
-    def processar_movimento_autonomo(self, tick_de_movimento):
+        self.game_state = game_state
+
+    def process(self, tick, *args, **kwargs):
         """Processa movimento autônomo de monstros/NPCs a cada tick."""
+        from app.core.engine.event_evaluator import obter_pagina_ativa
+        #logging.info(f"Processando AISystem no tick {tick}")
+        
+        for ent_id, interact_comp  in esper.get_component(InteractableComponent):
+            if interact_comp.parametros and "paginas" in interact_comp.parametros:
+                pagina_ativa = obter_pagina_ativa(
+                    interact_comp.parametros["paginas"], ent_id, self.game_state, esper)
+        
+            if pagina_ativa and pagina_ativa.get("movimento"):
+                roteiro = pagina_ativa.get("movimento", {}).get("roteiro", [])
+                roteiro_idx = pagina_ativa.get("movimento", {}).get("roteiro_idx", 0)
+                movement_type = pagina_ativa.get("movimento", {}).get("tipo", "aleatorio")
+                mov_comp = MovimentComponent(
+                    movement_type=movement_type,
+                    roteiro=roteiro,
+                    ciclos=pagina_ativa.get("movimento", {}).get("ciclos", 1),
+                    action_on_touch=pagina_ativa.get("movimento", {}).get("action_on_touch", None),
+                    roteiro_idx=roteiro_idx
+                    )
+                esper.add_component(ent_id, mov_comp)
+                
             
+        self.processar_movimento_autonomo(tick)
+
+    # Compatibilidade legado para sistemas que chamam update() em vez de process()
+    def update(self, tick):
+        """Compatibilidade legado."""
+        self.processar_movimento_autonomo(tick)
+
+    def processar_movimento_autonomo(self, tick_de_movimento):
+        world = esper # or self.world if (hasattr(self, "world") and self.world is not None)
+        movement_sys = world.get_processor(MovementSystem)
+        if not movement_sys:
+            return
+        
         deltas = {
             "cima": (0, -1),
             "baixo": (0, 1),
@@ -119,26 +185,22 @@ class AISystem:
             "direita": (1, 0)
         }
         opcoes: list[str] = ["cima", "baixo", "esquerda", "direita", None]
-        
-        for ent_id, (pos_comp, mov_comp) in esper.get_components(PositionComponent, MovimentComponent):
-            #logging.info(f"roteiro: {mov_comp.roteiro}")
+
+        for ent_id, (pos_comp, mov_comp) in world.get_components(PositionComponent, MovimentComponent):
+            if mov_comp.movement_type == 'parado':
+                continue
             
-            # Processa monstros com movimento aleatorio
+            #logging.info(f"Processando mov:: ent_{ent_id} no tick {tick_de_movimento}: tipo={mov_comp.movement_type}, roteiro={mov_comp.roteiro}, idx={mov_comp.roteiro_idx}")
             if mov_comp.movement_type == "aleatorio":
-                # Escolhe uma direção aleatória (4 direções + ficar parado)
                 direcao = random.choice(opcoes)
-
                 if not direcao:
-                    continue  # 20% de chance de ficar parado
+                    continue
 
-                # Tenta mover usando a mesma lógica de colisão do jogador
-                moveu = self.movement_system.mover_entidade(ent_id, direcao)
+                moveu = movement_sys.mover_entidade(ent_id, direcao)
 
-                # Se colidiu com algo, verifica se foi o herói
                 if not moveu:
-                    pos_heroi = esper.component_for_entity(1, PositionComponent)
+                    pos_heroi = world.component_for_entity(1, PositionComponent) if world.entity_exists(1) and world.has_component(1, PositionComponent) else None
                     if pos_heroi:
-                        # Calcula a posição alvo que tentou alcançar
                         dx, dy = deltas.get(direcao, (0, 0))
                         alvo_x = pos_comp.x + dx
                         alvo_y = pos_comp.y + dy
@@ -147,8 +209,8 @@ class AISystem:
                                 "parametros": mov_comp.action_on_touch})
 
             # Perseguir heroi
-            if mov_comp.movement_type == "seguir_heroi":
-                pos_heroi = esper.component_for_entity(1, PositionComponent)
+            elif mov_comp.movement_type == "seguir_heroi":
+                pos_heroi = world.component_for_entity(1, PositionComponent) if world.entity_exists(1) and world.has_component(1, PositionComponent) else None
                 if pos_heroi:
                     dx = pos_heroi.x - pos_comp.x
                     dy = pos_heroi.y - pos_comp.y
@@ -159,11 +221,11 @@ class AISystem:
                         direcao = "baixo" if dy > 0 else "cima"
 
                     if direcao:
-                        self.movement_system.mover_entidade(ent_id, direcao)
+                        movement_sys.mover_entidade(ent_id, direcao)
 
             # Fugir do heroi
-            if mov_comp.movement_type == "fugir_heroi":
-                pos_heroi = esper.component_for_entity(1, PositionComponent)
+            elif mov_comp.movement_type == "fugir_heroi":
+                pos_heroi = world.component_for_entity(1, PositionComponent) if world.entity_exists(1) and world.has_component(1, PositionComponent) else None
                 if pos_heroi:
                     dx = pos_heroi.x - pos_comp.x
                     dy = pos_heroi.y - pos_comp.y
@@ -174,50 +236,27 @@ class AISystem:
                         direcao = "cima" if dy > 0 else "baixo"
 
                     if direcao:
-                        self.movement_system.mover_entidade(ent_id, direcao)
+                        movement_sys.mover_entidade(ent_id, direcao)
 
-
-            if mov_comp.movement_type == "roteiro":
-                pos_heroi = esper.component_for_entity(1, PositionComponent)
-                
+            elif mov_comp.movement_type == "roteiro":
                 direcao = None
                 if mov_comp.roteiro:
                     direcao = mov_comp.roteiro[mov_comp.roteiro_idx]
-                    
                     if isinstance(direcao, str):
                         direcao = direcao.strip().lower()
-                
-                if direcao == 'cima':
+
+                if direcao in ('cima', 'baixo', 'direita', 'esquerda'):
                     logging.info(f"Roteiro do NPC {tick_de_movimento}: {direcao}")
-                    moveu = self.movement_system.mover_entidade(ent_id, 'cima')
-                elif direcao == 'baixo':
-                    logging.info(f"Roteiro do NPC {tick_de_movimento}: {direcao}")
-                    moveu = self.movement_system.mover_entidade(ent_id, 'baixo')
-                elif direcao == 'direita':
-                    logging.info(f"Roteiro do NPC {tick_de_movimento}: {direcao}")
-                    moveu = self.movement_system.mover_entidade(ent_id, 'direita')
-                else:
-                    logging.info(f"Roteiro do NPC {tick_de_movimento}: {direcao}")
-                    moveu = self.movement_system.mover_entidade(ent_id, 'esquerda')
+                    moveu = movement_sys.mover_entidade(ent_id, direcao)
+                    if not moveu:
+                        logging.info(f"Erro ao mover: {tick_de_movimento}: {direcao}")
 
                 if mov_comp.roteiro:
                     mov_comp.roteiro_idx = (mov_comp.roteiro_idx + 1) % len(mov_comp.roteiro)
-                
-                if not moveu:
-                    logging.info(
-                        f"Erro ao mover: {tick_de_movimento}: {direcao}")
-                
-                            
-    def update(self, tick):
-        """Processa movimento autônomo de monstros/NPCs a cada tick."""
-        
-        self.processar_movimento_autonomo(tick)
-                            
-                            
-                            
-class InventarySystem():
-    """ Gerencia estoques de baús e o inventário do personagem. 
-    """
+
+
+class InventarySystem(esper.Processor):
+    """Gerencia estoques de baús e o inventário do personagem."""
 
     def _get_inventory_mapping(self, inv):
         itens = getattr(inv, "itens", None)
@@ -290,19 +329,27 @@ class InventarySystem():
             return True
         return False
 
+    def process(self, *args, **kwargs):
+        pass
 
-class InteractionSystem:
-    
+
+class InteractionSystem(esper.Processor):
     def __init__(self, event_bus=None):
+        super().__init__()
         self.event_bus = event_bus
 
     def interagir(self, entidade_id: int, direcao_olhar: str) -> bool:
         """
-        Verifica se há um evento à frente do jogador (ID 1).
+        Verifica se há um evento à frente do jogador.
         Se houver, publica as informações e parâmetros do evento para o esper,
         delegando a responsabilidade de execução para o EventSystem.
         """
-        pos_origem = esper.component_for_entity(entidade_id, PositionComponent)
+        world = self.world if (hasattr(self, "world") and self.world is not None) else esper
+
+        if not world.entity_exists(entidade_id) or not world.has_component(entidade_id, PositionComponent):
+            return False
+
+        pos_origem = world.component_for_entity(entidade_id, PositionComponent)
         alvo_x, alvo_y = pos_origem.x, pos_origem.y
 
         if direcao_olhar == "cima":
@@ -314,7 +361,7 @@ class InteractionSystem:
         elif direcao_olhar == "direita":
             alvo_x += 1
 
-        for entidade_alvo, (pos_alvo, interact) in esper.get_components(PositionComponent, InteractableComponent):
+        for entidade_alvo, (pos_alvo, interact) in world.get_components(PositionComponent, InteractableComponent):
             if pos_alvo.x == alvo_x and pos_alvo.y == alvo_y:
                 payload = {
                     "entidade_id": entidade_alvo,
@@ -326,170 +373,103 @@ class InteractionSystem:
                 esper.dispatch_event("INTERACTION_SUCCESS", payload)
                 return True
         return False
-    
-    
-class EventSystem:
+
+    def process(self, *args, **kwargs):
+        pass
+
+
+class EventSystem(esper.Processor):
     """Sistema processador de eventos universais."""
-    
+
     def __init__(self, inv_sys: InventarySystem, game_state, log_callback, event_bus=None):
+        super().__init__()
         self.inv_sys = inv_sys
         self.game_state = game_state
         self.log_callback = log_callback
         self.event_bus = event_bus
-        
+
         self.pilha_de_comandos = []      # Armazena os blocos de comandos lineares
         self.aguardando_escolha = False
         self.entidade_atual_id = None
-        
-        
 
+    def process(self, *args, **kwargs):
+        pass
 
     def processar_evento_interacao(self, payload: dict):
-        """Callback disparado pelo esper event_handler  assim que o jogador interage com um bloco."""
-
+        """Callback disparado pelo esper event_handler assim que o jogador interage com um bloco."""
         logging.info(f" foi por processar_evento_interacao")
         try:
             if self.aguardando_escolha:
                 return
-            
+
             params = payload.get("parametros", {})
             self.parms = params
             self.entidade_atual_id = payload.get("entidade_id")
             self.aguardando_escolha = False
-            
+
             if "paginas" not in params:
                 self._processar_evento_antigo(payload)
                 return
-            
+
             entidade_id = payload.get("entidade_id")
             pagina_ativa = self._filtrar_pagina_valida(params.get("paginas", []), entidade_id)
             if not pagina_ativa:
                 return
-                
-            gatilho = pagina_ativa.get("gatilho", "acao_jogador") #não usado?
-            
+
             comandos = pagina_ativa.get("comandos", [])
-            
             self._processar_comandos_sequenciais(comandos, entidade_id)
         except Exception as e:
             logging.info(f"Erro em processar_evento_interacao: {e}")
 
     def _filtrar_pagina_valida(self, paginas: list, entidade_id: int) -> dict:
         logging.info(f"Filtrando paginas")
-        try:
-            paginas_ordenadas = sorted(paginas, key=lambda p: p.get("id_pagina", 0), reverse=True)
-            for pagina in paginas_ordenadas:
-                condicoes = pagina.get("condicoes", {})
-                if self._avaliar_condicoes(condicoes, entidade_id):
-                    logging.info(f"temos uma pagina")
-                    return pagina
-            return None
-        except Exception as e:
-            logging.info(f"Erro em _filtrar_pagina_valida: {e}")
-            return None
+        from app.core.engine.event_evaluator import obter_pagina_ativa
+        world = self.world if (hasattr(self, "world") and self.world is not None) else esper
+        return obter_pagina_ativa(paginas, entidade_id, self.game_state, world)
 
     def _avaliar_condicoes(self, condicoes: dict, entidade_id: int) -> bool:
-        try:
-            item_req = condicoes.get("item_requerido")
-            if item_req:
-                logging.info(f"requer o item {item_req}")
-                inv = esper.component_for_entity(1, InventoryComponent)
-                if not inv or not self.inv_sys._inventory_has_item(inv, item_req):
-                    logging.info(f"mas não tem o item")
-                    return False
-                    
-            switches = condicoes.get("switches", [])
-            
-            for sw in switches:
-                if self.game_state.get_switch(sw["nome"]) != sw.get("valor", True):
-                    logging.info(f"A switch {sw} não está ligada")
-                    return False
-                    
-            variaveis = condicoes.get("variaveis", [])
-            if len(variaveis) > 0:
-                for var in variaveis:
-                    atual = self.game_state.get_variable(var["nome"], None)
-                    if not atual:
-                        return False
-                    op = var.get("operador", "igual")
-                    
-                    val_esperado = var.get("valor", 0)
-                    
-                    if str(atual).isdigit():
-                        atual = int(atual)
-                        if op == "maior_ou_igual" and not (atual >= val_esperado): return False
-                        if op == "menor_ou_igual" and not (atual <= val_esperado): return False
-                        if op == "igual" and not (atual == val_esperado): return False
-                        if op == "diferente" and not (atual != val_esperado): return False
-
-                    else:
-                        if op == "igual" and not (atual == val_esperado): return False
-                        if op == "diferente" and not (atual != val_esperado):  return False
-                        
-                                
-                    logging.info(
-                        f"Verificando variável: {var.get("nome", '[Ops: Nada com este nome]')} com o valor: {val_esperado}")
-                    
-                logging.info(f"Verificou variaveis e o valor é {atual}")
-
-
-            self_sw = condicoes.get("self_switch")
-            if self_sw:
-                logging.info(f"requer que a auto condição {self_sw}_Ligada seja verdadeira")
-                if not self.game_state.get_switch(f"evento_{entidade_id}_{self_sw}"):
-                    logging.info(f"mas a condição [{self_sw}]_Ligada é falsa")
-                    return False
-                
-            return True
-        except Exception as e:
-            logging.info(f"Erro em _avaliar_condicoes: {e}")
-            return False
-
+        from app.core.engine.event_evaluator import avaliar_condicoes
+        world = self.world if (hasattr(self, "world") and self.world is not None) else esper
+        return avaliar_condicoes(condicoes, entidade_id, self.game_state, world)
 
     def _processar_comandos_sequenciais(self, comandos: list, entidade_id: int):
-        
         try:
             self.pilha_de_comandos = [list(comandos)]
             self.aguardando_escolha = False
             self.ramos_disponiveis = {}
-            
             self.executar_proximos_comandos()
-            
         except Exception as e:
-            logging.info(
-                f"Erro em _processar_comandos_sequenciais no comando '{comandos}':= {e}")
-        
+            logging.info(f"Erro em _processar_comandos_sequenciais no comando '{comandos}':= {e}")
+
     def executar_proximos_comandos(self):
         """Loop executor não-bloqueante que processa a pilha até o fim ou até uma interrupção."""
         while self.pilha_de_comandos:
             bloco_atual = self.pilha_de_comandos[-1]
-
-            
             if not bloco_atual:
                 self.pilha_de_comandos.pop()
                 continue
 
-            comando = bloco_atual.pop(0)           
+            comando = bloco_atual.pop(0)
             self._processar_comando_individual(comando)
 
-            # Se o comando executado acima ativou um estado de pausa por pergunta, cede o controle para a TUI
+            # Se o comando executado ativou um estado de pausa por pergunta, cede o controle para a TUI
             if self.aguardando_escolha:
-                return            
-                
-                
+                return
+
     def _processar_comando_individual(self, comando):
         """Interpretador genérico e atômico de comandos estruturados do JSON."""
+        world = self.world if (hasattr(self, "world") and self.world is not None) else esper
         tipo = comando.get("tipo")
-        dados = comando.get("dados", {})        
+        dados = comando.get("dados", {})
         entidade_id = self.entidade_atual_id
         emoji = self.parms.get('paginas')[0].get('configuracao_visual', {}).get('emoji', '💬') if self.parms.get('paginas') else '💬'
-        
+
         logging.info(f"comando: {comando}")
 
         if tipo == "mensagem":
             texto = dados.get("texto", "")
             self.log_callback(f"[cyan]{emoji} {texto}[/]")
-            
+
         elif tipo == "notificacao":
             texto = dados.get("texto", "")
             try:
@@ -501,7 +481,7 @@ class EventSystem:
             item = dados.get("item")
             operacao = dados.get("operacao")
             qtd = dados.get("quantidade", 1)
-            inv = esper.component_for_entity(1, InventoryComponent)
+            inv = world.component_for_entity(1, InventoryComponent) if world.entity_exists(1) and world.has_component(1, InventoryComponent) else None
             if inv:
                 if operacao == "add":
                     self.inv_sys._inventory_add_item(inv, item, qtd)
@@ -509,12 +489,12 @@ class EventSystem:
                 elif operacao == "sub":
                     self.inv_sys._inventory_remove_item(inv, item, qtd)
                     self.log_callback(f"[bold red]❌ Perdeu: [yellow]{item} x{qtd}[/]![/]")
-                    
+
         elif tipo == "mudar_status_heroi":
             parametro = dados.get("parametro")
             operacao = dados.get("operacao")
             valor = dados.get("valor", 0)
-            stats = esper.component_for_entity(1, StatsComponent)
+            stats = world.component_for_entity(1, StatsComponent) if world.entity_exists(1) and world.has_component(1, StatsComponent) else None
             if stats and hasattr(stats, parametro):
                 atual = getattr(stats, parametro, 0)
                 if operacao == "add":
@@ -522,60 +502,55 @@ class EventSystem:
                 elif operacao == "sub":
                     setattr(stats, parametro, max(0, atual - valor))
                 self.log_callback(f"[white]⚡ {parametro.upper()} modificado ({operacao} {valor}).[/]")
-                
+
         elif tipo == "mudar_render":
             novo_emoji = dados.get("novo_emoji")
             alvo = dados.get("alvo", "proprio")
             id_alvo = entidade_id if alvo == "proprio" else 1
             try:
-                render = esper.component_for_entity(id_alvo, RenderComponent)
-                if render and novo_emoji:
-                    render.emoji = novo_emoji
+                if world.entity_exists(id_alvo) and world.has_component(id_alvo, RenderComponent):
+                    render = world.component_for_entity(id_alvo, RenderComponent)
+                    if render and novo_emoji:
+                        render.emoji = novo_emoji
             except KeyError:
                 pass
-                
+
         elif tipo == "controle_switch":
             nome = dados.get("nome")
             valor = dados.get("valor")
             self.game_state.set_switch(nome, valor)
-            
+
         elif tipo == "controle_self_switch":
             letra = dados.get("letra")
             valor = dados.get("valor")
-            self.game_state.set_switch(f"evento_{entidade_id}_{letra}", valor)
-            
+            from app.core.engine.event_evaluator import obter_id_referencia_evento
+            id_ref = obter_id_referencia_evento(entidade_id, world)
+            self.game_state.set_switch(f"evento_{id_ref}_{letra}", valor)
+
         elif tipo == "controle_variavel":
             nome = dados.get("nome")
             valor = dados.get("valor")
             operador = dados.get("operador", "=")
             self.game_state.modificar_variavel(nome, operador, valor)
 
-
         elif tipo == "bifurcacao_condicional":
             pergunta = dados.get("pergunta", "Escolha uma opção:")
             opcoes = dados.get("opcoes", [])
             ramos = dados.get("ramos", {})
 
-            # Renderiza a pergunta e as opções listadas para a TUI capturar
             self.log_callback(f"[bold yellow]❓ {pergunta}[/]")
             self.ramos_disponiveis = {}
 
             for idx, opcao in enumerate(opcoes, start=1):
-                
-                id_op = opcao.replace(' ', '_').replace(
-                    ',', '-').replace('.', '')
+                id_op = opcao.replace(' ', '_').replace(',', '-').replace('.', '').replace('!','_')
                 id_op = unicodedata.normalize("NFD", id_op)
                 id_op = id_op.encode("ASCII", "ignore").decode("ASCII")
-                
-                # Indexa tanto por número ("1") quanto por texto ("sim") para compatibilidade com chat ou botões
-                self.ramos_disponiveis[str(idx)] = ramos.get(id_op, [])
-                self.ramos_disponiveis[id_op.strip(
-                ).lower()] = ramos.get(id_op, [])
 
-            # 🛑 PAUSA DE BIFURCAÇÃO: Interrompe a execução direta e aguarda a entrada externa
+                self.ramos_disponiveis[str(idx)] = ramos.get(id_op, [])
+                self.ramos_disponiveis[id_op.strip().lower()] = ramos.get(id_op, [])
+
             self.aguardando_escolha = True
 
-            # 🛰️ Opcional: Se for usar a ChoiceBox reativa no Textual, publishe o sinal aqui:
             try:
                 esper.dispatch_event("disparar_bifurcacao", {
                     "pergunta": pergunta,
@@ -583,53 +558,107 @@ class EventSystem:
                 })
             except Exception as e:
                 self.log_callback(f"[red] ERRO_: {e}[/]")
-                
             return
 
-        
         elif tipo == "teleporte":
             try:
                 esper.dispatch_event("mudar_mapa", dados)
             except Exception as e:
                 logging.info(f"Erro ao dispatchar teleport: {e}")
-        
-        
+
         elif tipo == "efeito_sonoro":
             arquivo = dados.get("arquivo")
             self.log_callback(f"[dim]🎵 Som tocando: {arquivo}[/]")
-            
-            
+
         elif tipo == "mover":
             self.log_callback(f"[dim]🏃 Movimento de evento acionado.[/]")
 
-
-
-
     def avancar_ramo_evento(self, opcao_escolhida: str):
-        """Injetado externamente pela GamePlayScreen através do #txt-chat ou ChoiceBox."""
         entrada_limpa = str(opcao_escolhida).strip().lower()
-
-        entrada_limpa = entrada_limpa.replace(
-            ' ', '_').replace(',', '-').replace('.', '')
+        entrada_limpa = entrada_limpa.replace(' ', '_').replace(',', '-').replace('.', '').replace('!','_')
         entrada_limpa = unicodedata.normalize("NFD", entrada_limpa)
         entrada_limpa = entrada_limpa.encode("ASCII", "ignore").decode("ASCII")
-        
+
         if entrada_limpa in self.ramos_disponiveis:
             comandos_do_ramo = self.ramos_disponiveis[entrada_limpa]
-
-            # Limpa o travamento de estado
             self.aguardando_escolha = False
             self.ramos_disponiveis = {}
 
-            # Empilha o sub-bloco de comandos correspondente no topo da pilha
-            if comandos_do_ramo:    
+            if comandos_do_ramo:
                 self.pilha_de_comandos.append(list(comandos_do_ramo))
 
-            # Retoma o loop sequencial da máquina assíncrona
             self.executar_proximos_comandos()
         else:
-            self.log_callback(
-                "[bold red]⚠️ Escolha inválida. Selecione uma opção válida.[/]")
+            self.log_callback("[bold red]⚠️ Escolha inválida. Selecione uma opção válida.[/]")
 
+    def _processar_evento_antigo(self, payload):
+        # Placeholder legada para eventos antigos que não usam "paginas"
+        pass
+
+
+class NetworkSystem(esper.Processor):
+    """
+    Sistema responsável por sincronizar o estado de outros jogadores conectados
+    através da rede (multiplayer).
+    """
+    def __init__(self):
+        super().__init__()
+        self.jogadores_conectados = {} # { connection_id: entity_id }
+
+    def process(self, *args, **kwargs):
+        # Lógica periódica de rede (ex: interpolação/limpeza de fantasmas se necessário)
+        pass
+
+    def adicionar_jogador(self, connection_id: str, username: str, x: int, y: int, emoji: str = "🧙"):
+        world = self.world if (hasattr(self, "world") and self.world is not None) else esper
+
+        # Se já existe, apenas atualiza e retorna o ID da entidade existente
+        if connection_id in self.jogadores_conectados:
+            ent_id = self.jogadores_conectados[connection_id]
+            if world.entity_exists(ent_id):
+                pos = world.component_for_entity(ent_id, PositionComponent)
+                pos.x = x
+                pos.y = y
+                return ent_id
+
+        # Cria nova entidade para o jogador remoto
+        ent_id = world.create_entity()
+        world.add_component(ent_id, PositionComponent(x=x, y=y))
+        world.add_component(ent_id, RenderComponent(emoji=emoji))
+        world.add_component(ent_id, CollisionComponent(solido=True))
+        world.add_component(ent_id, NetworkPlayerComponent(username=username, connection_id=connection_id))
+        world.add_component(ent_id, StatsComponent(
+            nome=username,
+            classe="mago",
+            hp=100,
+            max_hp=100,
+            mp=50,
+            max_mp=50,
+            ataque_base=10,
+            defesa_base=5
+        ))
+
+        self.jogadores_conectados[connection_id] = ent_id
+        logging.info(f"Jogador remoto conectado: {username} ({connection_id}) na posição ({x}, {y})")
+        return ent_id
+
+    def remover_jogador(self, connection_id: str):
+        world = self.world if (hasattr(self, "world") and self.world is not None) else esper
+        if connection_id in self.jogadores_conectados:
+            ent_id = self.jogadores_conectados[connection_id]
+            if world.entity_exists(ent_id):
+                world.delete_entity(ent_id)
+            del self.jogadores_conectados[connection_id]
+            logging.info(f"Jogador remoto desconectado: {connection_id}")
+
+    def atualizar_jogador(self, connection_id: str, x: int, y: int, direcao: str = "baixo"):
+        world = self.world if (hasattr(self, "world") and self.world is not None) else esper
+        if connection_id in self.jogadores_conectados:
+            ent_id = self.jogadores_conectados[connection_id]
+            if world.entity_exists(ent_id) and world.has_component(ent_id, PositionComponent):
+                pos = world.component_for_entity(ent_id, PositionComponent)
+                pos.x = x
+                pos.y = y
+                pos.direcao_olhar = direcao
 
 esper.clear_dead_entities()

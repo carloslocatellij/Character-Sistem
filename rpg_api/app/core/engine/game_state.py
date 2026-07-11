@@ -1,6 +1,9 @@
 import esper
 from app.models.plataforma_db import SaveDB
-from app.core.engine.components import PositionComponent, StatsComponent, RenderComponent, InteractableComponent
+from app.core.engine.components import (
+    PositionComponent, StatsComponent, RenderComponent, InteractableComponent,
+    NetworkPlayerComponent, CollisionComponent
+)
 
 
 class GameStateManager:
@@ -27,8 +30,6 @@ class GameStateManager:
 
     def set_variable(self, nome: str,  valor: any):
         self.variables[nome] = valor
-        
-        
 
     def modificar_variavel(self, nome: str, operacao: str, valor: any):
         atual = self.get_variable(nome, 0)
@@ -38,7 +39,6 @@ class GameStateManager:
         if isinstance(valor, str) and valor.isdigit():
             valor = int(valor)
         
-            
         if operacao == "=":
             self.variables[nome] = valor
             return self.variables[nome]
@@ -78,6 +78,10 @@ class GameStateManager:
 
         # 🧠 Query em lote no Esper para salvar a posição e dados de cada entidade mutável
         for ent_id, (pos, ren) in esper.get_components(PositionComponent, RenderComponent):
+            # Ignora jogadores remotos da rede (multiplayer) na gravação do save local
+            if esper.has_component(ent_id, NetworkPlayerComponent):
+                continue
+
             # Tenta pegar componentes opcionais (como os status de vida e parâmetros dinâmicos)
             stats = esper.component_for_entity(
                 ent_id, StatsComponent) if esper.has_component(ent_id, StatsComponent) else None
@@ -86,7 +90,7 @@ class GameStateManager:
 
             snapshot_entidades[str(ent_id)] = {
                 "components": {
-                    "PositionComponent": {"x": pos.x, "y": pos.y},
+                    "PositionComponent": {"x": pos.x, "y": pos.y, "direcao_olhar": pos.direcao_olhar},
                     "RenderComponent": {"emoji": ren.emoji},
                     "StatsComponent": {
                         "nome": stats.nome, "classe": stats.classe,

@@ -1,5 +1,7 @@
 # Arquivo de TO DO.
 
+[Pendente] Estrutura Servidor/Cliente - MVP rede local para primeiro teste de jogo 2 jogadores 
+
 [Pendente] Desenvolvimento da API Web (FastAPI).
 
 [Pendente] Criação da camada app/schemas com Pydantic para validação das requisições de entrada.

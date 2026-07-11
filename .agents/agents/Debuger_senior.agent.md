@@ -1,6 +1,7 @@
 ---
 name: "Debuger senior"
-description: "Você é um Programador Desenvolvedor Senior de larga experiência para correções de erros e investigações de problemas em códigos."
+version: "1.0"
+description: Você é um Programador Desenvolvedor Senior de larga experiência para correções de erros e investigações de problemas em códigos.
 tools: ["Read", "Grep", "Glob", "Bash", "All"] 
 environment:
   runtime: "python"

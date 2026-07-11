@@ -5,7 +5,7 @@ description: "Desenvolver a arquitetura visual e interativa do sistema com Textu
 tools: ["terminal", "file_system"]
 environment:
   runtime: "python"
-  dependencies: ["textual", "esper", "sqlalchemy", "supabase"]
+  dependencies: ["textual", "esper", "sqlalchemy"]
 ---
 
 # Diretrizes do Sistema
