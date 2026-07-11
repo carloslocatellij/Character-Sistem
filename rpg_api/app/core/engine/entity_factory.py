@@ -22,7 +22,7 @@ from typing import Any
 
 import esper
 
-from app.core.engine.new_components import (
+from app.core.engine.components import (
     StatsComponent,
     RenderComponent,
     MovimentComponent,

@@ -1,6 +1,6 @@
 import esper
 from app.models.plataforma_db import SaveDB
-from app.core.engine.new_components import (
+from app.core.engine.components import (
     PositionComponent, StatsComponent, RenderComponent, InteractableComponent,
     NetworkPlayerComponent, CollisionComponent
 )

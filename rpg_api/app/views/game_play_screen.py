@@ -7,13 +7,13 @@ from textual import on
 from app.views.components.choice_box import ChoiceBox
 from app.db.database import SessionLocal
 from app.models.mapas_db import MapaDB
-from rpg_api.appgacy.systems import (MovementSystem, InteractionSystem, AISystem,
-                                     RenderSystem, InventarySystem, EventSystem)
-from rpg_api.appgacy.engine_loader import GameEngineLoader
-from rpg_api.appgacy.components import (PositionComponent, StatsComponent,
+from app.core.engine.systems import (MovementSystem, InteractionSystem, AISystem,
+                                     RenderSystem, InventarySystem, EventSystem, NetworkSystem)
+from app.core.engine.engine_loader import GameEngineLoader
+from app.core.engine.components import (PositionComponent, StatsComponent,
                                         InventoryComponent, EquipmentComponent                                       
 )
-from rpg_api.appgacy.game_state import GameStateManager
+from app.core.engine.game_state import GameStateManager
 from app.packages.stylewriter import ChatLog
 import logging
 logging.basicConfig(level=logging.INFO, filename='log.log', filemode='a')
@@ -39,6 +39,7 @@ class GamePlayScreen(Screen):
         self.interacao_sys = None
         self.render_sys = RenderSystem()
         self.invSys = InventarySystem()
+        self.network_sys = NetworkSystem()
         
         self.contador_de_ticks: int = 0
     
@@ -82,18 +83,15 @@ class GamePlayScreen(Screen):
                 sql_coord_ini = select(MapaDB).where(
                     MapaDB.configs.contains('coordenadas_iniciais'))
                 self.mapa_id = db_session.scalars(sql_coord_ini).first().id
-                # Carregamento autêntico sem simulações!
-                # coords_iniciais = db_session.scalars(
-                #     sql_coord_ini).first().configs.get('coordenadas_iniciais', {})
                 
                 self.engine_manager = self.loader.carregar_engine_do_banco(
                     db_session,
-                        usuario_id=1, # ID do jogador ativo
-                        cenario_id=1,                  # ID do jogo/campanha escolhida
-                        slot_numero=1,                  # Slot selecionado
-                        default_mapa_id=self.mapa_id,
-                    #coords_iniciais=coords_iniciais
-                                            )
+                    usuario_id=1, # ID do jogador ativo
+                    cenario_id=1,                  # ID do jogo/campanha escolhida
+                    slot_numero=1,                  # Slot selecionado
+                    default_mapa_id=self.mapa_id,
+                    game_state=self.game_state,
+                )
                 
             self.mapa_matriz = self.loader.matriz_terrenos
             self.mapa_objetos = self.loader.camada_objetos
@@ -102,7 +100,17 @@ class GamePlayScreen(Screen):
             self.movimento_sys = MovementSystem(self.loader)
             self.event_sys = EventSystem(self.invSys, self.game_state, self.log_mensagem)
             self.interacao_sys = InteractionSystem()
-            self.ai_sys = AISystem(self.movimento_sys)
+            self.ai_sys = AISystem(self.game_state)
+            self.network_sys = NetworkSystem()
+            self.render_sys = RenderSystem(self.game_state)
+
+            # Registra os processadores no Esper para o mundo ativo
+            for proc_inst in (self.movimento_sys, self.event_sys, self.interacao_sys, self.ai_sys, self.network_sys, self.render_sys):
+                try:
+                    esper.remove_processor(proc_inst.__class__)
+                except KeyError:
+                    pass
+                esper.add_processor(proc_inst)
             
             esper.remove_handler('mudar_mapa', self.ao_mudar_de_mapa)
             esper.remove_handler('INTERACTION_SUCCESS', self.on_evento_interacao)
@@ -114,7 +122,6 @@ class GamePlayScreen(Screen):
             
             self.game_loop()
             
-            
             self.log_mensagem(
                 '[bold green]>>> Engine Pronta!.[/]')
             self.atualizar_tudo()
@@ -124,12 +131,9 @@ class GamePlayScreen(Screen):
     
     def on_unmount(self) -> None:
         """Limpa as escutas de eventos do Esper ao fechar a tela."""
-        
-        # Remova cada handler que você registrou no on_mount ou no loader
         esper.remove_handler("mudar_mapa", self.ao_mudar_de_mapa)
         esper.remove_handler("INTERACTION_SUCCESS", self.on_evento_interacao)
-        esper.remove_handler('disparar_bifurcacao',
-                             self.disparar_bifurcacao_visual)
+        esper.remove_handler('disparar_bifurcacao', self.disparar_bifurcacao_visual)
             
 
     def ao_mudar_de_mapa(self, dados_teleporte):
@@ -137,38 +141,45 @@ class GamePlayScreen(Screen):
         O ponteiro central de transição. 
         Recebe: {"mapa_id": 3, "pos_x": 15, "pos_y": 15}
         '''
-        
         mapa_alvo = dados_teleporte['mapa_id']
         nova_pos_x = dados_teleporte['pos_x']
         nova_pos_y = dados_teleporte['pos_y']
 
         with SessionLocal() as db_session:
             # 1. Recarrega a Engine do zero apontando para o novo mapa!
-            
             try:
                 self.engine_manager = self.loader.carregar_engine_do_banco(
                     db_session=db_session,
                     usuario_id=1,
                     cenario_id=1,
                     slot_numero=1,
-                    default_mapa_id=mapa_alvo
+                    default_mapa_id=mapa_alvo,
+                    game_state=self.game_state,
                 )
             except Exception as e:
                 self.log_mensagem(f'Erro: {e}')
                 self.log_mensagem(f'engine_manager: {self.engine_manager}') 
 
-        
         # 2. Recarrega dados do mapa
         self.mapa_id = self.loader.mapa_id
         self.mapa_matriz = self.loader.matriz_terrenos
         self.mapa_objetos = self.loader.camada_objetos
 
-        # 2.1 Re-instancia os sistemas para a nova Engine limpa
+        # 2.1 Re-instancia e registra os sistemas para o novo contexto de mundo
         try:
             self.movimento_sys = MovementSystem(self.loader)
             self.interacao_sys = InteractionSystem()
-            self.ai_sys = AISystem(self.movimento_sys)
+            self.ai_sys = AISystem(self.game_state)
+            self.network_sys = NetworkSystem()
+            self.render_sys = RenderSystem(self.game_state)
+            self.event_sys = EventSystem(self.invSys, self.game_state, self.log_mensagem)
             
+            for proc_inst in (self.movimento_sys, self.event_sys, self.interacao_sys, self.ai_sys, self.network_sys, self.render_sys):
+                try:
+                    esper.remove_processor(proc_inst.__class__)
+                except KeyError:
+                    pass
+                esper.add_processor(proc_inst)
         except Exception as e:
             self.log_mensagem(f'Erro ao Re-instaciar sistemas: {e}')
 
@@ -178,7 +189,6 @@ class GamePlayScreen(Screen):
             if pos:
                 pos.x = nova_pos_x
                 pos.y = nova_pos_y
-                
         except Exception as e:
             self.log_mensagem(f'Erro ao posicionar jogador: {e}')
             
@@ -190,13 +200,11 @@ class GamePlayScreen(Screen):
         esper.set_handler('INTERACTION_SUCCESS', self.on_evento_interacao)
         esper.set_handler('disparar_bifurcacao', self.disparar_bifurcacao_visual)
 
-
         self.log_mensagem(
             f'[green]Mapa "[bold]{self.loader.nome_mapa}[/]" carregado com sucesso![/]')
         self.atualizar_tudo()
         
-        esper.set_handler(
-            'ataque_monstro', self.ao_levar_ataque)
+        esper.set_handler('ataque_monstro', self.ao_levar_ataque)
 
         # 4. Atualiza a tela para o jogador ver o novo cenário imediatamente
         self.atualizar_tudo()
@@ -216,7 +224,7 @@ class GamePlayScreen(Screen):
             
 
     # ==========================================
-    # GAME LOOP
+    # GAME LOOP (Processamento via Esper)
     # ==========================================
     def game_loop(self):
         if not hasattr(self, "_game_timer"):
@@ -227,13 +235,11 @@ class GamePlayScreen(Screen):
         self.contador_de_ticks += 1
         
         if self.contador_de_ticks % 30 == 0:    
-            print(self.contador_de_ticks)
-            
             tick_de_movimento = self.contador_de_ticks // 30
             
-            if self.ai_sys:
-                self.ai_sys.update(tick_de_movimento)
-                self.atualizar_tudo()
+            # Utiliza os recursos de processamento nativos do Esper
+            esper.process(tick_de_movimento)
+            self.atualizar_tudo()
 
 
     def action_focus_in_command_bar(self):
@@ -248,7 +254,6 @@ class GamePlayScreen(Screen):
     # ==========================================
     # EVENTOS DA ENGINE
     # ==========================================
-    
     def on_evento_interacao(self, payload: dict):
         '''Processador de Eventos Universal - Pipeline de 4 Etapas.'''
         if not self.is_mounted:  # Evita consultar widgets em telas inativas
@@ -280,7 +285,6 @@ class GamePlayScreen(Screen):
         '''
         pergunta = dados.get('pergunta', 'Pergunta:')
         opcoes = dados.get('opcoes', [])
-        # Remove uma ChoiceBox antiga caso ainda exista por segurança
         self.remover_choice_box_ativa()
 
         # Cria a nova caixa dinâmica
@@ -290,12 +294,10 @@ class GamePlayScreen(Screen):
         except Exception as e:
             self.log_mensagem(f'Erro na caixa: {e}')
 
-        # Monta o widget dentro do container de interações ou
-        # painel lateral da sua UI
+        # Monta o widget dentro do container de interações ou painel lateral da UI
         def executar_montagem_segura(): # Interrompe o scroll automático do Textual!
             try:
-                container = self.query_one(
-                    '#area-interacao-container')
+                container = self.query_one('#area-interacao-container')
             except Exception as e:
                 self.log_mensagem(f'[red]Erro ao montar a caixa:[/] {e}')
 
@@ -331,43 +333,29 @@ class GamePlayScreen(Screen):
         Nativo do Textual. Captura o sinal emitido pelo ChoiceBox 
         assim que o jogador confirma a opção.
         '''
-        # 1. Guarda a resposta limpa escolhida (texto ou índice)
         opcao_escolhida = event.text
-        
-        # 2. Desmolda o widget da interface para liberar espaço visual
         self.remover_choice_box_ativa()
-        
-        # Devolve o foco para o chat de comandos normais
         self.query_one('#terminal-prompt').focus()
 
-        # 3. Alimenta o motor de estados com a escolha e retoma o loop assíncrono
-        # (ramos_disponiveis foi mapeado previamente no processador usando strings ou índices)
-        self.event_sys.avancar_ramo_evento(
-            opcao_escolhida)
+        # Alimenta o motor de estados com a escolha e retoma o loop assíncrono
+        self.event_sys.avancar_ramo_evento(opcao_escolhida)
 
     # ==========================================
     # INTERPRETADOR DE COMANDOS DO TERMINAL (SUBMIT INPUT)
     # ==========================================
     @on(Input.Submitted, '#terminal-prompt')
     def processar_comando_terminal(self, event: Input.Submitted):
-        
         if event.value.startswith("/>"):
             texto = event.value.strip()
         else:
             texto = event.value.strip().lower()
             
-        log = self.query_one('#area-interacao', ChatLog)
         prompt = self.query_one('#terminal-prompt', Input)
-        
-        # Limpa o input para o próximo comando
         prompt.value = ''
 
         if not texto: return
 
-        # Mostra o comando ecoado no log
-        #self.log_mensagem(f'[dim]>>> {texto}[/]')
-
-        # 1. Separar o comando do argumento. Ex: '/usar poção' -> comando='/usar', argumento='poção'
+        # 1. Separar o comando do argumento
         partes = texto.split(' ', 1)
         comando = partes[0]
         argumento = partes[1] if len(partes) > 1 else ''
@@ -385,50 +373,42 @@ class GamePlayScreen(Screen):
                         self.log_mensagem(
                             f'[bold green]✨ Você tomou uma poção. Recuperou 20 hp![/]')
                     else:
-                        self.log_mensagem(
-                            f'[red]Erro ao usar "{argumento}".[/]')
+                        self.log_mensagem(f'[red]Erro ao usar "{argumento}".[/]')
                 else:
-                    self.log_mensagem(
-                        f'[orange]O item "{argumento}" não possui efeito de uso imediato.[/]')
+                    self.log_mensagem(f'[orange]O item "{argumento}" não possui efeito de uso imediato.[/]')
             else:
-                self.log_mensagem(
-                    f'[red]Você não possui "{argumento}" no seu inventário.[/]')
+                self.log_mensagem(f'[red]Você não possui "{argumento}" no seu inventário.[/]')
             self.atualizar_paineis_status()
             
         # ⚔️ COMANDO: /equipar
         elif comando == '/equipar':
             if not argumento:
-                self.log_mensagem(
-                    '[orange]Use: /equipar <nome_da_arma_ou_armadura>[/]')
+                self.log_mensagem('[orange]Use: /equipar <nome_da_arma_ou_armadura>[/]')
                 return
 
             if inv and self.invSys._inventory_has_item(inv, argumento):
                 if 'espada' in argumento:
                     bonus = 5 if 'longa' in argumento else 3
                     eqp.arma = {'nome': argumento, 'bonus_atk': bonus}
-                    self.log_mensagem(
-                        f'[bold blue]⚔️ Equipado com sucesso: {argumento.upper()} (+{bonus} ATK).[/]')
+                    self.log_mensagem(f'[bold blue]⚔️ Equipado com sucesso: {argumento.upper()} (+{bonus} ATK).[/]')
                 elif 'armadura' in argumento or 'escudo' in argumento:
                     bonus = 6 if 'placas' in argumento else 3
                     eqp.armadura = {'nome': argumento, 'bonus_def': bonus}
-                    self.log_mensagem(
-                        f'[bold blue]🛡️ Equipado com sucesso: {argumento.upper()} (+{bonus} DEF).[/]')
+                    self.log_mensagem(f'[bold blue]🛡️ Equipado com sucesso: {argumento.upper()} (+{bonus} DEF).[/]')
                 else:
-                    self.log_mensagem(
-                        '[orange]Este item não pode ser equipado como arma ou armadura.[/]')
+                    self.log_mensagem('[orange]Este item não pode ser equipado como arma ou armadura.[/]')
             else:
-                self.log_mensagem(
-                    f'[red]Você não possui o equipamento "{argumento}" no inventário.[/]')
+                self.log_mensagem(f'[red]Você não possui o equipamento "{argumento}" no inventário.[/]')
             self.atualizar_paineis_status()
         
         elif comando in ['/h', '/help', ]:
-            self.log_mensagem(f'[yellow] /usar <item consumível> -> "utiliza o item aplicando seus efeitos" \n /equipar <equipamento> -> "coloca o equipamento no personagem" \n /sair /q /quit -> "Sai do jogo"[/]''')
+            self.log_mensagem(f'[yellow] /usar <item consumível> -> "utiliza o item aplicando seus efeitos" \n /equipar <equipamento> -> "coloca o equipamento no personagem" \n /sair /q /quit -> "Sai do jogo"[/]')
 
         elif comando == "/>":
-            # Interpretador de comandos python que redireciona para o log.add(element)
             codigo = argumento.strip()
             import sys
             try:
+                log = self.query_one('#area-interacao', ChatLog)
                 sys.stdout = log
                 sys.stderr = log
                 sys.stdin.readline = lambda: codigo
@@ -444,7 +424,6 @@ class GamePlayScreen(Screen):
             stats = esper.component_for_entity(1, StatsComponent)
             self.log_mensagem(f'{stats}')
             
-        # Força a interface a recalcular e redesenhar os novos valores obtidos
         elif comando in ['/sair', '/q', '/exit', '/quit']:
             esper.switch_world('default')
             esper.clear_database()
@@ -454,111 +433,96 @@ class GamePlayScreen(Screen):
                     esper.delete_world(world)
             self.app.pop_screen()
         else:
-            self.log_mensagem(
-                f'[red]Comando desconhecido: "{comando}". Tente /usar ou /equipar.[/]')
+            self.log_mensagem(f'[red]Comando desconhecido: "{comando}". Tente /usar ou /equipar.[/]')
         
         self.atualizar_paineis_status()
 
     # ==========================================
-    # INPUTS DE MOVIMENTAÇÃO (MANTÉM O FOCO FORA DO PROMPT AO USAR SETAS)
+    # INPUTS DE MOVIMENTAÇÃO
     # ==========================================
     def on_key(self, event: Key, ) -> None:
         key = event.key
-        moveu = False
-        
         
         if event.key == "/" or event.key == '\\':
             self.action_focus_in_command_bar(event)
         
         if hasattr(self, 'event_sys') and self.event_sys.aguardando_escolha:
             if key in ('d', '/', 'm'):
-                event.prevent_default()  # Interrompe o scroll automático do Textual!
+                event.prevent_default()
                 event.stop()
             return
         
-        
         if key in ('up', 'down', 'left', 'right', 'w', 's', 'a', 'd', '/', 'm'):
-            event.prevent_default()  # Interrompe o scroll automático do Textual!
+            event.prevent_default()
             event.stop()
-
 
         if key in ('up', 'w'):
             self.direcao_olhar = 'cima'
-            moveu = self.movimento_sys.mover_entidade(1, 'cima')
+            self.movimento_sys.mover_entidade(1, 'cima')
             self.centralizar_camera_no_jogador()
         elif key in ('down', 's'):
             self.direcao_olhar = 'baixo'
-            moveu = self.movimento_sys.mover_entidade(1, 'baixo')
+            self.movimento_sys.mover_entidade(1, 'baixo')
             self.centralizar_camera_no_jogador()
         elif key in ('left', 'a'):
             self.direcao_olhar = 'esquerda'
-            moveu = self.movimento_sys.mover_entidade(1, 'esquerda')
+            self.movimento_sys.mover_entidade(1, 'esquerda')
             self.centralizar_camera_no_jogador()
         elif key in ('right', 'd'):
             self.direcao_olhar = 'direita'
-            moveu = self.movimento_sys.mover_entidade(1, 'direita')
+            self.movimento_sys.mover_entidade(1, 'direita')
             self.centralizar_camera_no_jogador()
         elif key == 'enter':
-            # Se o foco estiver no prompt do terminal, deixa o submit do input agir e ignora o raio
             achou_evento = None
-            if self.focused == self.query_one('#terminal-prompt'):
+            prompt = self.query_one('#terminal-prompt')
+            if self.focused == prompt and prompt.value == '':
+                event.prevent_default()
+                achou_evento = self.interacao_sys.interagir(
+                    1, self.direcao_olhar)
+                if not achou_evento:
+                    self.log_mensagem(
+                        '[gray]Não há nada para acionar aqui na sua frente.[/]')
                 telamapa = self.query_one('#tela-mapa', Static)
                 telamapa.focus()
             else:
                 achou_evento = self.interacao_sys.interagir(1, self.direcao_olhar)
                 if not achou_evento:
-                    self.log_mensagem(
-                        '[gray]Não há nada para acionar aqui na sua frente.[/]')
+                    self.log_mensagem('[gray]Não há nada para acionar aqui na sua frente.[/]')
             self.atualizar_tudo()
             return
         
         self.atualizar_tudo()
 
     # ==========================================
-    # REDESENHO DE TELAS E RECALCULO DE ATRIBUTOS + EQUIPAMENTOS
+    # REDESENHO DE TELAS E RECALCULO DE ATRIBUTOS
     # ==========================================
-    
-    # ANTERIOR AO ESPER
     def atualizar_tudo(self):
         self.atualizar_tela()
         self.atualizar_paineis_status()
         
     def atualizar_tela(self):
         '''Compila o frame atual do Esper e atualiza o Canvas Único na tela.'''
-        
         self.centralizar_camera_no_jogador()
-        
         frame_text = self.render_sys.renderizar_frame(
             self.mapa_matriz, self.mapa_objetos)
         self.query_one('#tela-mapa', Static).update(frame_text)
 
-        # Centraliza a câmera no jogador de forma dinâmica
-
     def centralizar_camera_no_jogador(self):
         '''Busca a posição do jogador no Esper e move o viewport do ScrollableContainer.'''
         try:
-            # O ID do jogador principal é 1
             pos_player = esper.component_for_entity(1, PositionComponent)
             if pos_player:
-                # Pegamos o container de scroll
-                viewport = self.query_one(
-                    '#mapa-viewport', ScrollableContainer)
+                viewport = self.query_one('#mapa-viewport', ScrollableContainer)
 
-                # Coordenadas virtuais baseadas no tamanho das fontes do terminal
-                # Multiplicamos o X por 2 porque cada coluna visual de emoji gasta 2 caracteres de largura
                 largura_tela_virtual = viewport.content_size.width
                 altura_tela_virtual = viewport.content_size.height
 
-                # Centraliza a mira subtraindo metade do viewport visível
                 alvo_x = (pos_player.x * 2) - (largura_tela_virtual // 2)
                 alvo_y = pos_player.y - (altura_tela_virtual // 2)
 
-                # Força a rolagem exata sem animações para evitar trepidação (flicker)
-                viewport.scroll_to(x=max(0, alvo_x), y=max(
-                    0, alvo_y), animate=False)
+                viewport.scroll_to(x=max(0, alvo_x), y=max(0, alvo_y), animate=False)
         except Exception:
             pass
-    
     
     @on(Input.Submitted, '#txt-chat')
     def ao_enviar_comando_chat(self, event: Input.Submitted):
@@ -568,20 +532,16 @@ class GamePlayScreen(Screen):
             self.log_mensagem(f'[bold white]Você:[/] {texto}')
             self.query_one('#txt-chat', Input).value = ''
 
-
     def atualizar_paineis_status(self):
-       # 🚀 BLINDAGEM CONTRA KEYERROR EM TRANSIÇÕES / FECHAMENTO:
         try:
             stats = esper.component_for_entity(1, StatsComponent)
             inv = esper.component_for_entity(1, InventoryComponent)
             eqp = esper.component_for_entity(1, EquipmentComponent)
         except KeyError:
-            # Se o herói não foi instanciado no frame de encerramento do app, aborta o redesenho suavemente
             return
 
         if not stats: return
 
-        # 🥊 MATEMÁTICA REAL DE EQUIPAMENTOS: Atributo Total = Base + Bónus do Equipamento
         bonus_atk = eqp.arma.get('bonus_atk', 0) if eqp and eqp.arma else 0
         bonus_def = eqp.armadura.get('bonus_def', 0) if eqp and eqp.armadura else 0
         

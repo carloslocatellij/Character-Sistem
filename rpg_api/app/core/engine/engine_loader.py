@@ -5,7 +5,7 @@ from app.models.mapas_db import MapaDB
 from app.models.eventos_db import EventoDB
 from app.models.plataforma_db import SaveDB
 from app.controllers.game_controller import GameController
-from app.core.engine.new_components import (
+from app.core.engine.components import (
     PositionComponent, RenderComponent,
     StatsComponent, EquipmentComponent, InventoryComponent,
     CollisionComponent, NetworkPlayerComponent
@@ -279,21 +279,21 @@ class GameEngineLoader:
                     objetos_convertidos[(int(y_str), int(x_str))] = emoji
                 except Exception:
                     pass
-        self.camada_objetos = objetos_convertidos
+        self.camada_objetos = objetos_convertidos   
 
     # ==========================================
     # SUPORTE PARA MULTIPLAYER / REDE
     # ==========================================
     def obter_sistema_rede(self) -> any:
         """Busca o processador de rede (NetworkSystem) registrado no mundo ativo."""
-        from app.core.engine.new_systems import NetworkSystem
+        from app.core.engine.systems import NetworkSystem
         return esper.get_processor(NetworkSystem)
 
     def adicionar_jogador_rede(self, connection_id: str, username: str, x: int, y: int, emoji: str = "🧙") -> int:
         """Spawna ou atualiza um jogador remoto no mundo atual utilizando o NetworkSystem."""
         ns = self.obter_sistema_rede()
         if not ns:
-            from app.core.engine.new_systems import NetworkSystem
+            from app.core.engine.systems import NetworkSystem
             ns = NetworkSystem()
             esper.add_processor(ns)
         return ns.adicionar_jogador(connection_id, username, x, y, emoji)

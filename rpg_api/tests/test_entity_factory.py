@@ -21,7 +21,7 @@ from app.core.engine.entity_factory import (
     mapear_tipo_entidade,
     obter_pagina_ativa,
 )
-from app.core.engine.new_components import (
+from app.core.engine.components import (
     CollisionComponent,
     InteractableComponent,
     MovimentComponent,

@@ -10,9 +10,9 @@ from app.models.mapas_db import MapaDB, CenarioDB
 from app.models.eventos_db import EventoDB
 from app.models.personagens_db import PersonagemDB, RacaDB, ClasseRPGDB
 
-from app.core.engine.new_game_state import GameStateManager
-from app.core.engine.new_engine_loader import GameEngineLoader
-from app.core.engine.new_components import PositionComponent, StatsComponent
+from app.core.engine.game_state import GameStateManager
+from app.core.engine.engine_loader import GameEngineLoader
+from app.core.engine.components import PositionComponent, StatsComponent
 
 # ==============================================================================
 # 🧼 FIXTURES DE INFRAESTRUTURA E RESET DO ESPER

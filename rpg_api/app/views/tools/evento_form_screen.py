@@ -348,10 +348,11 @@ class PropriedadesEventoFormScreen(ModalScreen[dict]):
     def on_item_requerido_changed(self, event: Select.Changed):
         '''Sincroniza o item_requerido da página atual quando o Input muda.'''
         condicoes = self._obter_condicoes_pagina_atual()
-        valor = event.value.strip()
-        if valor:
-            condicoes['item_requerido'] = valor
+        if event and event.value not in ['', 'NoSelection', Select.BLANK, Select.NULL]:
+            value = event.value.strip()
+            condicoes['item_requerido'] = value
         else:
+            value = None
             condicoes.pop('item_requerido', None)
 
     # ==========================================

@@ -1,4 +1,4 @@
-# rpg_api/tests/test_new_engine_multiplayer.py
+# rpg_api/tests/test_engine_multiplayer.py
 import pytest
 import esper
 from app.db.database import Base, engine
@@ -6,16 +6,16 @@ from app.models.mapas_db import MapaDB, CenarioDB
 from app.models.eventos_db import EventoDB
 from app.models.plataforma_db import UsuarioDB
 from app.models.personagens_db import PersonagemDB, ClasseRPGDB, RacaDB
-from app.core.engine.new_components import (
+from app.core.engine.components import (
     PositionComponent, RenderComponent, InteractableComponent,
     StatsComponent, InventoryComponent, EquipmentComponent,
     CollisionComponent, NetworkPlayerComponent
 )
-from app.core.engine.new_engine_loader import GameEngineLoader
-from app.core.engine.new_systems import (
+from app.core.engine.engine_loader import GameEngineLoader
+from app.core.engine.systems import (
     MovementSystem, AISystem, RenderSystem, EventSystem, InventarySystem, NetworkSystem
 )
-from app.core.engine.new_game_state import GameStateManager
+from app.core.engine.game_state import GameStateManager
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 

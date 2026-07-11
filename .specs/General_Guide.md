@@ -145,7 +145,7 @@ rpg_api/
 │   │   │   ├── engine_loader.py
 │   │   │   ├── event_bus.py
 │   │   │   ├── game_state.py
-│   │   │   ├── new_engine.py
+│   │   │   ├── engine.py
 │   │   │   └── systems.py
 │   │   └── entities/         # Entidades de negócio
 │   │       ├── emojis.py

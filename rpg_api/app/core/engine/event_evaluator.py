@@ -9,7 +9,7 @@ e o sistema dinâmico de interações (EventSystem).
 import logging
 import esper
 from typing import Any
-from app.core.engine.new_components import InventoryComponent, InteractableComponent
+from app.core.engine.components import InventoryComponent, InteractableComponent
 
 logger = logging.getLogger(__name__)
 

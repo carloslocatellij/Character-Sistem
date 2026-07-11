@@ -6,9 +6,9 @@ from app.models.mapas_db import MapaDB, CenarioDB
 from app.models.eventos_db import EventoDB
 from app.models.plataforma_db import UsuarioDB
 from app.models.personagens_db import PersonagemDB, ClasseRPGDB, RacaDB
-from app.core.engine.new_components import PositionComponent, RenderComponent, InteractableComponent
-from app.core.engine.new_components import StatsComponent, InventoryComponent, EquipmentComponent
-from app.core.engine.new_engine_loader import GameEngineLoader
+from app.core.engine.components import PositionComponent, RenderComponent, InteractableComponent
+from app.core.engine.components import StatsComponent, InventoryComponent, EquipmentComponent
+from app.core.engine.engine_loader import GameEngineLoader
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 

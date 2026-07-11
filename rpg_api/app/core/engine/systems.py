@@ -2,7 +2,7 @@ import unicodedata
 import esper
 import random
 from rich.text import Text
-from app.core.engine.new_components import (
+from app.core.engine.components import (
     PositionComponent, InteractableComponent, RenderComponent,
     StatsComponent, MovimentComponent, InventoryComponent,
     CollisionComponent, NetworkPlayerComponent
@@ -17,6 +17,10 @@ Direcoes: Literal["cima", "baixo", "esquerda", "direita", None]
 
 class RenderSystem(esper.Processor):
     """Sistema responsável por compilar as camadas de Terreno, Objetos e Esper ECS em um único frame Text."""
+    
+    def __init__(self, game_state=None):
+        super().__init__()
+        self.game_state = game_state
 
     def renderizar_frame(self, mapa_matriz: list[list[str]], dict_objetos: dict) -> Text:
         if not mapa_matriz:
@@ -55,7 +59,18 @@ class RenderSystem(esper.Processor):
         return texto_final
 
     def process(self, *args, **kwargs):
-        pass
+        from app.core.engine.event_evaluator import obter_pagina_ativa
+        for ent_id, interact_comp in esper.get_component(InteractableComponent):
+            if interact_comp.parametros and "paginas" in interact_comp.parametros:
+                pagina_ativa = obter_pagina_ativa(
+                    interact_comp.parametros["paginas"], ent_id, self.game_state, esper)
+
+            if pagina_ativa and pagina_ativa.get("configuracao_visual"):
+                emoji_evt = pagina_ativa.get("configuracao_visual", {}).get("emoji", "❓")
+                emoji_comp = RenderComponent(
+                    emoji=emoji_evt
+                )
+                esper.add_component(ent_id, emoji_comp)
 
 
 class MovementSystem(esper.Processor):
@@ -121,25 +136,48 @@ class MovementSystem(esper.Processor):
 
 
 class AISystem(esper.Processor):
-    def __init__(self, movement_system=None):
+    def __init__(self, game_state=None):
         super().__init__()
-        self.movement_system = movement_system
         self.roteiro = 0
+        self.game_state = game_state
 
     def process(self, tick, *args, **kwargs):
         """Processa movimento autônomo de monstros/NPCs a cada tick."""
+        from app.core.engine.event_evaluator import obter_pagina_ativa
+        #logging.info(f"Processando AISystem no tick {tick}")
+        
+        for ent_id, interact_comp  in esper.get_component(InteractableComponent):
+            if interact_comp.parametros and "paginas" in interact_comp.parametros:
+                pagina_ativa = obter_pagina_ativa(
+                    interact_comp.parametros["paginas"], ent_id, self.game_state, esper)
+        
+            if pagina_ativa and pagina_ativa.get("movimento"):
+                roteiro = pagina_ativa.get("movimento", {}).get("roteiro", [])
+                roteiro_idx = pagina_ativa.get("movimento", {}).get("roteiro_idx", 0)
+                movement_type = pagina_ativa.get("movimento", {}).get("tipo", "aleatorio")
+                mov_comp = MovimentComponent(
+                    movement_type=movement_type,
+                    roteiro=roteiro,
+                    ciclos=pagina_ativa.get("movimento", {}).get("ciclos", 1),
+                    action_on_touch=pagina_ativa.get("movimento", {}).get("action_on_touch", None),
+                    roteiro_idx=roteiro_idx
+                    )
+                esper.add_component(ent_id, mov_comp)
+                
+            
         self.processar_movimento_autonomo(tick)
 
+    # Compatibilidade legado para sistemas que chamam update() em vez de process()
     def update(self, tick):
         """Compatibilidade legado."""
         self.processar_movimento_autonomo(tick)
 
     def processar_movimento_autonomo(self, tick_de_movimento):
-        world = self.world if (hasattr(self, "world") and self.world is not None) else esper
-        movement_sys = self.movement_system or world.get_processor(MovementSystem)
+        world = esper # or self.world if (hasattr(self, "world") and self.world is not None)
+        movement_sys = world.get_processor(MovementSystem)
         if not movement_sys:
             return
-
+        
         deltas = {
             "cima": (0, -1),
             "baixo": (0, 1),
@@ -149,7 +187,10 @@ class AISystem(esper.Processor):
         opcoes: list[str] = ["cima", "baixo", "esquerda", "direita", None]
 
         for ent_id, (pos_comp, mov_comp) in world.get_components(PositionComponent, MovimentComponent):
-            # Processa monstros com movimento aleatorio
+            if mov_comp.movement_type == 'parado':
+                continue
+            
+            #logging.info(f"Processando mov:: ent_{ent_id} no tick {tick_de_movimento}: tipo={mov_comp.movement_type}, roteiro={mov_comp.roteiro}, idx={mov_comp.roteiro_idx}")
             if mov_comp.movement_type == "aleatorio":
                 direcao = random.choice(opcoes)
                 if not direcao:

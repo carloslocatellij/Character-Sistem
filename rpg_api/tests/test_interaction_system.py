@@ -2,8 +2,8 @@
 import inspect
 import pytest
 import esper
-from app.core.engine.new_components import PositionComponent, PlayerControlComponent, InteractableComponent
-from app.core.engine.new_systems import MovementSystem, InteractionSystem
+from app.core.engine.components import PositionComponent, PlayerControlComponent, InteractableComponent
+from app.core.engine.systems import MovementSystem, InteractionSystem
 
 
 def create_player_control(direcao="direita"):
