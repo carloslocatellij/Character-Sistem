@@ -1,4 +1,5 @@
 import esper
+from typing import Optional
 from textual.screen import Screen
 from textual.widgets import Static, RichLog, Label, Input
 from textual.containers import Container, ScrollableContainer
@@ -8,10 +9,11 @@ from app.views.components.choice_box import ChoiceBox
 from app.db.database import SessionLocal
 from app.models.mapas_db import MapaDB
 from app.core.engine.systems import (MovementSystem, InteractionSystem, AISystem,
-                                     RenderSystem, InventarySystem, EventSystem, NetworkSystem)
+                                     RenderSystem, InventarySystem, EventSystem,
+                                     NetworkSystem, BattleSystem)
 from app.core.engine.engine_loader import GameEngineLoader
 from app.core.engine.components import (PositionComponent, StatsComponent,
-                                        InventoryComponent, EquipmentComponent                                       
+                                        InventoryComponent, EquipmentComponent
 )
 from app.core.engine.game_state import GameStateManager
 from app.packages.stylewriter import ChatLog
@@ -112,13 +114,23 @@ class GamePlayScreen(Screen):
                     pass
                 esper.add_processor(proc_inst)
             
+            # Registra o BattleSystem separadamente (sistema de combate)
+            self.battle_sys = BattleSystem()
+            try:
+                esper.remove_processor(BattleSystem)
+            except KeyError:
+                pass
+            esper.add_processor(self.battle_sys)
+            
             esper.remove_handler('mudar_mapa', self.ao_mudar_de_mapa)
             esper.remove_handler('INTERACTION_SUCCESS', self.on_evento_interacao)
             esper.remove_handler('disparar_bifurcacao', self.disparar_bifurcacao_visual)
+            esper.remove_handler('solicitar_iniciar_combate', self._ao_solicitar_combate)
 
             esper.set_handler('mudar_mapa', self.ao_mudar_de_mapa)
             esper.set_handler('INTERACTION_SUCCESS', self.on_evento_interacao)
             esper.set_handler('disparar_bifurcacao', self.disparar_bifurcacao_visual)
+            esper.set_handler('solicitar_iniciar_combate', self._ao_solicitar_combate)
             
             self.game_loop()
             
@@ -134,6 +146,7 @@ class GamePlayScreen(Screen):
         esper.remove_handler("mudar_mapa", self.ao_mudar_de_mapa)
         esper.remove_handler("INTERACTION_SUCCESS", self.on_evento_interacao)
         esper.remove_handler('disparar_bifurcacao', self.disparar_bifurcacao_visual)
+        esper.remove_handler('solicitar_iniciar_combate', self._ao_solicitar_combate)
             
 
     def ao_mudar_de_mapa(self, dados_teleporte):
@@ -173,8 +186,9 @@ class GamePlayScreen(Screen):
             self.network_sys = NetworkSystem()
             self.render_sys = RenderSystem(self.game_state)
             self.event_sys = EventSystem(self.invSys, self.game_state, self.log_mensagem)
+            self.battle_sys = BattleSystem()
             
-            for proc_inst in (self.movimento_sys, self.event_sys, self.interacao_sys, self.ai_sys, self.network_sys, self.render_sys):
+            for proc_inst in (self.movimento_sys, self.event_sys, self.interacao_sys, self.ai_sys, self.network_sys, self.render_sys, self.battle_sys):
                 try:
                     esper.remove_processor(proc_inst.__class__)
                 except KeyError:
@@ -276,6 +290,64 @@ class GamePlayScreen(Screen):
                     '[bold background red]💀 VOCÊ MORREU! Fim de Jogo.[/]')
         
         self.atualizar_paineis_status()
+
+    # ==========================================
+    # COMBATE POR TURNOS — INTEGRAÇÃO
+    # ==========================================
+
+    def _ao_solicitar_combate(self, dados_inimigo: dict) -> None:
+        """
+        Handler disparado pelo EventSystem quando o comando 'iniciar_combate'
+        é processado. Mapeia o herói do ECS para o domínio Personagem e
+        empilha a BattleScreen sobre o GamePlayScreen.
+
+        Suporta dois formatos de dados:
+        - Dict único (retrocompatível): {'nome': ..., 'nivel': ...}
+        - Dict com lista: {'inimigos': [{...}, {...}]}  → 1 a 4 inimigos
+        """
+        if not self.is_mounted:
+            return
+
+        heroi_dominio = self._obter_heroi_dominio()
+        if heroi_dominio is None:
+            self.log_mensagem('[bold red]❌ Erro: não foi possível carregar o herói para o combate.[/]')
+            return
+
+        # Detecta se é formato de lista ou único inimigo (retrocompatibilidade)
+        if "inimigos" in dados_inimigo:
+            inimigos_dados = dados_inimigo["inimigos"][:4]  # Máximo de 4
+        else:
+            inimigos_dados = [dados_inimigo]
+
+        try:
+            from app.views.battle_screen import BattleScreen
+            self.app.push_screen(BattleScreen(heroi_dominio, inimigos_dados))
+        except Exception as erro_push:
+            self.log_mensagem(f'[bold red]❌ Erro ao abrir a tela de combate: {erro_push}[/]')
+            logging.error(f'_ao_solicitar_combate: {erro_push}')
+
+
+    def _obter_heroi_dominio(self) -> Optional[object]:
+        """
+        Mapper: StatsComponent/ECS → objeto Personagem do domínio.
+        Utiliza GameController.converter_para_dominio com os dados do personagem
+        carregados do banco de dados. Padrão Mapper conforme Regra 1.
+        """
+        try:
+            from app.controllers.game_controller import GameController
+            from app.models.personagens_db import PersonagemDB
+
+            with SessionLocal() as db_session:
+                personagem_db = db_session.query(PersonagemDB).filter_by(
+                    id=self.personagem_id
+                ).first()
+                if personagem_db is None:
+                    logging.error(f'_obter_heroi_dominio: PersonagemDB id={self.personagem_id} não encontrado.')
+                    return None
+                return GameController.converter_para_dominio(personagem_db)
+        except Exception as erro_mapper:
+            logging.error(f'_obter_heroi_dominio: {erro_mapper}')
+            return None
 
 
     def disparar_bifurcacao_visual(self, dados):

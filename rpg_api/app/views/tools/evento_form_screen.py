@@ -710,6 +710,7 @@ class AdicionarComandoScreen(ModalScreen[dict]):
                 ('Variável (Valor)', 'controle_variavel'),
                 ('Switch (Liga/Desliga)', 'controle_switch'),
                 ('Self Switch (Local)', 'controle_self_switch'),
+                ('⚔️ Iniciar Combate (Batalha)', 'iniciar_combate'),
             ], id='cmd-tipo')
             yield Container(id='cmd-form-container')
             with Horizontal(id='evt-botoes'):
@@ -817,6 +818,61 @@ class AdicionarComandoScreen(ModalScreen[dict]):
                 placeholder='Valor atribuido',
                 id='cmd-variavel-valor', value=dados.get('valor', '')))
 
+        elif tipo == 'iniciar_combate':
+            # --- Campos de Configuração do Inimigo ---
+            container.mount(Label('👹  Inimigo:', classes='campo-rotulo'))
+            container.mount(Input(
+                placeholder='Nome do Inimigo (ex: Goblin Guerreiro)',
+                id='cmd-bat-nome',
+                value=dados.get('nome', 'Goblin')))
+            container.mount(Input(
+                placeholder='Nível do Inimigo (1-20)',
+                id='cmd-bat-nivel',
+                value=str(dados.get('nivel', 1))))
+            container.mount(Select([
+                    ('Humano', 'Humano'), ('Goblin', 'Goblin'), ('Orc', 'Orc'),
+                    ('Elfo', 'Elfo'), ('Anão', 'Anão'), ('Morto-Vivo', 'Morto-Vivo'),
+                    ('Dragão', 'Dragão'), ('Espírito', 'Espirito'),
+                ],
+                value=dados.get('raca', 'Goblin'),
+                id='cmd-bat-raca'))
+            container.mount(Select([
+                    ('Guerreiro', 'Guerreiro'), ('Arqueiro', 'Arqueiro'),
+                    ('Mago', 'Mago'), ('Bárbaro', 'Barbaro'), ('Ladino', 'Ladino'),
+                ],
+                value=dados.get('classe', 'Guerreiro'),
+                id='cmd-bat-classe'))
+            container.mount(Label('📊  Atributos Base (0 a 5):', classes='campo-rotulo'))
+            container.mount(Input(
+                placeholder='Força Base (0-5)',
+                id='cmd-bat-forca',
+                value=str(dados.get('forca', 2))))
+            container.mount(Input(
+                placeholder='Agilidade Base (0-5)',
+                id='cmd-bat-agi',
+                value=str(dados.get('agilidade', 1))))
+            container.mount(Input(
+                placeholder='Resistência Base (0-5)',
+                id='cmd-bat-res',
+                value=str(dados.get('resistencia', 2))))
+            container.mount(Input(
+                placeholder='Percepção Base (0-5)',
+                id='cmd-bat-perc',
+                value=str(dados.get('percepcao', 1))))
+            container.mount(Input(
+                placeholder='Exuberância Base (0-5)',
+                id='cmd-bat-exub',
+                value=str(dados.get('exuberancia', 0))))
+            container.mount(Label('🏆  Recompensa:', classes='campo-rotulo'))
+            container.mount(Input(
+                placeholder='XP de Recompensa',
+                id='cmd-bat-xp',
+                value=str(dados.get('xp_recompensa', 10))))
+            container.mount(Input(
+                placeholder='Emoji Sprite do Inimigo (ex: 👹)',
+                id='cmd-bat-emoji',
+                value=dados.get('emoji', '👹')))
+
     def _capturar_valores_campos_atuais(self) -> dict:
         '''Serializa o estado atual do formulário de teleporte para não perder progresso.'''
         return {
@@ -904,6 +960,26 @@ class AdicionarComandoScreen(ModalScreen[dict]):
                     comando['dados']['nome'] = self.query_one('#cmd-variavel-nome').value
                     comando['dados']['operador'] = self.query_one('#cmd-variavel-operador').value
                     comando['dados']['valor'] = self.query_one('#cmd-variavel-valor').value
+
+                elif tipo == 'iniciar_combate':
+                    # Captura todos os campos de configuração do inimigo
+                    def _safe_int(widget_id: str, default: int) -> int:
+                        try:
+                            return int(self.query_one(widget_id).value or default)
+                        except (ValueError, TypeError):
+                            return default
+
+                    comando['dados']['nome'] = self.query_one('#cmd-bat-nome').value or 'Goblin'
+                    comando['dados']['nivel'] = _safe_int('#cmd-bat-nivel', 1)
+                    comando['dados']['raca'] = self.query_one('#cmd-bat-raca').value
+                    comando['dados']['classe'] = self.query_one('#cmd-bat-classe').value
+                    comando['dados']['forca'] = _safe_int('#cmd-bat-forca', 2)
+                    comando['dados']['agilidade'] = _safe_int('#cmd-bat-agi', 1)
+                    comando['dados']['resistencia'] = _safe_int('#cmd-bat-res', 2)
+                    comando['dados']['percepcao'] = _safe_int('#cmd-bat-perc', 1)
+                    comando['dados']['exuberancia'] = _safe_int('#cmd-bat-exub', 0)
+                    comando['dados']['xp_recompensa'] = _safe_int('#cmd-bat-xp', 10)
+                    comando['dados']['emoji'] = self.query_one('#cmd-bat-emoji').value or '👹'
 
             except Exception:
                 self.notify('Erro ao salvar comando: Preencha os campos corretamente', severity='error')

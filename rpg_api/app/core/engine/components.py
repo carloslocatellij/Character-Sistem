@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from typing import Dict, Any, Optional, Callable, List
+import time
 
 @dataclass
 class PositionComponent:
@@ -70,3 +71,39 @@ class NetworkPlayerComponent:
     username: str
     connection_id: str
     latency_ms: int = 0
+
+
+# ==========================================
+# COMPONENTES DE COMBATE POR TURNOS
+# ==========================================
+
+@dataclass
+class CombatStateComponent:
+    """
+    Marca uma entidade como estando em combate ativo e armazena metadados do turno.
+    Apenas a entidade do jogador (ID 1) deverá ter este componente enquanto houver
+    uma batalha em andamento. Remova-o ao encerrar o combate.
+    """
+    em_combate: bool = True
+    turno_atual: int = 0
+    iniciativa_jogador: int = 0
+    iniciativa_inimigo: int = 0
+    # Fase atual: "aguardando_acao" | "calculando_ia" | "executando_turno_jogador" | "encerrado"
+    fase_turno: str = "aguardando_acao"
+    timestamp_inicio: float = field(default_factory=time.time)
+
+
+@dataclass
+class BattleParticipantComponent:
+    """
+    Liga um identificador de participante ao contexto de uma batalha.
+    Permite que o BattleSystem saiba quais entidades ECS são combatentes ativos
+    e quais dados de domínio (Personagem) usar para os cálculos.
+    """
+    personagem_id: str                    # Identificador único do participante (ex: "heroi_1", "inimigo_goblin")
+    tipo: str                             # "jogador" | "inimigo" | "rede"
+    nivel: int = 1
+    emoji_sprite: str = "👹"
+    nome_display: str = "Inimigo"
+    xp_recompensa: int = 10
+    drops_possiveis: List[Dict[str, Any]] = field(default_factory=list)
