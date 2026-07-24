@@ -545,3 +545,171 @@ class TestEventoIniciarCombate:
 
         assert len(eventos_disparados) == 1
         assert eventos_disparados[0]["nome"] == "Goblin"
+
+
+class TestUsoDeItensEBatalha:
+    """Testa a integração do inventário e status dos jogadores no combate."""
+
+    def test_usar_item_com_sucesso(self, battle_sys, heroi, inimigo):
+        """Se o inventário do herói no ECS possui poção, ela deve ser consumida e curar o herói."""
+        from app.core.engine.components import InventoryComponent
+        
+        # Reduz HP do herói para testar a cura
+        heroi.pv_atual = 10
+        battle_sys.iniciar_combate(heroi, [inimigo])
+        
+        # Configura a entidade 1 no ECS com o componente de inventário contendo uma poção
+        try:
+            esper.components_for_entity(1)
+        except KeyError:
+            esper.create_entity()
+            
+        esper.add_component(1, InventoryComponent(itens={"poção": 1}))
+        
+        # Executa a ação de usar item
+        # Ao usar, o HP do herói deve curar 20 pontos e a poção deve ser consumida do ECS
+        battle_sys.executar_acao_jogador("item")
+        
+        # O HP do herói de domínio no BattleSystem deve ter aumentado (de 10 para 30)
+        assert battle_sys.heroi.pv_atual == 30
+        
+        # A poção deve ter sido removida do InventoryComponent no ECS
+        inv = esper.component_for_entity(1, InventoryComponent)
+        assert "poção" not in inv.itens
+
+    def test_usar_item_sem_sucesso(self, battle_sys, heroi, inimigo):
+        """Se o inventário do herói no ECS não possui poção, deve disparar erro e não curar."""
+        from app.core.engine.components import InventoryComponent
+        
+        heroi.pv_atual = 10
+        battle_sys.iniciar_combate(heroi, [inimigo])
+        
+        try:
+            esper.components_for_entity(1)
+        except KeyError:
+            esper.create_entity()
+            
+        esper.add_component(1, InventoryComponent(itens={}))
+        
+        eventos_recebidos = []
+        def capturar_turno(dados):
+            eventos_recebidos.append(dados)
+            
+        esper.set_handler("turno_calculado", capturar_turno)
+        
+        # Tenta usar poção sem ter no inventário
+        battle_sys.executar_acao_jogador("item")
+        
+        esper.remove_handler("turno_calculado", capturar_turno)
+        
+        # HP não deve ter sido alterado
+        assert battle_sys.heroi.pv_atual == 10
+        
+        # Deve ter gerado um erro_item no resultado do evento
+        assert len(eventos_recebidos) == 1
+        assert "erro_item" in eventos_recebidos[0]["resultado"]
+        assert eventos_recebidos[0]["resultado"]["erro_item"] == "Você não possui Poção no inventário!"
+
+    def test_sincronizacao_combate_para_ecs(self, heroi):
+        """Testa que os status e equipamentos do domínio são sincronizados de volta para o ECS."""
+        esper.clear_database()
+        from app.views.battle_screen import BattleScreen
+        from app.core.engine.components import StatsComponent, EquipmentComponent
+        
+        try:
+            esper.components_for_entity(1)
+        except KeyError:
+            esper.create_entity()
+            
+        # Adiciona componentes vazios para sincronizar
+        esper.add_component(1, StatsComponent(nome="Herói", classe="mago", hp=100, max_hp=100, mp=50, max_mp=50, ataque_base=10, defesa_base=5))
+        esper.add_component(1, EquipmentComponent())
+        
+        screen = BattleScreen(heroi, [])
+        screen.battle_sys = MagicMock()
+        screen.battle_sys.heroi = heroi
+        
+        # Altera o HP e equipamentos do herói do domínio
+        heroi.pv_atual = 45
+        heroi.pm_atual = 15
+        
+        from app.core.entities.equipamentos import Arma, Armadura
+        heroi.mao_direita = Arma(nome="Espada de Teste", dano=8, tipo="corpo")
+        heroi.armadura = Armadura(nome="Couro de Teste", defesa=4)
+        
+        # Executa a sincronização
+        screen._sincronizar_combate_para_ecs()
+        
+        # Verifica se o ECS foi atualizado
+        stats = esper.component_for_entity(1, StatsComponent)
+        eqp = esper.component_for_entity(1, EquipmentComponent)
+        
+        assert stats.hp == 45
+        assert stats.mp == 15
+        assert eqp.arma["nome"] == "Espada de Teste"
+        assert eqp.arma["bonus_atk"] == 8
+        assert eqp.armadura["nome"] == "Couro de Teste"
+        assert eqp.armadura["bonus_def"] == 4
+        esper.clear_database()
+
+    def test_obter_heroi_dominio_hidratacao_do_ecs(self):
+        """Testa que _obter_heroi_dominio enriquece a entidade do domínio com o estado do ECS."""
+        esper.clear_database()
+        from app.views.game_play_screen import GamePlayScreen
+        from app.core.engine.components import StatsComponent, EquipmentComponent
+        from app.models.personagens_db import PersonagemDB
+        
+        try:
+            esper.components_for_entity(1)
+        except KeyError:
+            esper.create_entity()
+            
+        esper.add_component(1, StatsComponent(nome="Herói ECS", classe="mago", hp=20, max_hp=100, mp=12, max_mp=50, ataque_base=10, defesa_base=5))
+        
+        eqp_comp = EquipmentComponent()
+        eqp_comp.arma = {"nome": "Espada Divina", "bonus_atk": 10, "tipo": "corpo"}
+        eqp_comp.armadura = {"nome": "Armadura Divina", "bonus_def": 8}
+        esper.add_component(1, eqp_comp)
+        
+        # Criamos um mock da tela e do banco
+        screen = MagicMock(spec=GamePlayScreen)
+        screen.personagem_id = 1
+        
+        # Mock do PersonagemDB
+        personagem_db = MagicMock(spec=PersonagemDB)
+        personagem_db.nome = "Herói DB"
+        personagem_db.nivel = 1
+        personagem_db.raca = MagicMock()
+        personagem_db.raca.nome = "Humano"
+        personagem_db.raca.bonus_atributos = {}
+        personagem_db.raca.emoji = "🧑"
+        personagem_db.classe = MagicMock()
+        personagem_db.classe.nome = "Guerreiro"
+        personagem_db.classe.bonus_caminhos = {}
+        personagem_db.classe.habilidades = []
+        personagem_db.forca_base = 3
+        personagem_db.agilidade_base = 2
+        personagem_db.resistencia_base = 3
+        personagem_db.percepcao_base = 2
+        personagem_db.exuberancia_base = 1
+        personagem_db.mao_direita = None
+        personagem_db.mao_esquerda = None
+        personagem_db.armadura_equipada = None
+        
+        with patch("app.views.game_play_screen.SessionLocal") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.query().filter_by().first.return_value = personagem_db
+            mock_session_class.return_value.__enter__.return_value = mock_session
+            
+            # Invoca o método original que foi modificado em game_play_screen
+            heroi_dominio = GamePlayScreen._obter_heroi_dominio(screen)
+            
+            assert heroi_dominio is not None
+            assert heroi_dominio.pv_atual == 20
+            assert heroi_dominio.pm_atual == 12
+            assert heroi_dominio.mao_direita.nome == "Espada Divina"
+            assert heroi_dominio.mao_direita.dano == 10
+            assert heroi_dominio.armadura.nome == "Armadura Divina"
+            assert heroi_dominio.armadura.defesa == 8
+            
+        esper.clear_database()

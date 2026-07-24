@@ -60,7 +60,7 @@ BattleScreen.derrota {
     width: 1fr;
     height: 100%;
     layout: vertical;
-    background: #0d0d1a;
+    background: $background 50%;
 }
 
 /* =====================================================
@@ -182,7 +182,7 @@ BattleScreen.derrota {
    ===================================================== */
 
 #arena {
-    height: 9;
+    height: 21;
     width: 100%;
     border: double #6a4f7b;
     background: #1a1030;
@@ -193,7 +193,7 @@ BattleScreen.derrota {
 /* Label "VS" no centro da arena */
 #lbl-vs {
     position: absolute;
-    content-align: center middle;
+    content-align: center top;
     text-style: bold;
     color: #ff6b6b;
     width: 5;
@@ -250,7 +250,7 @@ EfeitoAtaque {
    ===================================================== */
 
 #battle-log {
-    height: 1fr;
+    height: 12;
     border: solid #2a4a2a;
     background: #091209;
     padding: 0 1;

@@ -777,7 +777,58 @@ class BattleSystem(esper.Processor):
             return
 
         alvo = inimigos_vivos[min(alvo_index, len(inimigos_vivos) - 1)]
-        resultado = self._resolver_acao_personagem(acao, atacante=self.heroi, alvo=alvo)
+
+        # Caso especial: Ação de usar Item
+        if acao == "item":
+            world = self.world if (hasattr(self, "world") and self.world is not None) else esper
+            from app.core.engine.components import InventoryComponent
+            inv = world.component_for_entity(1, InventoryComponent) if world.entity_exists(1) and world.has_component(1, InventoryComponent) else None
+            
+            from app.core.engine.systems import InventarySystem
+            inv_sys = InventarySystem()
+            
+            tem_pocao = False
+            for nome_item in ["poção", "potion", "Poção"]:
+                if inv_sys._inventory_has_item(inv, nome_item):
+                    inv_sys._inventory_remove_item(inv, nome_item, 1)
+                    tem_pocao = True
+                    break
+            
+            if not tem_pocao:
+                resultado = {
+                    "atacante": self.heroi.nome,
+                    "alvo": self.heroi.nome,
+                    "acertou": False,
+                    "acao": "item",
+                    "erro_item": "Você não possui Poção no inventário!",
+                    "dano_causado": 0
+                }
+                # Emite o evento informando o erro, para que a View libere o controle
+                esper.dispatch_event("turno_calculado", {
+                    "turno": self.turno,
+                    "fase": "jogador",
+                    "acao": acao,
+                    "resultado": resultado,
+                    "heroi_hp": self.heroi.pv_atual,
+                    "heroi_mp": self.heroi.pm_atual,
+                    "inimigos": self._snapshot_inimigos(),
+                    "inimigo_hp": alvo.pv_atual,
+                })
+                return  # Interrompe o fluxo e não passa o turno
+            else:
+                hp_curado = min(self.heroi.max_hp - self.heroi.pv_atual, 20)
+                self.heroi.pv_atual += hp_curado
+                resultado = {
+                    "atacante": self.heroi.nome,
+                    "alvo": self.heroi.nome,
+                    "acertou": True,
+                    "acao": "cura",
+                    "dano_causado": 0,
+                    "descricao": f"{self.heroi.nome} usou uma Poção! Recuperou {hp_curado} HP."
+                }
+        else:
+            resultado = self._resolver_acao_personagem(acao, atacante=self.heroi, alvo=alvo)
+
         logging.info(f"Turno {self.turno} - Jogador: {acao} alvo={alvo.nome} | Resultado: {resultado}")
 
         esper.dispatch_event("turno_calculado", {

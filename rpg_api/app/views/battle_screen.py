@@ -103,7 +103,7 @@ class BarraStatusCombate(Widget):
             show_percentage=False,
         )
         yield Label(
-            f"❤️ {self._hp_atual}/{self._hp_max}",
+            f"💟 {self._hp_atual}/{self._hp_max}",
             id=f"{self.id}-hp-label" if self.id else "hp-label",
             classes="hp-label",
         )
@@ -139,7 +139,7 @@ class BarraStatusCombate(Widget):
             mp_bar.progress = self._mp_atual
 
             self.query_one(f"#{self.id}-hp-label", Label).update(
-                f"❤️ {self._hp_atual}/{self._hp_max}"
+                f"💟 {self._hp_atual}/{self._hp_max}"
             )
             self.query_one(f"#{self.id}-mp-label", Label).update(
                 f"🔮 {self._mp_atual}/{self._mp_max}"
@@ -163,7 +163,7 @@ class BattleScreen(Screen):
 
     Layout de 3 colunas:
     ┌────────────┬──────────────────────┬────────────┐
-    │  ALIADOS   │   ARENA + LOG + AÇÃO  │  INIMIGOS  │
+    │  ALIADOS   │   ARENA + LOG + AÇÃO │  INIMIGOS  │
     └────────────┴──────────────────────┴────────────┘
 
     Lifecycle:
@@ -222,7 +222,7 @@ class BattleScreen(Screen):
 
             # ─── COLUNA ESQUERDA: ALIADOS ───────────────────────────────────
             with Vertical(id="painel-aliados"):
-                yield Label("⚔️ ALIADOS", classes="painel-titulo")
+                yield Label("🎯 ALIADOS", classes="painel-titulo")
                 yield BarraStatusCombate(
                     nome=f"🧙 {getattr(self.heroi_personagem, 'nome', 'Herói')}",
                     hp_atual=getattr(self.heroi_personagem, 'pv_atual', 50),
@@ -262,9 +262,9 @@ class BattleScreen(Screen):
 
                         # Coluna de ações
                         with Vertical(id="acao-coluna"):
-                            yield Label("⚔️  Escolha sua ação:", id="action-label")
+                            yield Label("🎯  Escolha sua ação:", id="action-label")
                             with RadioSet(id="action-radioset"):
-                                yield RadioButton("⚔️  Atacar", value=True, id="act-atacar")
+                                yield RadioButton("🎯  Atacar", value=True, id="act-atacar")
                                 yield RadioButton("🪄  Magia", id="act-magia")
                                 yield RadioButton("🧪  Usar Item (Poção)", id="act-item")
                                 yield RadioButton("🏃  Fugir do Combate", id="act-fugir")
@@ -398,7 +398,7 @@ class BattleScreen(Screen):
         nomes_inimigos = " | ".join(getattr(e, 'nome', '?') for e in inimigos)
         self._escrever_log("[bold yellow]══════════════════════════════[/]")
         self._escrever_log(
-            f"[bold red]⚔️  COMBATE INICIADO![/]  "
+            f"[bold red]🎇  COMBATE INICIADO![/]  "
             f"[cyan]{getattr(heroi, 'nome', '?')}[/] vs [red]{nomes_inimigos}[/]"
         )
         self._escrever_log(
@@ -432,6 +432,13 @@ class BattleScreen(Screen):
         """
         fase = dados.get("fase", "jogador")
         resultado = dados.get("resultado", {})
+        
+        # Se houve erro ao tentar usar um item (ex: não possui poção no inventário)
+        if resultado.get("erro_item"):
+            self._escrever_log(f"[bold red]❌ {resultado['erro_item']}[/]")
+            self.turno_liberado = True
+            return
+
         novo_heroi_hp = dados.get("heroi_hp", self.heroi_hp)
         lista_inimigos = dados.get("inimigos", [])
 
@@ -677,18 +684,7 @@ class BattleScreen(Screen):
             self.set_timer(0.8, self._fechar_tela_combate)
             return
 
-        if acao == "item":
-            # Usa uma poção se disponível (simplificado)
-            if self.battle_sys and self.battle_sys.heroi:
-                heroi = self.battle_sys.heroi
-                hp_curado = min(heroi.max_hp - heroi.pv_atual, 20)
-                heroi.pv_atual += hp_curado
-                self.heroi_hp = heroi.pv_atual
-                self._escrever_log(
-                    f"[bold green]🧪 {heroi.nome} usou uma Poção! Recuperou {hp_curado} HP.[/]"
-                )
-            # Item não passa o turno para a IA nesta iteração
-            return
+
 
         # Desabilita o painel durante o processamento do turno
         self.turno_liberado = False
@@ -741,9 +737,60 @@ class BattleScreen(Screen):
     def _fechar_tela_combate(self) -> None:
         """Volta ao GamePlayScreen via pop_screen."""
         try:
+            self._sincronizar_combate_para_ecs()
             self.app.pop_screen()
         except Exception as erro_pop:
             logging.info(f"BattleScreen._fechar_tela_combate: {erro_pop}")
+
+    def _sincronizar_combate_para_ecs(self) -> None:
+        """Sincroniza o status atual (HP/Mana) e equipamentos do herói da batalha de volta para o ECS."""
+        if not self.battle_sys or not self.battle_sys.heroi:
+            return
+            
+        try:
+            from app.core.engine.components import StatsComponent, EquipmentComponent
+            stats = esper.component_for_entity(1, StatsComponent)
+            if stats:
+                heroi = self.battle_sys.heroi
+                stats.hp = max(0, int(heroi.pv_atual))
+                stats.mp = max(0, int(heroi.pm_atual))
+                stats.max_hp = int(heroi.max_hp)
+                stats.max_mp = int(heroi.max_mp)
+                logging.info(f"Sincronização combate -> ECS realizada com sucesso. HP={stats.hp}, MP={stats.mp}")
+                
+            eqp = esper.component_for_entity(1, EquipmentComponent)
+            if eqp:
+                heroi = self.battle_sys.heroi
+                
+                # Mapeia mao_direita (Arma) para eqp.arma
+                if heroi.mao_direita:
+                    eqp.arma = {
+                        "nome": heroi.mao_direita.nome,
+                        "bonus_atk": getattr(heroi.mao_direita, "dano", 3),
+                        "tipo": getattr(heroi.mao_direita, "tipo", "corpo")
+                    }
+                else:
+                    eqp.arma = None
+                
+                # Mapeia mao_esquerda (Escudo ou Arma) e armadura para eqp.armadura / eqp.escudo
+                from app.core.entities.equipamentos import Escudo
+                if isinstance(heroi.mao_esquerda, Escudo):
+                    eqp.escudo = {
+                        "nome": heroi.mao_esquerda.nome,
+                        "bonus_def": getattr(heroi.mao_esquerda, "defesa_extra", 3)
+                    }
+                else:
+                    eqp.escudo = None
+                    
+                if heroi.armadura:
+                    eqp.armadura = {
+                        "nome": heroi.armadura.nome,
+                        "bonus_def": getattr(heroi.armadura, "defesa", 3)
+                    }
+                else:
+                    eqp.armadura = None
+        except Exception as erro_sync:
+            logging.error(f"Erro ao sincronizar combate de volta para ECS: {erro_sync}")
 
     def _criar_personagem_inimigo(self, dados: dict) -> Any:
         """

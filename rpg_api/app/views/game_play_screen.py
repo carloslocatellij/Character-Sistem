@@ -331,7 +331,8 @@ class GamePlayScreen(Screen):
         """
         Mapper: StatsComponent/ECS → objeto Personagem do domínio.
         Utiliza GameController.converter_para_dominio com os dados do personagem
-        carregados do banco de dados. Padrão Mapper conforme Regra 1.
+        carregados do banco de dados, enriquecendo-os com o estado atual do ECS (HP, MP e equipamentos).
+        Padrão Mapper conforme Regra 1.
         """
         try:
             from app.controllers.game_controller import GameController
@@ -344,7 +345,52 @@ class GamePlayScreen(Screen):
                 if personagem_db is None:
                     logging.error(f'_obter_heroi_dominio: PersonagemDB id={self.personagem_id} não encontrado.')
                     return None
-                return GameController.converter_para_dominio(personagem_db)
+                
+                heroi_dominio = GameController.converter_para_dominio(personagem_db)
+                if heroi_dominio:
+                    stats = esper.component_for_entity(1, StatsComponent)
+                    eqp = esper.component_for_entity(1, EquipmentComponent)
+                    
+                    # Sincroniza Equipamentos do ECS para o Domínio
+                    if eqp:
+                        from app.core.entities.equipamentos import Arma, Armadura, Escudo
+                        
+                        if eqp.arma:
+                            nome = eqp.arma.get("nome", "Espada")
+                            dano = eqp.arma.get("bonus_atk") or eqp.arma.get("dano", 3)
+                            tipo_ataque = eqp.arma.get("tipo", "corpo")
+                            heroi_dominio.mao_direita = Arma(nome=nome, dano=dano, tipo=tipo_ataque)
+                        else:
+                            heroi_dominio.mao_direita = None
+
+                        arma_esquerda = None
+                        armadura = None
+                        
+                        if hasattr(eqp, "escudo") and eqp.escudo:
+                            nome = eqp.escudo.get("nome", "Escudo")
+                            defesa = eqp.escudo.get("bonus_def") or eqp.escudo.get("defesa", 3)
+                            arma_esquerda = Escudo(nome=nome, defesa_extra=defesa)
+                        
+                        if eqp.armadura:
+                            nome = eqp.armadura.get("nome", "Armadura")
+                            bonus = eqp.armadura.get("bonus_def") or eqp.armadura.get("defesa", 3)
+                            if "escudo" in nome.lower():
+                                arma_esquerda = Escudo(nome=nome, defesa_extra=bonus)
+                            else:
+                                armadura = Armadura(nome=nome, defesa=bonus)
+                        
+                        heroi_dominio.mao_esquerda = arma_esquerda
+                        heroi_dominio.armadura = armadura
+                        
+                    # Recalcula atributos do domínio (inclusive max_hp e max_mp baseados em fórmulas)
+                    heroi_dominio.atualizar_atributos_totais()
+                    
+                    # Sincroniza HP e Mana atuais salvando nos campos lógicos correspondentes
+                    if stats:
+                        heroi_dominio.pv_atual = min(stats.hp, heroi_dominio.max_hp)
+                        heroi_dominio.pm_atual = min(stats.mp, heroi_dominio.max_mp)
+                    
+                return heroi_dominio
         except Exception as erro_mapper:
             logging.error(f'_obter_heroi_dominio: {erro_mapper}')
             return None
@@ -634,3 +680,7 @@ class GamePlayScreen(Screen):
                     texto_inv += f'• {nome_item.capitalize()} (x{qtd})\n'
         self.query_one(
             '#lbl-inventario', Static).update(texto_inv if texto_inv else 'Inventário Vazio')
+
+    def on_resume(self) -> None:
+        """Chamado quando a tela de batalha é fechada e voltamos ao GamePlayScreen."""
+        self.atualizar_paineis_status()

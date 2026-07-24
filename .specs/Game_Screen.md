@@ -1,6 +1,6 @@
 
 
-### Ambientar e climatizar psicologicamente o usuário.
+# Ambientar e climatizar psicologicamente o usuário.
 
 - Trilha sonora dramática: 
 - Efeito visual
@@ -79,3 +79,26 @@ Esta área funciona como um terminal no qual as mensagens de enventos são mostr
 
 5 - Menu:
 Salvar, Carregar, Sair
+
+---
+
+### Tela de Batalha:
+
+┌────────┐─────────────────────────────┌────────┐
+│ Mago   │                             │ Enemy1 │
+│hp▄▄▄▄▄▄│   @A                  E@    │ ▄▄▄▄▄▄ │
+│mp▄▄▄▄▄▄│                             │ ▄▄▄    │
+│Atk  Def|   @A                  E@    │ Enemy2 │
+│Arqueiro│                             │ ▄▄▄▄▄  │
+│hp▄▄▄▄▄▄│   @A                        │ ▄▄     │
+│mp▄▄▄   │                             │        │
+│Atk  Def│                             │        │
+│        ┌─────────────────────────────┐        │
+│        │  * Mago atacou enem.1       │        │
+│        │                             │        │
+│        │                             │        │
+┌────────└─────────────────────────────┘────────┐
+│   ►Ataque   ► Fugir          |  ► Enemy1      │
+│   ►Magia                     |  ► Enemy2      │
+│   ►Item                      |                │
+└───────────────────────────────────────────────┘
