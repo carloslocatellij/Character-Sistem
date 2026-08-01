@@ -1,130 +1,125 @@
 # Especificação Técnica: Sistema de RPG de Mesa
 1. Visão Geral
 
-Este projeto é um motor (engine) online para criação de jogos de RPG por meio da geração de Cenários completos compartilhaveis. Desenvolvido em Python, o sistema adota princípios de Arquitetura Limpa (Clean Architecture) e Domain-Driven Design (DDD) Test-Driven Design (TDD), garantindo total desacoplamento entre as regras do jogo, a persistência de dados (Banco de Dados) e a interface do utilizador.
+Projeto motor RPG online para criação de jogos por geração de Cenários compartilháveis. Python, Arquitetura Limpa, DDD, TDD. Garante desacoplamento entre regras, persistência dados, interface.
 
-- Criação de Mapas aninhados
-- Criação de Personagens (Raças, Classes, Itens, Habilidades)
-- Simulação de batalhas de RPG de mesa baseado em turnos
+- Criação Mapas aninhados
+- Criação Personagens (Raças, Classes, Itens, Habilidades)
+- Simulação batalhas RPG turno
 - Jogar
 
-2. Arquitetura do Sistema
+2. Arquitetura Sistema
 
-O sistema é dividido nas seguintes camadas independentes:
+Camadas independentes:
 
-    Domínio (core): Contém as regras puras do RPG (Classes, Fórmulas, Simulador). Não possui dependências externas.
+    Domínio (core): Regras puras RPG (Classes, Fórmulas, Simulador). Sem dependências externas.
 
-    Persistência (models / db): Gerencia o banco de dados relacional utilizando SQLAlchemy (ORM).
+    Persistência (models / db): Gerencia BD relacional via SQLAlchemy (ORM).
 
-    Interface (CLI / API): Interage com o utilizador e utiliza Padrões de Mapeamento (Adapters) para traduzir dados do banco para o domínio.
+    Interface (CLI / API): Interage utilizador, usa Padrões Mapeamento (Adapters) traduzir dados banco para domínio.
 
-3. Entidades de Domínio
+3. Entidades Domínio
 3.1. Raça
 
-Representa a espécie do personagem.
+Representa espécie personagem.
 
-    Propriedades: nome, emoji (representação visual).
+    Propriedades: nome, emoji (visual).
 
-    Mecânica: Possui um dicionário bonus_atributos (ex: {"forca": 2, "agilidade": -1}) que modifica permanentemente os atributos base do personagem.
+    Mecânica: Dicionário `bonus_atributos` (ex: `{"forca": 2, "agilidade": -1}`) modifica atributos base personagem.
 
 3.2. ClasseRPG
 
-Representa o treinamento/profissão do personagem.
+Representa treinamento/profissão personagem.
 
-    Propriedades: nome, lista de habilidades, dicionário bonus_atributos.
+    Propriedades: nome, lista habilidades, dicionário `bonus_atributos`.
 
-    Caminhos Mágicos: Possui um dicionário bonus_caminhos (ex: {"fogo": 1, "trevas": 2}) que dita a aptidão do personagem para aprender feitiços específicos.
+    Caminhos Mágicos: Dicionário `bonus_caminhos` (ex: `{"fogo": 1, "trevas": 2}`) dita aptidão para aprender feitiços.
 
 3.3. Equipamentos (Herança)
 
-Sistema baseado em herança a partir de uma classe base Item.
+Herança a partir classe base `Item`.
 
-    Item: Possui nome, peso e emoji.
+    Item: nome, peso, emoji.
 
-    Arma (herda Item): Adiciona dano numérico e tipo ("corpo" ou "distancia").
+    Arma (herda Item): Dano numérico, tipo ("corpo" ou "distancia").
 
-    Armadura (herda Item): Adiciona pontuação de defesa.
+    Armadura (herda Item): Defesa.
 
-    Escudo (herda Item): Adiciona pontuação de defesa_extra.
+    Escudo (herda Item): Defesa extra.
 
 
 3.4. Personagem (Entidade Central)
 
-Entidade acionadora do jogo. Utiliza composição para agregar Raça e Classe.
+Entidade acionadora jogo. Composição agrega Raça e Classe.
 
-    Atributos Base vs Totais: Armazena os atributos puros (0 a 5: Força, Agilidade, Resistência, Percepção, Exuberância) e calcula os "Atributos Totais" somando os bônus da Raça e Classe.
+    Atributos Base vs Totais: Armazena atributos puros (0 a 5: Força, Agilidade, Resistência, Percepção, Exuberância). Calcula "Atributos Totais" somando bônus Raça e Classe.
 
-    Status Derivados: Calcula automaticamente (e recalcula quando sofre alterações) os Pontos de Vida (hp), Pontos de Mana (mp) e Modificadores de Ataque utilizando fórmulas matemáticas pré-definidas.
+    Status Derivados: Calcula automaticamente (e recalcula alterações) Pontos Vida (hp), Pontos Mana (mp), Modificadores Ataque via fórmulas pré-definidas.
 
-    Inventário e Slots: Possui campos específicos para equipamentos equipados: mao_direita, mao_esquerda e armadura, além de listas para inventário geral.
+    Inventário/Slots: Campos equipamentos (`mao_direita`, `mao_esquerda`, `armadura`), listas inventário geral.
 
-    Estado: Controla listas dinâmicas de efeitos_ativos (venenos, buffs) processados a cada turno e magias_conhecidas.
-
-
-3.5. Mapas (A base do ambiente de jogo)
-
-Entidade composta pela camada de terreno, camada de objetos e conjuntos de eventos ligados a cada mapa, Os mapas podem ser aninhados pelo campo 'mapa_pai'.
-
-    Existem terrenos que permitem caminhar (chão) e outros bloqueam a passagem (paredes, água, etc).
-
-    A camada de objetos bloqueia a passagem. Um truque de background faz parecer que está a cima da camada de terrenos.
-
-    Eventos ficam no EventosDB e são instancidos juntos com o mapa, sobrepostos a ele e são acionaveis por meio de seus parametros. Assim como os objetos, eles aparentam estar acima da camada de terrenos.
+    Estado: Listas dinâmicas `efeitos_ativos` (venenos, buffs) processados cada turno, `magias_conhecidas`.
 
 
-3.6. Eventos (Centro da Mecânica do Jogo)
+3.5. Mapas (Base ambiente jogo)
 
-Entidades representadas por emojis posicionados no mapa mas com parametros que são passados ao motor de eventos EventSystem quando são acionados.
+Composta camada terreno, camada objetos, eventos. Mapas aninhados campo `mapa_pai`.
 
-    Os parametros permitem uma criação e programação visual completa do evento como uma entidade única do jogo.
+    Terrenos: transitáveis (chão), bloqueio (paredes, água).
 
-    Enventos classicos são:
-        - teleporte (portas, entradas, cidades, entrada de cavernas): muda de mapa.
-        - baús: eventos que modificam o inventário do personagem
-        - Npcs: disparam mensagens, escolha de opções dadas, mudam variáveis, etc...
+    Camada objetos: bloqueia passagem. Truque background para efeito visual.
 
-    Exemplos de possibilidades podem ser vistas no arquivo `modelo_de_parametros_eventos.json`
+    Eventos: em `EventosDB`, instanciados com mapa, sobrepostos, acionáveis via parâmetros.
 
-    
+3.6. Eventos (Centro Mecânica Jogo)
 
+Emojis posicionados no mapa, parâmetros passados ao `EventSystem` ao acionar.
 
-4. Regras de Negócio e Mecânicas
-4.1. Validação de Magias e Habilidades
+    Parâmetros permitem criação/programação visual evento como entidade única.
 
-    As Magias possuem requisitos em formato de dicionário (ex: exige {"água": 2} e Exuberância >= 2).
+    Eventos clássicos:
+        - teleporte (portas, cidades, cavernas): muda mapa.
+        - baús: modifica inventário personagem.
+        - Npcs: dispara mensagens, escolhas, muda variáveis.
 
-    Regra Estrita: Ao tentar ensinar uma magia a um personagem, o sistema deve validar os seus "Caminhos de Magia Totais" (Base + Bônus da Classe). Se os requisitos não forem atingidos, o sistema deve levantar uma Exceção (ValueError) e impedir o aprendizado.
-
-4.2. Fluxo de Combate
-
-    Iniciativa: Ordenada por 1d6 + Agilidade (com desempates automáticos).
-
-    Ataque: O atacante rola 3d6 + Modificador de Ataque contra a rolagem de Defesa do alvo (1d6 + Agilidade + Bônus de Escudo).
-
-    Dano: Se acertar, o dano bruto é calculado rolando 1d6 por ponto do atributo base (Força/Agilidade) somado ao dano da arma.
-
-    Absorção: O alvo reduz o dano bruto rolando 1d6 por ponto de Resistência e somando a defesa da Armadura.
-
-5. Simulação de Batalhas
-
-O módulo de simulação é estritamente isolado e aceita duas equipes (listas de instâncias de Personagem).
-
-    Batalha Única (Arena): Simula turno a turno, selecionando alvos aleatoriamente entre os vivos. Retorna um dicionário de eventos relatando o vencedor e o log do combate.
-
-    Simulador Estatístico (Múltiplas Batalhas): Recebe o número N de batalhas (Padrão: 100). Executa simulações silenciosas.
-
-    Mecânica de Isolamento: O simulador deve usar deepcopy nos personagens originais antes de cada rodada para garantir que eles entrem na arena com hp e mp máximos, evitando o acúmulo irreal de ferimentos entre simulações independentes.
-
-    Relatório: Agrupa estatísticas por personagem (Tentativas, Acertos, Dano Causado, Abates e Taxa de Sobrevivência).
-
-6. Persistência e Banco de Dados (ORM)
-
-    SQLAlchemy: Utilizado para mapeamento relacional.
-
-    Separação de Ambientes: O sistema obedece a uma variável de ambiente (TEST_VERSION). Se verdadeira, utiliza bancos SQLite isolados para testes (rpg_teste.db), protegendo dados de produção.
-
-    Tipagem JSON: Dicionários e listas do Domínio (como bônus e requisitos) são salvos em colunas tipo JSON.
-
-    Isolamento de Dados Derivados: O banco de dados armazena apenas os Atributos Base. Cálculos de vida, mana e ataque má
+    Exemplos em `modelo_de_parametros_eventos.json`.
 
 
+4. Regras Negócio e Mecânicas
+4.1. Validação Magias/Habilidades
+
+    Magias possuem requisitos (ex: `{"água": 2}`, Exuberância >= 2).
+
+    Regra Estrita: Ao ensinar magia, validar "Caminhos Magia Totais" (Base + Bônus Classe). Se requisitos não atingidos, levanta `ValueError`, impede aprendizado.
+
+4.2. Fluxo Combate
+
+    Iniciativa: `1d6 + Agilidade` (desempates automáticos).
+
+    Ataque: Atacante rola `3d6 + Modificador Ataque` vs Defesa alvo (`1d6 + Agilidade + Bônus Escudo`).
+
+    Dano: Se acertar, dano bruto `1d6` por ponto atributo base (Força/Agilidade) + dano arma.
+
+    Absorção: Alvo reduz dano bruto rolando `1d6` por ponto Resistência + defesa Armadura.
+
+5. Simulação Batalhas
+
+Módulo estritamente isolado, aceita duas equipes (listas `Personagem`).
+
+    Batalha Única (Arena): Simula turno a turno, alvos aleatórios entre vivos. Retorna dicionário eventos, vencedor, log combate.
+
+    Simulador Estatístico (Múltiplas Batalhas): Recebe N batalhas (Padrão: 100). Executa simulações silenciosas.
+
+    Mecânica Isolamento: Simulador usa `deepcopy` personagens originais antes cada rodada, garante hp/mp máximos, evita acúmulo ferimentos entre simulações.
+
+    Relatório: Agrupa estatísticas personagem (Tentativas, Acertos, Dano Causado, Abates, Taxa Sobrevivência).
+
+6. Persistência e Banco Dados (ORM)
+
+    SQLAlchemy: Mapeamento relacional.
+
+    Separação Ambientes: Variável `TEST_VERSION`. Se verdadeira, usa bancos SQLite isolados para testes (`rpg_teste.db`), protege dados produção.
+
+    Tipagem JSON: Dicionários/listas Domínio (bônus, requisitos) salvos colunas JSON.
+
+    Isolamento Dados Derivados: Banco armazena apenas Atributos Base. Cálculos vida, mana, ataque má.

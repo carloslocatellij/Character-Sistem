@@ -12,6 +12,8 @@ from app.core.engine.components import (
     CombatStateComponent, BattleParticipantComponent
 )
 from app.core.entities.emojis import CatalogoTiles
+from app.views.simulador import SimuladorCombate
+from app.core.entities.personagens import Personagem, Raca, ClasseRPG
 bloqueantes = CatalogoTiles.TERRENOS_BLOQUEANTES
 import logging
 logging.basicConfig(level=logging.INFO, filename="log.log", filemode="a")
@@ -584,6 +586,72 @@ class EventSystem(esper.Processor):
 
         elif tipo == "mover":
             self.log_callback(f"[dim]🏃 Movimento de evento acionado.[/]")
+
+        elif tipo == "batalhar":
+            inimigo_nome = dados.get("inimigo_nome", "Goblin")
+            inimigo_nivel = dados.get("inimigo_nivel", 1)
+            ramos = dados.get("ramos", {})
+
+            self.log_callback(f"[bold red]⚔️ Combate iniciado contra {inimigo_nome} (Nv. {inimigo_nivel})![/]")
+
+            aliado_char = None
+            if world.entity_exists(1) and world.has_component(1, StatsComponent):
+                stats_heroi = world.component_for_entity(1, StatsComponent)
+                raca_h = Raca("Humano")
+                classe_h = ClasseRPG(getattr(stats_heroi, "classe", "guerreiro"))
+                aliado_char = Personagem(
+                    nome=getattr(stats_heroi, "nome", "Herói"),
+                    nivel=1,
+                    raca=raca_h,
+                    classe_rpg=classe_h,
+                    forca_base=5,
+                    agilidade_base=5,
+                    res_base=5,
+                    perc_base=3,
+                    exub_base=3
+                )
+                aliado_char.max_hp = getattr(stats_heroi, "max_hp", 100)
+                aliado_char.pv_atual = getattr(stats_heroi, "hp", 100)
+                aliado_char.max_mp = getattr(stats_heroi, "max_mp", 50)
+                aliado_char.pm_atual = getattr(stats_heroi, "mp", 50)
+            else:
+                raca_h = Raca("Humano")
+                classe_h = ClasseRPG("guerreiro")
+                aliado_char = Personagem("Herói", 1, raca_h, classe_h, 5, 5, 5, 3, 3)
+
+            raca_e = Raca("Monstro")
+            classe_e = ClasseRPG("monstro")
+            inimigo_char = Personagem(
+                nome=inimigo_nome,
+                nivel=int(inimigo_nivel),
+                raca=raca_e,
+                classe_rpg=classe_e,
+                forca_base=3 + int(inimigo_nivel),
+                agilidade_base=3,
+                res_base=3,
+                perc_base=2,
+                exub_base=1
+            )
+
+            simulador = SimuladorCombate([aliado_char], [inimigo_char])
+            relatorio = simulador.simular_batalha(silencioso=True)
+            vencedor = relatorio.get("vencedor")
+
+            resultado_combate = "venceu" if vencedor == "Aliados" else "perdeu"
+
+            if world.entity_exists(1) and world.has_component(1, StatsComponent):
+                stats_heroi = world.component_for_entity(1, StatsComponent)
+                stats_heroi.hp = max(0, int(aliado_char.pv_atual))
+
+            if resultado_combate == "venceu":
+                self.log_callback(f"[bold green]🏆 Vitória contra {inimigo_nome}![/]")
+            else:
+                self.log_callback(f"[bold red]💀 Derrota para {inimigo_nome}...[/]")
+
+            comandos_ramo = ramos.get(resultado_combate, [])
+            if comandos_ramo:
+                self.pilha_de_comandos.append(list(comandos_ramo))
+                self.executar_proximos_comandos()
 
     def avancar_ramo_evento(self, opcao_escolhida: str):
         entrada_limpa = str(opcao_escolhida).strip().lower()

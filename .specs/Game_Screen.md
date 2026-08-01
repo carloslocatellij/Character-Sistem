@@ -1,12 +1,9 @@
+### Ambientar/climatizar usuário.
 
-
-# Ambientar e climatizar psicologicamente o usuário.
-
-- Trilha sonora dramática: 
-- Efeito visual
-- Letras estilizadas
-- Arquitetura da tela elegante e sóbria
-
+- Trilha sonora dramática.
+- Efeito visual.
+- Letras estilizadas.
+- Arquitetura tela elegante/sóbria.
 
 ```
 +-----------------------------------------------------------------+
@@ -39,10 +36,9 @@
 +-----------------------------------------------------------------+
 ```
 
-
 ```
 ===========================================
-|[Menu]                     			|X|
+|[Menu]                                     |X|
 ===========================================
 |                              | & Status |
 |                              |hp:10/mp:5|
@@ -63,42 +59,19 @@
 |+++++++++++++++++++++++++++++++++++++++++|
 ```
 
-Tela de jogo é a tela onde o jogo desenvolvido acontece e é divida em 5 partes: 
+Tela jogo divide-se em 5 partes:
 
-1- Tela do Mapa:
-É onde o jogo se passa, o mapa é carregado, personagem anda e interage com o mapa e eventos.
+1. Tela Mapa:
+Jogo, carregamento mapa, movimento, interação.
 
-2- Tela de Status:
-Um pequeno quadro a direita e a cima da tela de mapa que mostra os Status do personagem como Nome, hp, mp, ataque, defesa etc...
+2. Tela Status:
+Quadro superior direito. Mostra nome, HP, MP, ATK, DEF.
 
-3- Tela de Itens:
-Um quadro a direita da tela de mapa e abaixo do quadro de status, ele mostra os itens coletados e suas quantidades.
+3. Tela Itens:
+Quadro abaixo status. Lista itens, quantidades.
 
-4- Área de Interação:
-Esta área funciona como um terminal no qual as mensagens de enventos são mostradas e também permite interações e comandos como equipar ou usar itens entre outras funcionalidades.
+4. Área Interação:
+Terminal. Exibe mensagens evento, comandos, uso itens.
 
-5 - Menu:
-Salvar, Carregar, Sair
-
----
-
-### Tela de Batalha:
-
-┌────────┐─────────────────────────────┌────────┐
-│ Mago   │                             │ Enemy1 │
-│hp▄▄▄▄▄▄│   @A                  E@    │ ▄▄▄▄▄▄ │
-│mp▄▄▄▄▄▄│                             │ ▄▄▄    │
-│Atk  Def|   @A                  E@    │ Enemy2 │
-│Arqueiro│                             │ ▄▄▄▄▄  │
-│hp▄▄▄▄▄▄│   @A                        │ ▄▄     │
-│mp▄▄▄   │                             │        │
-│Atk  Def│                             │        │
-│        ┌─────────────────────────────┐        │
-│        │  * Mago atacou enem.1       │        │
-│        │                             │        │
-│        │                             │        │
-┌────────└─────────────────────────────┘────────┐
-│   ►Ataque   ► Fugir          |  ► Enemy1      │
-│   ►Magia                     |  ► Enemy2      │
-│   ►Item                      |                │
-└───────────────────────────────────────────────┘
+5. Menu:
+Salvar, carregar, sair.

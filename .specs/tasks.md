@@ -1,14 +1,13 @@
-# Arquivo de TO DO.
-
-[Pendente] Estrutura Servidor/Cliente - MVP rede local para primeiro teste de jogo 2 jogadores 
-
-[Pendente] Desenvolvimento da API Web (FastAPI).
-
-[Pendente] Criação da camada app/schemas com Pydantic para validação das requisições de entrada.
-
-[Pendente] Criação da camada app/routers para expor os endpoints (ex: POST /personagens, POST /simulacao).
-
-[Pendente] Autenticação
-
-[Pendente] Estrutura de comunidades web
-
+1: # TO DO.
+2: 
+3: [Pendente] Estrutura Servidor/Cliente - MVP rede local 2 jogadores.
+4: 
+5: [Pendente] API Web (FastAPI).
+6: 
+7: [Pendente] app/schemas (Pydantic) - validação requisições.
+8: 
+9: [Pendente] app/routers - endpoints (POST /personagens, POST /simulacao).
+10: 
+11: [Pendente] Autenticação.
+12: 
+13: [Pendente] Estrutura comunidades web.

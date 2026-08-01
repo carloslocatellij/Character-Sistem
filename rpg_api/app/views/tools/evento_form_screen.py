@@ -707,6 +707,7 @@ class AdicionarComandoScreen(ModalScreen[dict]):
                 ('Inventário (Add/Sub)', 'mudar_inventario'),
                 ('Status do Herói (HP/MP)', 'mudar_status_heroi'),
                 ('Bifurcação Condicional (Opções)', 'bifurcacao_condicional'),
+                ('Batalha / Combate', 'batalhar'),
                 ('Variável (Valor)', 'controle_variavel'),
                 ('Switch (Liga/Desliga)', 'controle_switch'),
                 ('Self Switch (Local)', 'controle_self_switch'),
@@ -788,6 +789,14 @@ class AdicionarComandoScreen(ModalScreen[dict]):
             op2 = opcoes[1] if len(opcoes) > 1 else ''
             container.mount(Input(placeholder='Opção 1 (ex: Sim)', id='cmd-bif-op1', value=op1))
             container.mount(Input(placeholder='Opção 2 (ex: Não)', id='cmd-bif-op2', value=op2))
+
+        elif tipo == 'batalhar':
+            container.mount(Input(
+                placeholder='Nome do Inimigo (ex: Goblin)',
+                id='cmd-bat-inimigo', value=dados.get('inimigo_nome', 'Goblin')))
+            container.mount(Input(
+                placeholder='Nível do Inimigo (ex: 1)',
+                id='cmd-bat-nivel', value=str(dados.get('inimigo_nivel', 1))))
 
         elif tipo == 'controle_switch':
             container.mount(Input(
@@ -950,6 +959,17 @@ class AdicionarComandoScreen(ModalScreen[dict]):
                         ramos[op2] = []
                     comando['dados']['opcoes'] = opcoes
                     comando['dados']['ramos'] = ramos
+                elif tipo == 'batalhar':
+                    comando['dados']['inimigo_nome'] = self.query_one('#cmd-bat-inimigo').value or 'Goblin'
+                    comando['dados']['inimigo_nivel'] = int(self.query_one('#cmd-bat-nivel').value or 1)
+                    if self.comando_existente and self.comando_existente['tipo'] == 'batalhar':
+                        comando['dados']['ramos'] = self.comando_existente.get('dados', {}).get('ramos', {
+                            'venceu': [], 'perdeu': [], 'fugiu': [], 'inimigo_fugiu': []
+                        })
+                    else:
+                        comando['dados']['ramos'] = {
+                            'venceu': [], 'perdeu': [], 'fugiu': [], 'inimigo_fugiu': []
+                        }
                 elif tipo == 'controle_switch':
                     comando['dados']['nome'] = self.query_one('#cmd-sw-nome').value
                     comando['dados']['valor'] = self.query_one('#cmd-sw-valor').value == 'true'
@@ -1003,7 +1023,12 @@ class AcoesComandoScreen(ModalScreen[str]):
         with Vertical(id='acoes-cmd-caixa'):
             yield Label(f'Ações: {self.comando["tipo"]}', classes='titulo-secao')
             yield Button('Editar Comando', id='btn-editar', variant='success')
-            if self.comando['tipo'] == 'bifurcacao_condicional':
+            if self.comando['tipo'] == 'batalhar':
+                ramos_keys = ['venceu', 'perdeu', 'fugiu', 'inimigo_fugiu']
+                labels = {'venceu': 'Venceu', 'perdeu': 'Perdeu', 'fugiu': 'Fugiu', 'inimigo_fugiu': 'Inimigo Fugiu'}
+                for r_key in ramos_keys:
+                    yield Button(f'Ramo Resultado: {labels[r_key]}', id=f'ramo_{r_key}', variant='primary')
+            elif self.comando['tipo'] == 'bifurcacao_condicional':
                 for op in self.comando['dados'].get('opcoes', []):
                     id_op = op.replace(" ", "_").replace(
                         ",", "-").replace(".", "").replace('!', '_')

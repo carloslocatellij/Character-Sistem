@@ -1,35 +1,35 @@
-# Regra 1: Arquitetura Limpa (Clean Architecture) e Domain-Driven Design (DDD)
+# Regra 1: Arquitetura Limpa (Clean Architecture) + Domain-Driven Design (DDD)
 
-Esta regra dita a organização das camadas do projeto e o desacoplamento de responsabilidades no desenvolvimento do motor de RPG.
+Organiza camadas, desacopla responsabilidades no motor RPG.
 
 ## 1. Separação de Camadas
 
-O código do projeto deve ser rigorosamente dividido em três camadas independentes:
+Código dividido em 3 camadas independentes:
 
-0. Código limpo: Os nomes devem ser claros, auto explicativos e por extenso mesmo para variáveis locais. O código python deve ser tipado adequadamente.
+0. Código limpo: Nomes claros, auto explicativos, extenso. Código Python tipado.
 
 1. **Domínio (Core):**
-   - **Localização:** `rpg_api/app/core/` (incluindo `entities/` e `engine/`).
-   - **Regra:** Não pode conter dependências ou importações de frameworks externos de banco de dados (como SQLAlchemy, exceto tipos básicos de JSON se estritamente necessários), bibliotecas de UI (Textual) ou frameworks Web (FastAPI).
-   - **Responsabilidade:** Contém as entidades de negócio puras (`Personagem`, `ClasseRPG`, `Raca`, `Equipamento`), lógica de cálculo de atributos e o motor ECS (`components`, `systems`, `events`).
+   - **Local:** `rpg_api/app/core/` (`entities/`, `engine/`).
+   - **Regra:** Zero dependências de DB (SQLAlchemy, exceto tipos JSON), UI (Textual), Web (FastAPI).
+   - **Responsabilidade:** Entidades negócio puras (`Personagem`, `ClasseRPG`, `Raca`, `Equipamento`), cálculo de atributos, motor ECS (`components`, `systems`, `events`).
 
 2. **Persistência (Models & DB):**
-   - **Localização:** `rpg_api/app/models/` e `rpg_api/app/db/`.
-   - **Regra:** Gerencia o mapeamento ORM (SQLAlchemy) e a persistência de dados.
-   - **Responsabilidade:** Tradução física de tabelas SQLite e colunas JSON para dados relacionais.
+   - **Local:** `rpg_api/app/models/`, `rpg_api/app/db/`.
+   - **Regra:** Gerencia mapeamento ORM (SQLAlchemy), persistência.
+   - **Responsabilidade:** Tradução tabelas SQLite, colunas JSON para dados relacionais.
 
-3. **Interface de Usuário e Apresentação (View, CLI, API):**
-   - **Localização:** `rpg_api/main_cli.py`, `rpg_api/app/views/` (TUI Textual) e `rpg_api/app/fastapi/` (API Web).
-   - **Regra:** Consome as camadas de Domínio e Persistência através de adaptadores e controladores.
-   - **Responsabilidade:** Renderização em tela, captura de inputs do teclado e respostas HTTP.
+3. **Interface (View, CLI, API):**
+   - **Local:** `rpg_api/main_cli.py`, `rpg_api/app/views/` (TUI Textual), `rpg_api/app/fastapi/` (API Web).
+   - **Regra:** Consome Domínio + Persistência via adaptadores/controladores.
+   - **Responsabilidade:** Renderização, input teclado, respostas HTTP.
 
 ---
 
-## 2. Domain-Driven Design (DDD) e o Padrão Mapper (Adapter)
+## 2. DDD + Mapper (Adapter)
 
-- **Entidades Ricas no Domínio:** Os modelos do domínio (`entities/*`) devem possuir o comportamento e as fórmulas lógicas associadas a eles (ex: `atacar()`, `lancar_magia()`, `atualizar_atributos_totais()`). Eles não devem simplesmente ser classes de transporte de dados anêmicas.
-- **Isolamento de Modelos DB:** Isole instâncias das classes do banco de dados (ex: `PersonagemDB`) dos métodos do domínio.
-- **Função de Mapeamento (Mapper):** O controlador (`rpg_api/app/controllers/`) ou a CLI deve mapear as propriedades dos objetos do banco de dados para os construtores puros das entidades do domínio antes de invocar a lógica de simulação ou regras de negócio:
+- **Entidades Ricas:** Modelos domínio (`entities/*`) possuem comportamento, fórmulas (`atacar()`, `lancar_magia()`, `atualizar_atributos_totais()`). Não classes anêmicas.
+- **Isolamento Modelos DB:** Isole classes DB (`PersonagemDB`) dos métodos domínio.
+- **Mapper:** Controlador (`rpg_api/app/controllers/`) ou CLI mapeia DB para construtores puros domínio antes da lógica.
   
   ```python
   # Exemplo de fluxo correto (Padrão Mapper)
@@ -39,4 +39,4 @@ O código do projeto deve ser rigorosamente dividido em três camadas independen
   # A lógica executa apenas sobre a entidade de domínio
   resultado = personagem_dominio.atacar(alvo_dominio)
   ```
-- **Persistência de Dados Derivados:** O banco de dados armazena apenas atributos de estado bruto (ex: atributos base do personagem de 0 a 5). Atributos calculados (HP Máximo, Mana Máximo, modificadores de combate) devem ser computados dinamicamente na inicialização do objeto de domínio, evitando redundância de dados no banco.
+- **Persistência Dados Derivados:** Banco armazena apenas estado bruto (ex: atributos base 0-5). Atributos calculados (HP/Mana Máximo, mods) computados dinamicamente na inicialização do objeto domínio. Evita redundância.
