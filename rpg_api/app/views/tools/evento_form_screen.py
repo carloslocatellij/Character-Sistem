@@ -707,7 +707,6 @@ class AdicionarComandoScreen(ModalScreen[dict]):
                 ('Inventário (Add/Sub)', 'mudar_inventario'),
                 ('Status do Herói (HP/MP)', 'mudar_status_heroi'),
                 ('Bifurcação Condicional (Opções)', 'bifurcacao_condicional'),
-                ('Batalha / Combate', 'batalhar'),
                 ('Variável (Valor)', 'controle_variavel'),
                 ('Switch (Liga/Desliga)', 'controle_switch'),
                 ('Self Switch (Local)', 'controle_self_switch'),
@@ -758,9 +757,25 @@ class AdicionarComandoScreen(ModalScreen[dict]):
                 id='cmd-tel-y', value=str(dados.get('pos_y', ''))))
 
         elif tipo == 'mudar_inventario':
-            container.mount(Input(
-                placeholder='Nome exato do Item (ex: pocao_cura)',
-                id='cmd-inv-item', value=dados.get('item', '')))
+            from app.core.engine.item_system import garantir_itens_padrao
+            with SessionLocal() as db:
+                itens_db = db.query(ItemDB).all()
+                if not itens_db:
+                    itens_db = garantir_itens_padrao(db)
+
+            opcoes_itens = [(f"{i.emoji or '📦'} {i.nome}", i.nome) for i in itens_db]
+            if not opcoes_itens:
+                opcoes_itens = [("Nenhum item cadastrado", "")]
+
+            item_val = dados.get('item', '')
+            if item_val and item_val not in [op[1] for op in opcoes_itens]:
+                opcoes_itens.insert(0, (item_val, item_val))
+
+            container.mount(Select(
+                opcoes_itens,
+                value=item_val if item_val else (opcoes_itens[0][1] if opcoes_itens else ''),
+                id='cmd-inv-item'
+            ))
             container.mount(Select(
                 [('Adicionar', 'add'), ('Remover', 'sub')],
                 value=dados.get('operacao', 'add'), id='cmd-inv-op'))
@@ -789,14 +804,6 @@ class AdicionarComandoScreen(ModalScreen[dict]):
             op2 = opcoes[1] if len(opcoes) > 1 else ''
             container.mount(Input(placeholder='Opção 1 (ex: Sim)', id='cmd-bif-op1', value=op1))
             container.mount(Input(placeholder='Opção 2 (ex: Não)', id='cmd-bif-op2', value=op2))
-
-        elif tipo == 'batalhar':
-            container.mount(Input(
-                placeholder='Nome do Inimigo (ex: Goblin)',
-                id='cmd-bat-inimigo', value=dados.get('inimigo_nome', 'Goblin')))
-            container.mount(Input(
-                placeholder='Nível do Inimigo (ex: 1)',
-                id='cmd-bat-nivel', value=str(dados.get('inimigo_nivel', 1))))
 
         elif tipo == 'controle_switch':
             container.mount(Input(
@@ -959,17 +966,6 @@ class AdicionarComandoScreen(ModalScreen[dict]):
                         ramos[op2] = []
                     comando['dados']['opcoes'] = opcoes
                     comando['dados']['ramos'] = ramos
-                elif tipo == 'batalhar':
-                    comando['dados']['inimigo_nome'] = self.query_one('#cmd-bat-inimigo').value or 'Goblin'
-                    comando['dados']['inimigo_nivel'] = int(self.query_one('#cmd-bat-nivel').value or 1)
-                    if self.comando_existente and self.comando_existente['tipo'] == 'batalhar':
-                        comando['dados']['ramos'] = self.comando_existente.get('dados', {}).get('ramos', {
-                            'venceu': [], 'perdeu': [], 'fugiu': [], 'inimigo_fugiu': []
-                        })
-                    else:
-                        comando['dados']['ramos'] = {
-                            'venceu': [], 'perdeu': [], 'fugiu': [], 'inimigo_fugiu': []
-                        }
                 elif tipo == 'controle_switch':
                     comando['dados']['nome'] = self.query_one('#cmd-sw-nome').value
                     comando['dados']['valor'] = self.query_one('#cmd-sw-valor').value == 'true'
@@ -1001,6 +997,15 @@ class AdicionarComandoScreen(ModalScreen[dict]):
                     comando['dados']['xp_recompensa'] = _safe_int('#cmd-bat-xp', 10)
                     comando['dados']['emoji'] = self.query_one('#cmd-bat-emoji').value or '👹'
 
+                    if self.comando_existente and self.comando_existente['tipo'] == 'iniciar_combate':
+                        comando['dados']['ramos'] = self.comando_existente.get('dados', {}).get('ramos', {
+                            'venceu': [], 'perdeu': [], 'fugiu': [], 'inimigo_fugiu': []
+                        })
+                    else:
+                        comando['dados']['ramos'] = {
+                            'venceu': [], 'perdeu': [], 'fugiu': [], 'inimigo_fugiu': []
+                        }
+
             except Exception:
                 self.notify('Erro ao salvar comando: Preencha os campos corretamente', severity='error')
                 return
@@ -1023,7 +1028,7 @@ class AcoesComandoScreen(ModalScreen[str]):
         with Vertical(id='acoes-cmd-caixa'):
             yield Label(f'Ações: {self.comando["tipo"]}', classes='titulo-secao')
             yield Button('Editar Comando', id='btn-editar', variant='success')
-            if self.comando['tipo'] == 'batalhar':
+            if self.comando['tipo'] == 'iniciar_combate':
                 ramos_keys = ['venceu', 'perdeu', 'fugiu', 'inimigo_fugiu']
                 labels = {'venceu': 'Venceu', 'perdeu': 'Perdeu', 'fugiu': 'Fugiu', 'inimigo_fugiu': 'Inimigo Fugiu'}
                 for r_key in ramos_keys:

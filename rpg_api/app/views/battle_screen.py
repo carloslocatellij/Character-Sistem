@@ -19,8 +19,8 @@ import esper
 import logging
 from typing import Optional, Any
 
-from textual.screen import Screen
-from textual.widgets import Static, RichLog, Label, ProgressBar, RadioSet, RadioButton, Button
+from textual.screen import Screen, ModalScreen
+from textual.widgets import Static, RichLog, Label, ProgressBar, RadioSet, RadioButton, Button, ListView, ListItem
 from textual.containers import Container, Horizontal, Vertical
 from textual.reactive import reactive
 from textual import on
@@ -266,7 +266,7 @@ class BattleScreen(Screen):
                             with RadioSet(id="action-radioset"):
                                 yield RadioButton("🎯  Atacar", value=True, id="act-atacar")
                                 yield RadioButton("🪄  Magia", id="act-magia")
-                                yield RadioButton("🧪  Usar Item (Poção)", id="act-item")
+                                yield RadioButton("🧪  Usar Item", id="act-item")
                                 yield RadioButton("🏃  Fugir do Combate", id="act-fugir")
 
                         # Coluna de seleção de alvo (visível apenas com múltiplos inimigos)
@@ -481,18 +481,25 @@ class BattleScreen(Screen):
         self.turno_liberado = False
 
         if vencedor == "jogador":
+            resultado_final = "venceu"
             self._escrever_log("[bold yellow]══════════════════════════════[/]")
             self._escrever_log("[bold green]🏆  VITÓRIA! Você derrotou todos os inimigos![/]")
             self._escrever_log("[bold yellow]══════════════════════════════[/]")
             self.screen.add_class("vitoria")
+        elif vencedor == "inimigo_fugiu":
+            resultado_final = "inimigo_fugiu"
+            self._escrever_log("[bold yellow]══════════════════════════════[/]")
+            self._escrever_log("[bold green]💨 O inimigo fugiu da batalha![/]")
+            self._escrever_log("[bold yellow]══════════════════════════════[/]")
         else:
+            resultado_final = "perdeu"
             self._escrever_log("[bold yellow]══════════════════════════════[/]")
             self._escrever_log("[bold red]💀  DERROTA! Você foi derrotado...[/]")
             self._escrever_log("[bold yellow]══════════════════════════════[/]")
             self.screen.add_class("derrota")
 
         # Fecha a tela após 2.5 segundos para o jogador ler o resultado
-        self.set_timer(2.5, self._fechar_tela_combate)
+        self.set_timer(2.5, lambda: self._fechar_tela_combate(resultado_final))
 
     # ==========================================
     # ANIMAÇÕES (padrão poc_animation.py)
@@ -681,10 +688,27 @@ class BattleScreen(Screen):
 
         if acao == "fugir":
             self._escrever_log("[dim]🏃 Você fugiu do combate![/]")
-            self.set_timer(0.8, self._fechar_tela_combate)
+            self.set_timer(0.8, lambda: self._fechar_tela_combate("fugiu"))
             return
 
+        if acao == "item":
+            from app.core.engine.components import InventoryComponent
+            inv = esper.component_for_entity(1, InventoryComponent) if esper.has_component(1, InventoryComponent) else None
+            from app.core.engine.item_system import obter_itens_usaveis
+            itens_usaveis = obter_itens_usaveis(inv) if inv else []
 
+            if not itens_usaveis:
+                self._escrever_log("[bold red]❌ Você não possui nenhum item usável no inventário![/]")
+                return
+
+            def ao_escolher_item(nome_item_escolhido):
+                if nome_item_escolhido:
+                    self.turno_liberado = False
+                    if self.battle_sys:
+                        self.battle_sys.executar_acao_jogador("item", alvo_index=alvo_index, nome_item=nome_item_escolhido)
+
+            self.app.push_screen(UsarItemBatalhaModal(itens_usaveis), ao_escolher_item)
+            return
 
         # Desabilita o painel durante o processamento do turno
         self.turno_liberado = False
@@ -706,41 +730,47 @@ class BattleScreen(Screen):
 
     def _escrever_log_turno(self, resultado: dict, fase: str) -> None:
         """Formata e escreve o relatório narrativo de um turno no log."""
-        atacante_nome = resultado.get("atacante", "?")
-        alvo_nome = resultado.get("alvo", "?")
-        acertou = resultado.get("acertou", False)
-        dano_causado = resultado.get("dano_causado", 0)
-        acao = resultado.get("acao", "ataque")
-
-        prefixo = "🧙" if fase == "jogador" else "👹"
-
-        if acao == "cura":
-            descricao = resultado.get("descricao", f"{atacante_nome} se recuperou.")
-            self._escrever_log(f"{prefixo} [dim]{descricao}[/]")
-            return
-
-        if acertou:
-            dano_bruto = resultado.get("dano_bruto", dano_causado)
-            defesa = resultado.get("defesa_total", 0)
-            self._escrever_log(
-                f"{prefixo} [bold]{atacante_nome}[/] acertou [bold]{alvo_nome}[/]! "
-                f"[red]💥 -{dano_causado} HP[/] "
-                f"[dim](bruto:{dano_bruto} | bloq:{defesa})[/]"
-            )
-            if resultado.get("alvo_morreu"):
-                self._escrever_log(f"[bold red]☠ {alvo_nome} foi derrotado![/]")
-        else:
-            self._escrever_log(
-                f"{prefixo} [dim]{atacante_nome} errou o ataque contra {alvo_nome}! (Esquiva)[/]"
-            )
-
-    def _fechar_tela_combate(self) -> None:
-        """Volta ao GamePlayScreen via pop_screen."""
         try:
-            self._sincronizar_combate_para_ecs()
-            self.app.pop_screen()
-        except Exception as erro_pop:
-            logging.info(f"BattleScreen._fechar_tela_combate: {erro_pop}")
+            atacante_nome = resultado.get("atacante", "?")
+            alvo_nome = resultado.get("alvo", "?")
+            acertou = resultado.get("acertou", False)
+            dano_causado = resultado.get("dano_causado", 0)
+            acao = resultado.get("acao", "ataque")
+
+            prefixo = "🧙" if fase == "jogador" else "👹"
+
+            if acao == "cura":
+                descricao = resultado.get("descricao", f"{atacante_nome} se recuperou.")
+                self._escrever_log(f"{prefixo} [dim]{descricao}[/]")
+                return
+
+            if acertou:
+                dano_bruto = resultado.get("dano_bruto", dano_causado)
+                defesa = resultado.get("defesa_total", 0)
+                self._escrever_log(
+                    f"{prefixo} [bold]{atacante_nome}[/] acertou [bold]{alvo_nome}[/]! "
+                    f"[red]💥 -{dano_causado} HP[/] "
+                    f"[dim](bruto:{dano_bruto} | bloq:{defesa})[/]"
+                )
+                if resultado.get("alvo_morreu"):
+                    self._escrever_log(f"[bold red]☠ {alvo_nome} foi derrotado![/]")
+            else:
+                self._escrever_log(
+                    f"{prefixo} [dim]{atacante_nome} errou o ataque contra {alvo_nome}! (Esquiva)[/]"
+                )
+        except Exception as erro_log:
+            logging.info(f"BattleScreen._escrever_log_turno: {erro_log}")
+
+    def _fechar_tela_combate(self, resultado: str) -> None:
+        """Encerra a tela de combate e devolve o controle à tela principal."""
+        self._sincronizar_combate_para_ecs()
+        if resultado == "venceu":
+            esper.dispatch_event("combate_finalizado_gui", "venceu")
+        elif resultado == "perdeu":
+            esper.dispatch_event("combate_finalizado_gui", "perdeu")
+        else:
+            esper.dispatch_event("combate_finalizado_gui", "fugiu")
+        self.app.pop_screen()
 
     def _sincronizar_combate_para_ecs(self) -> None:
         """Sincroniza o status atual (HP/Mana) e equipamentos do herói da batalha de volta para o ECS."""
@@ -777,15 +807,16 @@ class BattleScreen(Screen):
                 if isinstance(heroi.mao_esquerda, Escudo):
                     eqp.escudo = {
                         "nome": heroi.mao_esquerda.nome,
-                        "bonus_def": getattr(heroi.mao_esquerda, "defesa_extra", 3)
+                        "bonus_def": getattr(heroi.mao_esquerda, "defesa_extra", 2)
                     }
                 else:
                     eqp.escudo = None
                     
-                if heroi.armadura:
+                armadura_item = getattr(heroi, "armadura", None) or getattr(heroi, "armadura_equipada", None)
+                if armadura_item:
                     eqp.armadura = {
-                        "nome": heroi.armadura.nome,
-                        "bonus_def": getattr(heroi.armadura, "defesa", 3)
+                        "nome": armadura_item.nome,
+                        "bonus_def": getattr(armadura_item, "defesa", 3)
                     }
                 else:
                     eqp.armadura = None
@@ -823,4 +854,52 @@ class BattleScreen(Screen):
             perc_base=int(dados.get("percepcao", 1)),
             exub_base=int(dados.get("exuberancia", 0)),
         )
+        inimigo.pv_atual = int(dados.get("pv_atual", inimigo.max_hp))
+        inimigo.pm_atual = int(dados.get("pm_atual", inimigo.max_mp))
         return inimigo
+
+
+class UsarItemBatalhaModal(ModalScreen[Optional[str]]):
+    """
+    Modal de seleção de item usável durante a batalha.
+    """
+    CSS_PATH = "styles/battle_styles.css"
+
+    def __init__(self, itens_usaveis: list):
+        super().__init__()
+        self.itens_usaveis = itens_usaveis
+        self.item_selecionado = None
+
+    def compose(self):
+        with Vertical(id="batalha-item-dialog"):
+            yield Label("🧪 Selecione um Item para Usar na Batalha", classes="painel-titulo")
+            yield ListView(id="list-itens-batalha")
+            yield Static("Selecione um item da lista.", id="lbl-batalha-item-desc")
+            with Horizontal(id="batalha-item-botoes"):
+                yield Button("✨ Usar Item", id="btn-confirmar-item-batalha", variant="success", disabled=True)
+                yield Button("Cancelar", id="btn-cancelar-item-batalha", variant="error")
+
+    def on_mount(self) -> None:
+        list_view = self.query_one("#list-itens-batalha", ListView)
+        for item in self.itens_usaveis:
+            widget = ListItem(
+                Label(f"{item['emoji']} {item['nome']} (x{item['quantidade']}) — {item['descricao']}"),
+                name=item['nome']
+            )
+            list_view.append(widget)
+        if not self.itens_usaveis:
+            self.query_one("#lbl-batalha-item-desc", Static).update("Nenhum item usável no inventário.")
+
+    @on(ListView.Selected, "#list-itens-batalha")
+    def on_item_selecionado(self, event: ListView.Selected):
+        if event.item and hasattr(event.item, "name"):
+            self.item_selecionado = event.item.name
+            self.query_one("#lbl-batalha-item-desc", Static).update(f"Usar: [bold yellow]{self.item_selecionado}[/]")
+            self.query_one("#btn-confirmar-item-batalha", Button).disabled = False
+
+    @on(Button.Pressed)
+    def on_button_click(self, event: Button.Pressed) -> None:
+        if event.button.id == "btn-confirmar-item-batalha":
+            self.dismiss(self.item_selecionado)
+        elif event.button.id == "btn-cancelar-item-batalha":
+            self.dismiss(None)

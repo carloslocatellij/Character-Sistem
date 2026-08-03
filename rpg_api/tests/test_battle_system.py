@@ -546,6 +546,97 @@ class TestEventoIniciarCombate:
         assert len(eventos_disparados) == 1
         assert eventos_disparados[0]["nome"] == "Goblin"
 
+    def test_iniciar_combate_executa_ramos_conforme_resultado(self):
+        """Testa que o comando iniciar_combate processa ramos de resultado (ex: venceu)."""
+        from app.core.engine.systems import EventSystem, InventarySystem
+        from unittest.mock import MagicMock
+
+        inv_sys = InventarySystem()
+        game_state = MagicMock()
+        game_state.set_switch = MagicMock()
+
+        log_callback = MagicMock()
+        event_sys = EventSystem(inv_sys, game_state, log_callback)
+
+        event_sys.parms = {"paginas": [{"configuracao_visual": {"emoji": "⚔️"}}]}
+        event_sys.entidade_atual_id = 1
+
+        dados_inimigo = {
+            "nome": "Goblin Fraco",
+            "nivel": 1,
+            "forca": 1,
+            "agilidade": 1,
+            "resistencia": 1,
+            "percepcao": 1,
+            "exuberancia": 0,
+            "emoji": "👹",
+            "ramos": {
+                "venceu": [
+                    {
+                        "tipo": "controle_switch",
+                        "dados": {"nome": "goblin_derrotado", "valor": True}
+                    }
+                ],
+                "perdeu": []
+            }
+        }
+
+        evento_cmd = {"tipo": "iniciar_combate", "dados": dados_inimigo}
+        event_sys._processar_comando_individual(evento_cmd)
+
+        # O Herói tem mais atributos base e vence o Goblin Fraco, ativando o switch do ramo "venceu"
+        game_state.set_switch.assert_called_with("goblin_derrotado", True)
+
+    def test_ramo_perdeu_com_notificacao_e_teleporte(self):
+        """Testa que o ramo 'perdeu' executando notificacao seguida de teleporte não causa RuntimeError."""
+        from app.core.engine.systems import EventSystem, InventarySystem
+        from unittest.mock import MagicMock
+
+        inv_sys = InventarySystem()
+        game_state = MagicMock()
+        log_callback = MagicMock()
+        event_sys = EventSystem(inv_sys, game_state, log_callback)
+
+        event_sys.parms = {"paginas": [{"configuracao_visual": {"emoji": "⚔️"}}]}
+        event_sys.entidade_atual_id = 1
+        event_sys.aguardando_combate = True
+
+        teleporte_executado = []
+
+        def simular_ao_mudar_de_mapa(dados):
+            teleporte_executado.append(dados)
+            # Simula o re-registro de handlers que acontecia ao mudar de mapa
+            esper.set_handler("mudar_mapa", simular_ao_mudar_de_mapa)
+
+        esper.set_handler("mudar_mapa", simular_ao_mudar_de_mapa)
+
+        ramos = {
+            "perdeu": [
+                {
+                    "tipo": "notificacao",
+                    "dados": {"texto": "Você perdeu a batalha!"}
+                },
+                {
+                    "tipo": "teleporte",
+                    "dados": {"mapa_id": 2, "pos_x": 10, "pos_y": 10}
+                }
+            ]
+        }
+        event_sys.ramos_combate_pendente = ramos
+        event_sys.inimigo_nome_combate_pendente = "Chefe Boss"
+
+        try:
+            esper.dispatch_event("combate_finalizado_gui", "perdeu")
+        finally:
+            try:
+                esper.remove_handler("mudar_mapa", simular_ao_mudar_de_mapa)
+            except Exception:
+                pass
+
+        assert len(teleporte_executado) == 1
+        assert teleporte_executado[0]["mapa_id"] == 2
+        log_callback.assert_any_call("Você perdeu a batalha!", notif=True)
+
 
 class TestUsoDeItensEBatalha:
     """Testa a integração do inventário e status dos jogadores no combate."""
@@ -608,7 +699,7 @@ class TestUsoDeItensEBatalha:
         # Deve ter gerado um erro_item no resultado do evento
         assert len(eventos_recebidos) == 1
         assert "erro_item" in eventos_recebidos[0]["resultado"]
-        assert eventos_recebidos[0]["resultado"]["erro_item"] == "Você não possui Poção no inventário!"
+        assert "Você não possui" in eventos_recebidos[0]["resultado"]["erro_item"]
 
     def test_sincronizacao_combate_para_ecs(self, heroi):
         """Testa que os status e equipamentos do domínio são sincronizados de volta para o ECS."""

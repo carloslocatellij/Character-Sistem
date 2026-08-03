@@ -206,10 +206,6 @@ class GamePlayScreen(Screen):
         except Exception as e:
             self.log_mensagem(f'Erro ao posicionar jogador: {e}')
             
-        esper.remove_handler('mudar_mapa', self.ao_mudar_de_mapa)
-        esper.remove_handler('INTERACTION_SUCCESS', self.on_evento_interacao)
-        esper.remove_handler('disparar_bifurcacao', self.disparar_bifurcacao_visual)
-
         esper.set_handler('mudar_mapa', self.ao_mudar_de_mapa)
         esper.set_handler('INTERACTION_SUCCESS', self.on_evento_interacao)
         esper.set_handler('disparar_bifurcacao', self.disparar_bifurcacao_visual)
@@ -319,12 +315,17 @@ class GamePlayScreen(Screen):
         else:
             inimigos_dados = [dados_inimigo]
 
+        def _ao_concluir_combate(resultado: str | None = None):
+            res = resultado if (resultado and isinstance(resultado, str)) else "venceu"
+            esper.dispatch_event("combate_finalizado_gui", res)
+
         try:
             from app.views.battle_screen import BattleScreen
-            self.app.push_screen(BattleScreen(heroi_dominio, inimigos_dados))
+            self.app.push_screen(BattleScreen(heroi_dominio, inimigos_dados), _ao_concluir_combate)
         except Exception as erro_push:
             self.log_mensagem(f'[bold red]❌ Erro ao abrir a tela de combate: {erro_push}[/]')
             logging.error(f'_ao_solicitar_combate: {erro_push}')
+            esper.dispatch_event("combate_finalizado_gui", "venceu")
 
 
     def _obter_heroi_dominio(self) -> Optional[object]:
@@ -484,39 +485,29 @@ class GamePlayScreen(Screen):
 
         # 🥤 COMANDO: /usar
         if comando == '/usar':
-            if inv and self.invSys._inventory_has_item(inv, argumento):
-                if argumento in ('poção', 'potion'):
-                    if self.invSys._inventory_remove_item(inv, argumento, 1):
-                        stats.hp = min(stats.max_hp, stats.hp + 20)
-                        self.log_mensagem(
-                            f'[bold green]✨ Você tomou uma poção. Recuperou 20 hp![/]')
-                    else:
-                        self.log_mensagem(f'[red]Erro ao usar "{argumento}".[/]')
-                else:
-                    self.log_mensagem(f'[orange]O item "{argumento}" não possui efeito de uso imediato.[/]')
+            if argumento:
+                from app.core.engine.item_system import aplicar_usar_item
+                sucesso, msg = aplicar_usar_item(stats, inv, argumento)
+                self.log_mensagem(msg)
             else:
-                self.log_mensagem(f'[red]Você não possui "{argumento}" no seu inventário.[/]')
+                from app.views.inventario_screen import InventarioMenuScreen
+                self.app.push_screen(InventarioMenuScreen(aba_inicial="tab-itens"), lambda res: self.atualizar_paineis_status())
             self.atualizar_paineis_status()
-            
-        # ⚔️ COMANDO: /equipar
-        elif comando == '/equipar':
-            if not argumento:
-                self.log_mensagem('[orange]Use: /equipar <nome_da_arma_ou_armadura>[/]')
-                return
 
-            if inv and self.invSys._inventory_has_item(inv, argumento):
-                if 'espada' in argumento:
-                    bonus = 5 if 'longa' in argumento else 3
-                    eqp.arma = {'nome': argumento, 'bonus_atk': bonus}
-                    self.log_mensagem(f'[bold blue]⚔️ Equipado com sucesso: {argumento.upper()} (+{bonus} ATK).[/]')
-                elif 'armadura' in argumento or 'escudo' in argumento:
-                    bonus = 6 if 'placas' in argumento else 3
-                    eqp.armadura = {'nome': argumento, 'bonus_def': bonus}
-                    self.log_mensagem(f'[bold blue]🛡️ Equipado com sucesso: {argumento.upper()} (+{bonus} DEF).[/]')
-                else:
-                    self.log_mensagem('[orange]Este item não pode ser equipado como arma ou armadura.[/]')
+        # ⚔️ COMANDO: /equipar
+        elif comando in ['/equipar', '/equipamentos', '/equip']:
+            if argumento:
+                from app.core.engine.item_system import aplicar_equipar_item
+                sucesso, msg = aplicar_equipar_item(eqp, inv, argumento)
+                self.log_mensagem(msg)
             else:
-                self.log_mensagem(f'[red]Você não possui o equipamento "{argumento}" no inventário.[/]')
+                from app.views.inventario_screen import InventarioMenuScreen
+                self.app.push_screen(InventarioMenuScreen(aba_inicial="tab-equipamentos"), lambda res: self.atualizar_paineis_status())
+            self.atualizar_paineis_status()
+
+        elif comando in ['/inv', '/inventario', '/itens']:
+            from app.views.inventario_screen import InventarioMenuScreen
+            self.app.push_screen(InventarioMenuScreen(aba_inicial="tab-itens"), lambda res: self.atualizar_paineis_status())
             self.atualizar_paineis_status()
         
         elif comando in ['/h', '/help', ]:

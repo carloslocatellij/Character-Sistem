@@ -1,5 +1,17 @@
 import unicodedata
 import esper
+
+if not getattr(esper, "_safe_patched", False):
+    def _safe_dispatch_event(name: str, *args) -> None:
+        handlers = list(esper.event_registry.get(name, []))
+        for func in handlers:
+            handler = func()
+            if handler is not None:
+                handler(*args)
+
+    esper.dispatch_event = _safe_dispatch_event
+    esper._safe_patched = True
+
 import random
 import asyncio
 from copy import deepcopy
@@ -396,7 +408,16 @@ class EventSystem(esper.Processor):
 
         self.pilha_de_comandos = []      # Armazena os blocos de comandos lineares
         self.aguardando_escolha = False
+        self.aguardando_combate = False
+        self.ramos_combate_pendente = {}
+        self.inimigo_nome_combate_pendente = "Goblin"
         self.entidade_atual_id = None
+
+        # Registra o listener de conclusão de combate interativo via GUI
+        try:
+            esper.set_handler("combate_finalizado_gui", self._ao_receber_resultado_combate_gui)
+        except Exception:
+            pass
 
     def process(self, *args, **kwargs):
         pass
@@ -405,13 +426,14 @@ class EventSystem(esper.Processor):
         """Callback disparado pelo esper event_handler assim que o jogador interage com um bloco."""
         logging.info(f" foi por processar_evento_interacao")
         try:
-            if self.aguardando_escolha:
+            if self.aguardando_escolha or self.aguardando_combate:
                 return
 
             params = payload.get("parametros", {})
             self.parms = params
             self.entidade_atual_id = payload.get("entidade_id")
             self.aguardando_escolha = False
+            self.aguardando_combate = False
 
             if "paginas" not in params:
                 self._processar_evento_antigo(payload)
@@ -442,6 +464,7 @@ class EventSystem(esper.Processor):
         try:
             self.pilha_de_comandos = [list(comandos)]
             self.aguardando_escolha = False
+            self.aguardando_combate = False
             self.ramos_disponiveis = {}
             self.executar_proximos_comandos()
         except Exception as e:
@@ -450,6 +473,9 @@ class EventSystem(esper.Processor):
     def executar_proximos_comandos(self):
         """Loop executor não-bloqueante que processa a pilha até o fim ou até uma interrupção."""
         while self.pilha_de_comandos:
+            if self.aguardando_escolha or self.aguardando_combate:
+                return
+
             bloco_atual = self.pilha_de_comandos[-1]
             if not bloco_atual:
                 self.pilha_de_comandos.pop()
@@ -458,9 +484,33 @@ class EventSystem(esper.Processor):
             comando = bloco_atual.pop(0)
             self._processar_comando_individual(comando)
 
-            # Se o comando executado ativou um estado de pausa por pergunta, cede o controle para a TUI
-            if self.aguardando_escolha:
+            # Se o comando executado ativou um estado de pausa por pergunta ou combate, cede o controle para a TUI
+            if self.aguardando_escolha or self.aguardando_combate:
                 return
+
+    def _ao_receber_resultado_combate_gui(self, resultado: str):
+        if not self.aguardando_combate:
+            return
+        self.aguardando_combate = False
+        ramos = self.ramos_combate_pendente
+        inimigo_nome = self.inimigo_nome_combate_pendente
+        self.ramos_combate_pendente = {}
+        self._executar_ramo_resultado_combate(resultado, ramos, inimigo_nome)
+
+    def _executar_ramo_resultado_combate(self, resultado: str, ramos: dict, inimigo_nome: str):
+        if resultado == "venceu":
+            self.log_callback(f"[bold green]🏆 Vitória contra {inimigo_nome}![/]")
+        elif resultado == "perdeu":
+            self.log_callback(f"[bold red]💀 Derrota para {inimigo_nome}...[/]")
+        elif resultado == "fugiu":
+            self.log_callback(f"[dim]🏃 Você fugiu da batalha contra {inimigo_nome}.[/]")
+        elif resultado == "inimigo_fugiu":
+            self.log_callback(f"[dim]💨 O inimigo {inimigo_nome} fugiu da batalha![/]")
+
+        comandos_ramo = ramos.get(resultado, [])
+        if comandos_ramo:
+            self.pilha_de_comandos.append(list(comandos_ramo))
+        self.executar_proximos_comandos()
 
     def _processar_comando_individual(self, comando):
         """Interpretador genérico e atômico de comandos estruturados do JSON."""
@@ -573,25 +623,32 @@ class EventSystem(esper.Processor):
                 logging.info(f"Erro ao dispatchar teleport: {e}")
 
         elif tipo == "iniciar_combate":
-            # dados contém: nome, nivel, raca, classe, forca, agilidade, resistencia, percepcao, exuberancia, emoji, xp_recompensa
-            try:
-                esper.dispatch_event("solicitar_iniciar_combate", dados)
-                logging.info(f"Combate solicitado com inimigo: {dados.get('nome', 'Desconhecido')}")
-            except Exception as erro_combate:
-                logging.info(f"Erro ao solicitar combate: {erro_combate}")
-
-        elif tipo == "efeito_sonoro":
-            arquivo = dados.get("arquivo")
-            self.log_callback(f"[dim]🎵 Som tocando: {arquivo}[/]")
-
-        elif tipo == "mover":
-            self.log_callback(f"[dim]🏃 Movimento de evento acionado.[/]")
-
-        elif tipo == "batalhar":
-            inimigo_nome = dados.get("inimigo_nome", "Goblin")
-            inimigo_nivel = dados.get("inimigo_nivel", 1)
+            # dados contém: nome, nivel, raca, classe, forca, agilidade, resistencia, percepcao, exuberancia, emoji, xp_recompensa, e ramos ({'venceu': [], ...})
+            inimigo_nome = dados.get("nome") or dados.get("inimigo_nome", "Goblin")
+            inimigo_nivel = dados.get("nivel") or dados.get("inimigo_nivel", 1)
             ramos = dados.get("ramos", {})
 
+            self.ramos_combate_pendente = ramos
+            self.inimigo_nome_combate_pendente = inimigo_nome
+
+            # Verifica se há listeners registrados na GUI para o combate
+            has_gui_handler = False
+            try:
+                if "solicitar_iniciar_combate" in esper.event_registry:
+                    has_gui_handler = len(esper.event_registry["solicitar_iniciar_combate"]) > 0
+            except Exception:
+                has_gui_handler = False
+
+            if has_gui_handler:
+                self.aguardando_combate = True
+                try:
+                    esper.dispatch_event("solicitar_iniciar_combate", dados)
+                    logging.info(f"Combate interativo solicitado na GUI com inimigo: {inimigo_nome}")
+                except Exception as erro_combate:
+                    logging.info(f"Erro ao solicitar combate: {erro_combate}")
+                return
+
+            # Modo Headless / Simulação (Fallback para testes automatizados sem GUI)
             self.log_callback(f"[bold red]⚔️ Combate iniciado contra {inimigo_nome} (Nv. {inimigo_nivel})![/]")
 
             aliado_char = None
@@ -619,18 +676,20 @@ class EventSystem(esper.Processor):
                 classe_h = ClasseRPG("guerreiro")
                 aliado_char = Personagem("Herói", 1, raca_h, classe_h, 5, 5, 5, 3, 3)
 
-            raca_e = Raca("Monstro")
-            classe_e = ClasseRPG("monstro")
+            raca_val = dados.get("raca", "Goblin")
+            raca_e = Raca(raca_val if isinstance(raca_val, str) else "Goblin")
+            classe_val = dados.get("classe", "Guerreiro")
+            classe_e = ClasseRPG(classe_val if isinstance(classe_val, str) else "guerreiro")
             inimigo_char = Personagem(
                 nome=inimigo_nome,
                 nivel=int(inimigo_nivel),
                 raca=raca_e,
                 classe_rpg=classe_e,
-                forca_base=3 + int(inimigo_nivel),
-                agilidade_base=3,
-                res_base=3,
-                perc_base=2,
-                exub_base=1
+                forca_base=int(dados.get("forca", 3 + int(inimigo_nivel))),
+                agilidade_base=int(dados.get("agilidade", 3)),
+                res_base=int(dados.get("resistencia", 3)),
+                perc_base=int(dados.get("percepcao", 2)),
+                exub_base=int(dados.get("exuberancia", 1))
             )
 
             simulador = SimuladorCombate([aliado_char], [inimigo_char])
@@ -643,15 +702,7 @@ class EventSystem(esper.Processor):
                 stats_heroi = world.component_for_entity(1, StatsComponent)
                 stats_heroi.hp = max(0, int(aliado_char.pv_atual))
 
-            if resultado_combate == "venceu":
-                self.log_callback(f"[bold green]🏆 Vitória contra {inimigo_nome}![/]")
-            else:
-                self.log_callback(f"[bold red]💀 Derrota para {inimigo_nome}...[/]")
-
-            comandos_ramo = ramos.get(resultado_combate, [])
-            if comandos_ramo:
-                self.pilha_de_comandos.append(list(comandos_ramo))
-                self.executar_proximos_comandos()
+            self._executar_ramo_resultado_combate(resultado_combate, ramos, inimigo_nome)
 
     def avancar_ramo_evento(self, opcao_escolhida: str):
         entrada_limpa = str(opcao_escolhida).strip().lower()
@@ -825,7 +876,7 @@ class BattleSystem(esper.Processor):
             for idx, i in enumerate(self.inimigos)
         ]
 
-    def executar_acao_jogador(self, acao: str, alvo_index: int = 0) -> None:
+    def executar_acao_jogador(self, acao: str, alvo_index: int = 0, nome_item: Optional[str] = None) -> None:
         """
         Processa a ação escolhida pelo jogador e depois agenda o turno da IA de forma assíncrona.
         Este método é invocado diretamente pela BattleScreen após a confirmação no RadioSet.
@@ -833,6 +884,7 @@ class BattleSystem(esper.Processor):
         Args:
             acao: Ação escolhida ("ataque", "magia", "item", "fugir").
             alvo_index: Índice do inimigo alvo na lista self.inimigos (padrão: 0).
+            nome_item: Nome opcional do item a ser usado.
         """
         if not self.combate_ativo:
             logging.info("Tentativa de executar acao sem combate ativo.")
@@ -851,24 +903,22 @@ class BattleSystem(esper.Processor):
             world = self.world if (hasattr(self, "world") and self.world is not None) else esper
             from app.core.engine.components import InventoryComponent
             inv = world.component_for_entity(1, InventoryComponent) if world.entity_exists(1) and world.has_component(1, InventoryComponent) else None
-            
-            from app.core.engine.systems import InventarySystem
-            inv_sys = InventarySystem()
-            
-            tem_pocao = False
-            for nome_item in ["poção", "potion", "Poção"]:
-                if inv_sys._inventory_has_item(inv, nome_item):
-                    inv_sys._inventory_remove_item(inv, nome_item, 1)
-                    tem_pocao = True
-                    break
-            
-            if not tem_pocao:
+
+            from app.core.engine.item_system import aplicar_usar_item, obter_itens_usaveis
+
+            # Se o nome do item não foi especificado, busca o primeiro usável do inventário
+            if not nome_item and inv:
+                usaveis = obter_itens_usaveis(inv)
+                if usaveis:
+                    nome_item = usaveis[0]["nome"]
+
+            if not nome_item or not inv:
                 resultado = {
                     "atacante": self.heroi.nome,
                     "alvo": self.heroi.nome,
                     "acertou": False,
                     "acao": "item",
-                    "erro_item": "Você não possui Poção no inventário!",
+                    "erro_item": "Você não possui item usável no inventário!",
                     "dano_causado": 0
                 }
                 # Emite o evento informando o erro, para que a View libere o controle
@@ -884,16 +934,36 @@ class BattleSystem(esper.Processor):
                 })
                 return  # Interrompe o fluxo e não passa o turno
             else:
-                hp_curado = min(self.heroi.max_hp - self.heroi.pv_atual, 20)
-                self.heroi.pv_atual += hp_curado
-                resultado = {
-                    "atacante": self.heroi.nome,
-                    "alvo": self.heroi.nome,
-                    "acertou": True,
-                    "acao": "cura",
-                    "dano_causado": 0,
-                    "descricao": f"{self.heroi.nome} usou uma Poção! Recuperou {hp_curado} HP."
-                }
+                sucesso, msg_uso = aplicar_usar_item(self.heroi, inv, nome_item)
+                if sucesso:
+                    resultado = {
+                        "atacante": self.heroi.nome,
+                        "alvo": self.heroi.nome,
+                        "acertou": True,
+                        "acao": "cura",
+                        "dano_causado": 0,
+                        "descricao": f"{self.heroi.nome} usou {nome_item}! ({msg_uso})"
+                    }
+                else:
+                    resultado = {
+                        "atacante": self.heroi.nome,
+                        "alvo": self.heroi.nome,
+                        "acertou": False,
+                        "acao": "item",
+                        "erro_item": msg_uso,
+                        "dano_causado": 0
+                    }
+                    esper.dispatch_event("turno_calculado", {
+                        "turno": self.turno,
+                        "fase": "jogador",
+                        "acao": acao,
+                        "resultado": resultado,
+                        "heroi_hp": self.heroi.pv_atual,
+                        "heroi_mp": self.heroi.pm_atual,
+                        "inimigos": self._snapshot_inimigos(),
+                        "inimigo_hp": alvo.pv_atual,
+                    })
+                    return
         else:
             resultado = self._resolver_acao_personagem(acao, atacante=self.heroi, alvo=alvo)
 
