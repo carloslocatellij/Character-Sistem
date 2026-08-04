@@ -243,11 +243,20 @@ class EntityFactory:
         )
         esper.add_component(entity_id, RenderComponent(emoji=emoji))
         esper.add_component(entity_id, CollisionComponent(solido=True))
-        esper.add_component(entity_id, InventoryComponent(itens=inv_dict.get("itens", {})))
+        inv_salvo = inv_dict.get("itens", {})
+        if not inv_salvo:
+            inv_salvo = {
+                "Poção de Cura": 2,
+                "Poção de Mana": 1,
+                "Espada Longa": 1,
+                "Armadura de Aço": 1,
+            }
+        esper.add_component(entity_id, InventoryComponent(itens=inv_salvo))
 
         componente_equipamento = EquipmentComponent()
         componente_equipamento.arma = eqp_dict.get("arma")
         componente_equipamento.armadura = eqp_dict.get("armadura")
+        componente_equipamento.escudo = eqp_dict.get("escudo")
         esper.add_component(entity_id, componente_equipamento)
 
         if stats_dict:
@@ -287,14 +296,50 @@ class EntityFactory:
             personagem_dominio.raca if hasattr(personagem_dominio, "raca") else "🧙"
         )
 
+        arma_eqp = None
+        if hasattr(personagem_dominio, "mao_direita") and personagem_dominio.mao_direita:
+            m_dir = personagem_dominio.mao_direita
+            arma_eqp = {
+                "nome": getattr(m_dir, "nome", "Espada Longa"),
+                "bonus_atk": getattr(m_dir, "dano", 5),
+                "tipo": getattr(m_dir, "tipo", "corpo")
+            }
+
+        armadura_eqp = None
+        if hasattr(personagem_dominio, "armadura") and personagem_dominio.armadura:
+            arm = personagem_dominio.armadura
+            armadura_eqp = {
+                "nome": getattr(arm, "nome", "Armadura de Aço"),
+                "bonus_def": getattr(arm, "defesa", 6)
+            }
+
+        escudo_eqp = None
+        if hasattr(personagem_dominio, "mao_esquerda") and personagem_dominio.mao_esquerda:
+            m_esq = personagem_dominio.mao_esquerda
+            if hasattr(m_esq, "defesa"):
+                escudo_eqp = {
+                    "nome": getattr(m_esq, "nome", "Escudo de Madeira"),
+                    "bonus_def": getattr(m_esq, "defesa", 3)
+                }
+
+        inv_inicial = {
+            "Poção de Cura": 2,
+            "Poção de Mana": 1,
+            "Espada Longa": 1,
+            "Armadura de Aço": 1,
+        }
+
         esper.add_component(
             entity_id,
             PositionComponent(x=pos_x, y=pos_y, direcao_olhar="baixo"),
         )
         esper.add_component(entity_id, RenderComponent(emoji=emoji_raca))
         esper.add_component(entity_id, CollisionComponent(solido=True))
-        esper.add_component(entity_id, InventoryComponent(itens={}))
-        esper.add_component(entity_id, EquipmentComponent())
+        esper.add_component(entity_id, InventoryComponent(itens=inv_inicial))
+        esper.add_component(
+            entity_id,
+            EquipmentComponent(arma=arma_eqp, armadura=armadura_eqp, escudo=escudo_eqp)
+        )
         esper.add_component(
             entity_id,
             StatsComponent(

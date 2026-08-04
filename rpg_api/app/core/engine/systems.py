@@ -279,7 +279,7 @@ class InventarySystem(esper.Processor):
     def _get_inventory_mapping(self, inv):
         itens = getattr(inv, "itens", None)
         if isinstance(itens, dict):
-            return itens
+            return {k: v for k, v in itens.items() if v > 0}
         if isinstance(itens, list):
             mapped = {}
             for entry in itens:
@@ -296,56 +296,19 @@ class InventarySystem(esper.Processor):
         return {}
 
     def _inventory_has_item(self, inv, nome):
-        return self._get_inventory_mapping(inv).get(nome, 0) > 0
+        mapping = self._get_inventory_mapping(inv)
+        for k, v in mapping.items():
+            if k.lower() == nome.lower() and v > 0:
+                return True
+        return False
 
     def _inventory_remove_item(self, inv, nome, quantidade=1):
-        if not inv:
-            return False
-        itens = getattr(inv, "itens", None)
-        if isinstance(itens, dict):
-            atual = itens.get(nome, 0)
-            if atual >= quantidade:
-                itens[nome] = atual - quantidade
-                if itens[nome] <= 0:
-                    itens.pop(nome, None)
-                return True
-            return False
-        if isinstance(itens, list):
-            if any(isinstance(x, dict) for x in itens):
-                for entry in itens:
-                    if isinstance(entry, dict) and entry.get("nome") == nome:
-                        qtd = entry.get("quantidade", 1)
-                        if qtd > quantidade:
-                            entry["quantidade"] = qtd - quantidade
-                        else:
-                            itens.remove(entry)
-                        return True
-                return False
-            removed = 0
-            while removed < quantidade and nome in itens:
-                itens.remove(nome)
-                removed += 1
-            return removed == quantidade
-        return False
+        from app.core.engine.item_system import inv_remover_item
+        return inv_remover_item(inv, nome, quantidade)
 
     def _inventory_add_item(self, inv, nome, quantidade=1):
-        if not inv:
-            return False
-        itens = getattr(inv, "itens", None)
-        if isinstance(itens, dict):
-            itens[nome] = itens.get(nome, 0) + quantidade
-            return True
-        if isinstance(itens, list):
-            if any(isinstance(x, dict) for x in itens):
-                for entry in itens:
-                    if isinstance(entry, dict) and entry.get("nome") == nome:
-                        entry["quantidade"] = entry.get("quantidade", 1) + quantidade
-                        return True
-                itens.append({"nome": nome, "quantidade": quantidade})
-                return True
-            itens.extend([nome] * quantidade)
-            return True
-        return False
+        from app.core.engine.item_system import inv_adicionar_item
+        return inv_adicionar_item(inv, nome, quantidade)
 
     def process(self, *args, **kwargs):
         pass

@@ -130,3 +130,34 @@ def test_batalha_usar_item_especifico():
 
     assert battle_sys.heroi.pm_atual == min(heroi.max_mp, 20)
     assert inv.itens.get("Poção de Mana") == 1
+
+
+def test_usar_e_equipar_case_insensitive_e_menus():
+    stats = StatsComponent(
+        nome="Heroi", classe="Guerreiro", hp=10, max_hp=50, mp=10, max_mp=20,
+        ataque_base=5, defesa_base=2
+    )
+    eqp = EquipmentComponent()
+    inv = InventoryComponent(itens={"Poção de Cura": 2, "Espada Longa": 1, "Armadura de Aço": 1})
+
+    # Testar se os menus de itens usáveis e equipamentos retornam os itens corretamente
+    usaveis = obter_itens_usaveis(inv)
+    equipamentos = obter_equipamentos_inventario(inv)
+
+    assert len(usaveis) == 1
+    assert usaveis[0]["nome"] == "Poção de Cura"
+
+    assert len(equipamentos) == 2
+    nomes_eqp = [e["nome"] for e in equipamentos]
+    assert "Espada Longa" in nomes_eqp
+    assert "Armadura de Aço" in nomes_eqp
+
+    # Testar uso com texto em minúsculas (comando CLI)
+    sucesso_uso, msg_uso = aplicar_usar_item(stats, inv, "poção de cura")
+    assert sucesso_uso is True
+    assert stats.hp == 30
+
+    # Testar equipamento com texto em minúsculas
+    sucesso_eqp, msg_eqp = aplicar_equipar_item(eqp, inv, "espada longa")
+    assert sucesso_eqp is True
+    assert eqp.arma["nome"] == "Espada Longa"

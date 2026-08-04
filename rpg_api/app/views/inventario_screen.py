@@ -69,13 +69,46 @@ class InventarioMenuScreen(ModalScreen[str]):
             with Horizontal(id="inv-rodape-botoes"):
                 yield Button("Voltar / Fechar (ESC)", id="btn-fechar-inv", variant="error")
 
+    def _obter_componentes(self):
+        stats = None
+        inv = None
+        eqp = None
+
+        if esper.entity_exists(self.entity_id):
+            if esper.has_component(self.entity_id, StatsComponent):
+                stats = esper.component_for_entity(self.entity_id, StatsComponent)
+            if esper.has_component(self.entity_id, InventoryComponent):
+                inv = esper.component_for_entity(self.entity_id, InventoryComponent)
+            if esper.has_component(self.entity_id, EquipmentComponent):
+                eqp = esper.component_for_entity(self.entity_id, EquipmentComponent)
+
+        if inv is None:
+            for ent, comp in esper.get_component(InventoryComponent):
+                inv = comp
+                self.entity_id = ent
+                break
+        if stats is None and inv is not None:
+            if esper.has_component(self.entity_id, StatsComponent):
+                stats = esper.component_for_entity(self.entity_id, StatsComponent)
+            else:
+                for ent, comp in esper.get_component(StatsComponent):
+                    stats = comp
+                    break
+        if eqp is None and inv is not None:
+            if esper.has_component(self.entity_id, EquipmentComponent):
+                eqp = esper.component_for_entity(self.entity_id, EquipmentComponent)
+            else:
+                for ent, comp in esper.get_component(EquipmentComponent):
+                    eqp = comp
+                    break
+
+        return stats, inv, eqp
+
     def on_mount(self) -> None:
-        self.atualizar_tudo()
+        self.call_after_refresh(self.atualizar_tudo)
 
     def atualizar_tudo(self) -> None:
-        stats = esper.component_for_entity(self.entity_id, StatsComponent) if esper.has_component(self.entity_id, StatsComponent) else None
-        inv = esper.component_for_entity(self.entity_id, InventoryComponent) if esper.has_component(self.entity_id, InventoryComponent) else None
-        eqp = esper.component_for_entity(self.entity_id, EquipmentComponent) if esper.has_component(self.entity_id, EquipmentComponent) else None
+        stats, inv, eqp = self._obter_componentes()
 
         # 1. Atualiza lista de itens usáveis
         list_usaveis = self.query_one("#list-itens-usaveis", ListView)
@@ -92,6 +125,9 @@ class InventarioMenuScreen(ModalScreen[str]):
             self.query_one("#lbl-item-detalhe", Static).update("Você não possui itens usáveis no inventário.")
             self.query_one("#btn-usar-item", Button).disabled = True
             self.item_usavel_selecionado = None
+        else:
+            self.query_one("#lbl-item-detalhe", Static).update("Selecione um item da lista.")
+            self.query_one("#btn-usar-item", Button).disabled = True
 
         # 2. Atualiza os slots equipados atualmente
         lbl_arma = self.query_one("#lbl-slot-arma", Static)
@@ -136,17 +172,22 @@ class InventarioMenuScreen(ModalScreen[str]):
             self.query_one("#lbl-eqp-detalhe", Static).update("Você não possui equipamentos no inventário.")
             self.query_one("#btn-equipar-item", Button).disabled = True
             self.equipamento_selecionado = None
+        else:
+            self.query_one("#lbl-eqp-detalhe", Static).update("Selecione um equipamento do inventário.")
+            self.query_one("#btn-equipar-item", Button).disabled = True
 
     @on(ListView.Selected, "#list-itens-usaveis")
-    def on_item_usavel_selecionado(self, event: ListView.Selected):
-        if event.item and hasattr(event.item, "name"):
+    @on(ListView.Highlighted, "#list-itens-usaveis")
+    def on_item_usavel_selecionado(self, event: ListView.Selected | ListView.Highlighted):
+        if event.item and hasattr(event.item, "name") and event.item.name:
             self.item_usavel_selecionado = event.item.name
             self.query_one("#lbl-item-detalhe", Static).update(f"Item selecionado: [bold yellow]{self.item_usavel_selecionado}[/]")
             self.query_one("#btn-usar-item", Button).disabled = False
 
     @on(ListView.Selected, "#list-equipamentos")
-    def on_equipamento_selecionado(self, event: ListView.Selected):
-        if event.item and hasattr(event.item, "name"):
+    @on(ListView.Highlighted, "#list-equipamentos")
+    def on_equipamento_selecionado(self, event: ListView.Selected | ListView.Highlighted):
+        if event.item and hasattr(event.item, "name") and event.item.name:
             self.equipamento_selecionado = event.item.name
             self.query_one("#lbl-eqp-detalhe", Static).update(f"Equipamento selecionado: [bold cyan]{self.equipamento_selecionado}[/]")
             self.query_one("#btn-equipar-item", Button).disabled = False
@@ -154,9 +195,7 @@ class InventarioMenuScreen(ModalScreen[str]):
     @on(Button.Pressed)
     def on_button_click(self, event: Button.Pressed) -> None:
         button_id = event.button.id
-        stats = esper.component_for_entity(self.entity_id, StatsComponent) if esper.has_component(self.entity_id, StatsComponent) else None
-        inv = esper.component_for_entity(self.entity_id, InventoryComponent) if esper.has_component(self.entity_id, InventoryComponent) else None
-        eqp = esper.component_for_entity(self.entity_id, EquipmentComponent) if esper.has_component(self.entity_id, EquipmentComponent) else None
+        stats, inv, eqp = self._obter_componentes()
 
         if button_id == "btn-fechar-inv":
             self.dismiss(None)

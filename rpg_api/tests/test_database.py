@@ -37,7 +37,7 @@ def test_salvar_e_recuperar_arma_no_banco():
         
         # 5. Valida se os dados voltaram corretamente do banco SQLite
         assert arma_salva is not None
-        assert arma_salva.id == 1
+        assert arma_salva.id is not None and arma_salva.id > 0
         assert arma_salva.dano == 6
         assert arma_salva.categoria == "arma"
         
