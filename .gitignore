@@ -98,6 +98,7 @@ Thumbs.db
 .gemini/
 .copilot/
 .openai/
+.opencode/
 
 # ==========================================
 # Windows
@@ -109,3 +110,4 @@ Thumbs.db
 # =========================================
 _legacy
 *.original.md
+.rtk/

@@ -1,16 +1,16 @@
-# Graph Report - SisCharlesRpg  (2026-08-05)
+# Graph Report - SisCharlesRpg  (2026-08-04)
 
 ## Corpus Check
-- 101 files · ~315,889 words
+- 101 files · ~315,877 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 1606 nodes · 3170 edges · 119 communities (105 shown, 14 thin omitted)
+- 1606 nodes · 3170 edges · 117 communities (103 shown, 14 thin omitted)
 - Extraction: 66% EXTRACTED · 34% INFERRED · 0% AMBIGUOUS · INFERRED: 1082 edges (avg confidence: 0.59)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `97cb99bc`
+- Built from commit: `521e7c23`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -21,11 +21,11 @@
 - Raca
 - GameController
 - ItemFormScreen
-- TestInicializacaoCombate
+- BattleSystem
 - EquipmentComponent
 - ItemDB
 - Criador jogos RPG
-- EventSystem
+- StatsComponent
 - PersonagemDB
 - DungeonGenerator
 - PropriedadesEventoFormScreen
@@ -72,7 +72,7 @@
 - Efeito
 - .ao_enviar_comando_chat
 - on
-- StatsComponent
+- TestInicializacaoCombate
 - test_game_state_and_loader.py
 - test_logica_mapas.py
 - MODIFICADORES
@@ -119,8 +119,6 @@
 - Map_Maneger.md
 - SPEC.md
 - sischarlesrpg
-- TestIAInimigo
-- TestResolucaoAcoes
 
 ## God Nodes (most connected - your core abstractions)
 1. `GamePlayScreen` - 71 edges
@@ -149,7 +147,7 @@
 ## Import Cycles
 - None detected.
 
-## Communities (119 total, 14 thin omitted)
+## Communities (117 total, 14 thin omitted)
 
 ### Community 0 - "InventoryComponent"
 Cohesion: 0.05
@@ -160,8 +158,8 @@ Cohesion: 0.07
 Nodes (21): Key, NetworkPlayerComponent, Identificador para jogadores que estão conectados via rede (multiplayer)., AISystem, InteractionSystem, NetworkSystem, Sistema responsável por compilar as camadas de Terreno, Objetos e Esper ECS em…, Sistema responsável por sincronizar o estado de outros jogadores conectados… (+13 more)
 
 ### Community 2 - "BattleScreen"
-Cohesion: 0.09
-Nodes (16): BattleScreen, Any, Screen, Tela de combate por turnos — suporta 1 a 4 inimigos. Princípio fundamental…, Registra handlers do Esper, posiciona sprites e inicia o combate via…, Remove os handlers do Esper ao fechar a tela para evitar memory leaks., Habilita/desabilita o painel de ações conforme o estado do turno., Posiciona os sprites de inimigos de forma distribuída na arena antes da… (+8 more)
+Cohesion: 0.05
+Nodes (31): AcaoConfirmada, BarraStatusCombate, BattleScreen, CombatenteSprite, EfeitoAtaque, Any, Message, Screen (+23 more)
 
 ### Community 3 - "Raca"
 Cohesion: 0.07
@@ -175,9 +173,9 @@ Nodes (24): GameController, Session, Método genérico para listar registros (Ra
 Cohesion: 0.09
 Nodes (14): ArenaScreen, CharacterFormScreen, ClasseFormScreen, CreationScreen, ExplorerScreen, ItemFormScreen, MainScreen, ComposeResult (+6 more)
 
-### Community 6 - "TestInicializacaoCombate"
-Cohesion: 0.09
-Nodes (18): BattleParticipantComponent, CombatStateComponent, Marca uma entidade como estando em combate ativo e armazena metadados do turno.…, Liga um identificador de participante ao contexto de uma batalha. Permite que o…, Testa os novos componentes ECS relacionados ao combate., CombatStateComponent deve inicializar com valores padrão corretos., BattleParticipantComponent deve aceitar tipo jogador/inimigo/rede., Testa o setup do combate via BattleSystem.iniciar_combate. (+10 more)
+### Community 6 - "BattleSystem"
+Cohesion: 0.06
+Nodes (28): BattleParticipantComponent, CombatStateComponent, Marca uma entidade como estando em combate ativo e armazena metadados do turno.…, Liga um identificador de participante ao contexto de uma batalha. Permite que o…, BattleSystem, O BattleSystem não precisa de processamento periódico — opera sob demanda., Motor lógico puro de combate por turnos. Opera exclusivamente sobre objetos…, Alias de retrocompatibilidade: retorna o primeiro inimigo da lista. (+20 more)
 
 ### Community 7 - "EquipmentComponent"
 Cohesion: 0.15
@@ -191,9 +189,9 @@ Nodes (22): ItemDB, Base, Representa a tabela de Itens/Armas/Armaduras no Banco 
 Cohesion: 0.06
 Nodes (35): Acionar - (tecla Enter), Caminhos Magia, ClasseRPG, Comandos Evento Mais Usados, Criador jogos RPG, Criador Mapas, Editor gerador procedural mapas: ('caverna', 'vila', 'masmorra'), 3 camadas: (Terrenos, Objetos, Eventos)., Efeitos (+27 more)
 
-### Community 10 - "EventSystem"
-Cohesion: 0.11
-Nodes (12): EventSystem, InventarySystem, Gerencia estoques de baús e o inventário do personagem., Sistema processador de eventos universais., Callback disparado pelo esper event_handler assim que o jogador interage com um…, Loop executor não-bloqueante que processa a pilha até o fim ou até uma…, Interpretador genérico e atômico de comandos estruturados do JSON., Testa que o EventSystem processa corretamente o tipo 'iniciar_combate'. (+4 more)
+### Community 10 - "StatsComponent"
+Cohesion: 0.10
+Nodes (14): Guarda os atributos de combate e informações vitais do personagem., StatsComponent, EventSystem, InventarySystem, Gerencia estoques de baús e o inventário do personagem., Sistema processador de eventos universais., Callback disparado pelo esper event_handler assim que o jogador interage com um…, Loop executor não-bloqueante que processa a pilha até o fim ou até uma… (+6 more)
 
 ### Community 11 - "PersonagemDB"
 Cohesion: 0.11
@@ -272,8 +270,8 @@ Cohesion: 0.12
 Nodes (9): AdicionarComandoScreen, AdicionarSwitchScreen, AdicionarVariavelScreen, Pressed, Componente de Formulário de Eventos do Editor de Mapas. Contém todas as telas…, Modal simples para adicionar uma condição de Switch a uma página., Modal simples para adicionar uma condição de Variável numérica a uma página., Sub-formulário para gerar comandos baseados no tipo selecionado. (+1 more)
 
 ### Community 30 - "TestValidacaoEntradas"
-Cohesion: 0.10
-Nodes (12): Deve criar uma raça válida com todos os atributos., Deve listar todas as raças cadastradas., Verifica se todos os 5 atributos são salvos., Deve rejeitar atributos fora do intervalo 0-5., Testes de tratamento de erros., Teste edge case: atributos com tipo errado., Testa se um item pode ser equipado em dois slots (não deveria)., Deve lidar com nome vazio. (+4 more)
+Cohesion: 0.11
+Nodes (11): Deve criar uma raça válida com todos os atributos., Verifica se todos os 5 atributos são salvos., Deve rejeitar atributos fora do intervalo 0-5., Testes de tratamento de erros., Teste edge case: atributos com tipo errado., Testa se um item pode ser equipado em dois slots (não deveria)., Deve lidar com nome vazio., Deve aceitar emojis especiais. (+3 more)
 
 ### Community 31 - "SimuladorCombate"
 Cohesion: 0.14
@@ -352,8 +350,8 @@ Cohesion: 0.17
 Nodes (9): padronizar_largura_tile(), Verifica a largura visual do caractere e adapta o preenchimento com base nas…, Pega o código hexadecimal da cor de fundo de um chão., ComposeResult, Garante que caracteres magros ganham espaço e emojis largos ficam iguais., Garante que os chãos devolvem as cores corretas para o motor de renderização., test_catalogo_cores_fundo(), test_padronizar_largura_tile() (+1 more)
 
 ### Community 51 - "TestGameControllerConsultas"
-Cohesion: 0.25
-Nodes (5): Testes das funções de consulta., Deve retornar um personagem válido pelo ID., Deve retornar None para ID inexistente., Deve retornar lista vazia quando não há classes., TestGameControllerConsultas
+Cohesion: 0.20
+Nodes (6): Testes das funções de consulta., Deve retornar um personagem válido pelo ID., Deve retornar None para ID inexistente., Deve listar todas as raças cadastradas., Deve retornar lista vazia quando não há classes., TestGameControllerConsultas
 
 ### Community 52 - "GameEngineLoader"
 Cohesion: 0.20
@@ -375,9 +373,9 @@ Nodes (6): on, Submitted, Chamado pelo interpretador de comandos quando atinge u
 Cohesion: 0.31
 Nodes (4): Changed, on, Sincroniza o self_switch da página atual quando o Select muda., Sincroniza o item_requerido da página atual quando o Input muda.
 
-### Community 57 - "StatsComponent"
-Cohesion: 0.08
-Nodes (22): Guarda os atributos de combate e informações vitais do personagem., StatsComponent, BattleSystem, O BattleSystem não precisa de processamento periódico — opera sob demanda., Motor lógico puro de combate por turnos. Opera exclusivamente sobre objetos…, Alias de retrocompatibilidade: retorna o primeiro inimigo da lista., Configura os combatentes com deepcopy e dispara o evento de início. O deepcopy…, AcaoConfirmada (+14 more)
+### Community 57 - "TestInicializacaoCombate"
+Cohesion: 0.20
+Nodes (6): Testa o setup do combate via BattleSystem.iniciar_combate., Regra 5: O BattleSystem deve usar deepcopy para isolar os combatentes.…, BattleSystem deve disparar o evento 'combate_iniciado' ao iniciar., battle_sys.combate_ativo deve ser True após iniciar., Regra 5: Iniciativa = 1d6 + Agilidade. Com d6 fixo em 1, o personagem com maior…, TestInicializacaoCombate
 
 ### Community 58 - "test_game_state_and_loader.py"
 Cohesion: 0.22
@@ -511,14 +509,6 @@ Nodes (3): 1. Separação de Camadas, 2. DDD + Mapper (Adapter), Regra 1: Arquit
 Cohesion: 0.50
 Nodes (3): 1. Pipeline Execução, 2. Pilha Não-Bloqueante, Regra 6: Interpretador Eventos (EventSystem)
 
-### Community 117 - "TestIAInimigo"
-Cohesion: 0.20
-Nodes (6): Testa o comportamento de tomada de decisão da IA do inimigo., Com HP > 30%, a IA deve preferir atacar (sem chance de cura)., Com HP < 30% e random < 0.4, a IA deve tentar se curar., O turno síncrono do inimigo deve disparar 'turno_calculado' com fase='inimigo'., Quando o herói morre no turno do inimigo, deve disparar 'combate_encerrado' com…, TestIAInimigo
-
-### Community 118 - "TestResolucaoAcoes"
-Cohesion: 0.25
-Nodes (5): Testa o mapeamento de ações para métodos do Personagem de domínio., _resolver_acao_personagem('ataque') deve retornar dict com 'acertou' e…, Ação desconhecida deve cair no fallback de ataque desarmado., Ação 'cura' da IA deve retornar dano_causado=0., TestResolucaoAcoes
-
 ## Knowledge Gaps
 - **127 isolated node(s):** `$schema`, `.opencode/plugins/graphify.js`, `sischarlesrpg`, `Regras de Desenvolvimento do Projeto (SisCharlesRpg)`, `Diretrizes do Sistema` (+122 more)
   These have ≤1 connection - possible missing edges or undocumented components.
@@ -527,11 +517,11 @@ Nodes (5): Testa o mapeamento de ações para métodos do Personagem de domínio
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `GamePlayScreen` connect `GamePlayScreen` to `InventoryComponent`, `BattleScreen`, `Raca`, `GameController`, `ItemFormScreen`, `TestInicializacaoCombate`, `EquipmentComponent`, `EventSystem`, `PersonagemDB`, `TestMultiplosInimigos`, `MapaDB`, `ChatLog`, `ManagementMenuScreen`, `MovementSystem`, `Selected`, `GameStateManager`, `GameEngineLoader`, `.ao_enviar_comando_chat`, `StatsComponent`, `TestTurnoJogador`, `RPGApp`, `TestIAInimigo`, `TestResolucaoAcoes`?**
+- **Why does `GamePlayScreen` connect `GamePlayScreen` to `InventoryComponent`, `BattleScreen`, `Raca`, `GameController`, `ItemFormScreen`, `BattleSystem`, `EquipmentComponent`, `StatsComponent`, `PersonagemDB`, `TestMultiplosInimigos`, `MapaDB`, `ChatLog`, `ManagementMenuScreen`, `MovementSystem`, `Selected`, `GameStateManager`, `GameEngineLoader`, `.ao_enviar_comando_chat`, `TestInicializacaoCombate`, `TestTurnoJogador`, `RPGApp`?**
   _High betweenness centrality (0.158) - this node is a cross-community bridge._
 - **Why does `GameController` connect `GameController` to `GamePlayScreen`, `ManagementMenuScreen`, `Raca`, `ItemFormScreen`, `ItemDB`, `PersonagemDB`, `GestorDeMapas`, `RPGApp`, `TestGameControllerConsultas`, `Personagem`, `GameEngineLoader`, `MapaDB`, `TestValidacaoEntradas`, `SimuladorCombate`?**
   _High betweenness centrality (0.129) - this node is a cross-community bridge._
-- **Why does `CatalogoTiles` connect `CatalogoTiles` to `GamePlayScreen`, `RamoEditorScreen`, `MovementSystem`, `ConfirmacaoSalvarScreen`, `EventSystem`, `NovoMapaFormScreen`, `PropriedadesEventoFormScreen`, `MapManagerScreen`, `SecondaryMap`, `.obter_cor_fundo`, `PropriedadesFormScreen`, `StatsComponent`, `AdicionarComandoScreen`?**
+- **Why does `CatalogoTiles` connect `CatalogoTiles` to `GamePlayScreen`, `RamoEditorScreen`, `MovementSystem`, `BattleSystem`, `ConfirmacaoSalvarScreen`, `StatsComponent`, `NovoMapaFormScreen`, `PropriedadesEventoFormScreen`, `MapManagerScreen`, `SecondaryMap`, `.obter_cor_fundo`, `PropriedadesFormScreen`, `AdicionarComandoScreen`?**
   _High betweenness centrality (0.074) - this node is a cross-community bridge._
 - **Are the 45 inferred relationships involving `GamePlayScreen` (e.g. with `GameController` and `EquipmentComponent`) actually correct?**
   _`GamePlayScreen` has 45 INFERRED edges - model-reasoned connections that need verification._

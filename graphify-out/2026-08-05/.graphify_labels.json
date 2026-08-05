@@ -5,11 +5,11 @@
   "3": "Raca",
   "4": "GameController",
   "5": "ItemFormScreen",
-  "6": "TestInicializacaoCombate",
+  "6": "BattleSystem",
   "7": "EquipmentComponent",
   "8": "ItemDB",
   "9": "Criador jogos RPG",
-  "10": "EventSystem",
+  "10": "StatsComponent",
   "11": "PersonagemDB",
   "12": "DungeonGenerator",
   "13": "PropriedadesEventoFormScreen",
@@ -56,7 +56,7 @@
   "54": "Efeito",
   "55": ".ao_enviar_comando_chat",
   "56": "on",
-  "57": "StatsComponent",
+  "57": "TestInicializacaoCombate",
   "58": "test_game_state_and_loader.py",
   "59": "test_logica_mapas.py",
   "60": "MODIFICADORES",
@@ -115,7 +115,5 @@
   "113": "resize.py",
   "114": "rpg_api/__init__.py",
   "115": "tests/__init__.py",
-  "116": "Data_Flux.md",
-  "117": "TestIAInimigo",
-  "118": "TestResolucaoAcoes"
+  "116": "Data_Flux.md"
 }

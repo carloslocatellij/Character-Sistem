@@ -95,7 +95,7 @@ BattleScreen.derrota {
 
 /* Barra do herói / aliados */
 .barra-aliado {
-    height: 6;
+    height: auto;
     width: 100%;
     background: #0f1a2e;
     border: solid #3a5a8a;
@@ -106,7 +106,7 @@ BattleScreen.derrota {
 
 /* Barra de inimigo */
 .barra-inimigo {
-    height: 5;
+    height: auto;
     width: 100%;
     background: #2e0f0f;
     border: solid #8a3a3a;
@@ -124,7 +124,7 @@ BattleScreen.derrota {
 /* Conteúdo interno das barras (layout vertical compacto) */
 .barra-status-interna {
     width: 100%;
-    height: 100%;
+    height: auto;
     layout: vertical;
 }
 
@@ -133,12 +133,12 @@ BattleScreen.derrota {
     height: 1;
     color: $text;
     text-style: bold;
-    overflow: hidden hidden;
+    overflow: auto;
 }
 
 .barras-verticais {
     width: 100%;
-    height: 1fr;
+    height: auto;
     layout: vertical;
 }
 
@@ -175,6 +175,7 @@ BattleScreen.derrota {
 .mp-label {
     height: 1;
     color: #74b9ff;
+    margin-bottom: 0;
 }
 
 /* =====================================================
@@ -264,6 +265,7 @@ EfeitoAtaque {
 
 #action-panel {
     height: auto;
+    width: 1fr;
     border: solid #4a4a1a;
     background: #12120a;
     padding: 1;
@@ -273,11 +275,12 @@ EfeitoAtaque {
 
 #action-horizontal {
     height: auto;
+    width: 1fr;
     layout: horizontal;
 }
 
 #acao-coluna {
-    width: 1fr;
+    width: 2fr;
     height: auto;
     margin-right: 1;
     layout: vertical;
@@ -290,9 +293,10 @@ EfeitoAtaque {
 }
 
 /* Painel de alvo oculto (apenas 1 inimigo) */
-#alvo-coluna.oculto {
-    display: none;
+/*#alvo-coluna.oculto {
+ display: none;
 }
+*/
 
 #action-label, #target-label {
     color: $accent;
@@ -318,7 +322,7 @@ EfeitoAtaque {
 
 /* Botão de confirmação */
 #btn-confirmar-acao {
-    margin-top: 1;
+    margin-top: 0;
     width: 100%;
     height: 3;
 }

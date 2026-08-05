@@ -1,3 +1,4 @@
+
 """
 Tela de Combate por Turnos — BattleScreen
 
@@ -155,8 +156,6 @@ class BarraStatusCombate(Widget):
 class BattleScreen(Screen):
     """
     Tela de combate por turnos — suporta 1 a 4 inimigos.
-
-    Princípio fundamental (Regra 1 - Arquitetura Limpa):
     - Esta tela APENAS escuta eventos do BattleSystem e redesenha widgets.
     - NUNCA calcula dano, iniciativa ou lógica de jogo.
     - Toda matemática é delegada ao BattleSystem (Domínio Core).

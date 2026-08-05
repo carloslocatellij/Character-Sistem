@@ -761,7 +761,7 @@
       "source_location": "L44",
       "_origin": "ast",
       "id": "rpg_api_app_core_engine_components_statscomponent",
-      "community": 57,
+      "community": 10,
       "community_name": "StatsComponent",
       "norm_label": "statscomponent"
     },
@@ -806,7 +806,7 @@
       "_origin": "ast",
       "id": "rpg_api_app_core_engine_components_combatstatecomponent",
       "community": 6,
-      "community_name": "TestInicializacaoCombate",
+      "community_name": "BattleSystem",
       "norm_label": "combatstatecomponent"
     },
     {
@@ -817,7 +817,7 @@
       "_origin": "ast",
       "id": "rpg_api_app_core_engine_components_battleparticipantcomponent",
       "community": 6,
-      "community_name": "TestInicializacaoCombate",
+      "community_name": "BattleSystem",
       "norm_label": "battleparticipantcomponent"
     },
     {
@@ -871,7 +871,7 @@
       "source_location": "L45",
       "_origin": "ast",
       "id": "rpg_api_app_core_engine_components_rationale_45",
-      "community": 57,
+      "community": 10,
       "community_name": "StatsComponent",
       "norm_label": "guarda os atributos de combate e informacoes vitais do personagem."
     },
@@ -916,7 +916,7 @@
       "_origin": "ast",
       "id": "rpg_api_app_core_engine_components_rationale_82",
       "community": 6,
-      "community_name": "TestInicializacaoCombate",
+      "community_name": "BattleSystem",
       "norm_label": "marca uma entidade como estando em combate ativo e armazena metadados do turno...."
     },
     {
@@ -927,7 +927,7 @@
       "_origin": "ast",
       "id": "rpg_api_app_core_engine_components_rationale_98",
       "community": 6,
-      "community_name": "TestInicializacaoCombate",
+      "community_name": "BattleSystem",
       "norm_label": "liga um identificador de participante ao contexto de uma batalha. permite que o..."
     },
     {
@@ -2302,7 +2302,7 @@
       "_origin": "ast",
       "id": "rpg_api_app_core_engine_systems_inventarysystem",
       "community": 10,
-      "community_name": "EventSystem",
+      "community_name": "StatsComponent",
       "norm_label": "inventarysystem"
     },
     {
@@ -2313,7 +2313,7 @@
       "_origin": "ast",
       "id": "rpg_api_app_core_engine_systems_inventarysystem_get_inventory_mapping",
       "community": 10,
-      "community_name": "EventSystem",
+      "community_name": "StatsComponent",
       "norm_label": "._get_inventory_mapping()"
     },
     {
@@ -2324,7 +2324,7 @@
       "_origin": "ast",
       "id": "rpg_api_app_core_engine_systems_inventarysystem_inventory_has_item",
       "community": 10,
-      "community_name": "EventSystem",
+      "community_name": "StatsComponent",
       "norm_label": "._inventory_has_item()"
     },
     {
@@ -2335,7 +2335,7 @@
       "_origin": "ast",
       "id": "rpg_api_app_core_engine_systems_inventarysystem_inventory_remove_item",
       "community": 10,
-      "community_name": "EventSystem",
+      "community_name": "StatsComponent",
       "norm_label": "._inventory_remove_item()"
     },
     {
@@ -2346,7 +2346,7 @@
       "_origin": "ast",
       "id": "rpg_api_app_core_engine_systems_inventarysystem_inventory_add_item",
       "community": 10,
-      "community_name": "EventSystem",
+      "community_name": "StatsComponent",
       "norm_label": "._inventory_add_item()"
     },
     {
@@ -2357,7 +2357,7 @@
       "_origin": "ast",
       "id": "rpg_api_app_core_engine_systems_inventarysystem_process",
       "community": 10,
-      "community_name": "EventSystem",
+      "community_name": "StatsComponent",
       "norm_label": ".process()"
     },
     {
@@ -2412,7 +2412,7 @@
       "_origin": "ast",
       "id": "rpg_api_app_core_engine_systems_eventsystem",
       "community": 10,
-      "community_name": "EventSystem",
+      "community_name": "StatsComponent",
       "norm_label": "eventsystem"
     },
     {
@@ -2434,7 +2434,7 @@
       "_origin": "ast",
       "id": "rpg_api_app_core_engine_systems_eventsystem_process",
       "community": 10,
-      "community_name": "EventSystem",
+      "community_name": "StatsComponent",
       "norm_label": ".process()"
     },
     {
@@ -2445,7 +2445,7 @@
       "_origin": "ast",
       "id": "rpg_api_app_core_engine_systems_eventsystem_processar_evento_interacao",
       "community": 10,
-      "community_name": "EventSystem",
+      "community_name": "StatsComponent",
       "norm_label": ".processar_evento_interacao()"
     },
     {
@@ -2456,7 +2456,7 @@
       "_origin": "ast",
       "id": "rpg_api_app_core_engine_systems_eventsystem_filtrar_pagina_valida",
       "community": 10,
-      "community_name": "EventSystem",
+      "community_name": "StatsComponent",
       "norm_label": "._filtrar_pagina_valida()"
     },
     {
@@ -2478,7 +2478,7 @@
       "_origin": "ast",
       "id": "rpg_api_app_core_engine_systems_eventsystem_processar_comandos_sequenciais",
       "community": 10,
-      "community_name": "EventSystem",
+      "community_name": "StatsComponent",
       "norm_label": "._processar_comandos_sequenciais()"
     },
     {
@@ -2489,7 +2489,7 @@
       "_origin": "ast",
       "id": "rpg_api_app_core_engine_systems_eventsystem_executar_proximos_comandos",
       "community": 10,
-      "community_name": "EventSystem",
+      "community_name": "StatsComponent",
       "norm_label": ".executar_proximos_comandos()"
     },
     {
@@ -2500,7 +2500,7 @@
       "_origin": "ast",
       "id": "rpg_api_app_core_engine_systems_eventsystem_ao_receber_resultado_combate_gui",
       "community": 10,
-      "community_name": "EventSystem",
+      "community_name": "StatsComponent",
       "norm_label": "._ao_receber_resultado_combate_gui()"
     },
     {
@@ -2511,7 +2511,7 @@
       "_origin": "ast",
       "id": "rpg_api_app_core_engine_systems_eventsystem_executar_ramo_resultado_combate",
       "community": 10,
-      "community_name": "EventSystem",
+      "community_name": "StatsComponent",
       "norm_label": "._executar_ramo_resultado_combate()"
     },
     {
@@ -2522,7 +2522,7 @@
       "_origin": "ast",
       "id": "rpg_api_app_core_engine_systems_eventsystem_processar_comando_individual",
       "community": 10,
-      "community_name": "EventSystem",
+      "community_name": "StatsComponent",
       "norm_label": "._processar_comando_individual()"
     },
     {
@@ -2533,7 +2533,7 @@
       "_origin": "ast",
       "id": "rpg_api_app_core_engine_systems_eventsystem_avancar_ramo_evento",
       "community": 10,
-      "community_name": "EventSystem",
+      "community_name": "StatsComponent",
       "norm_label": ".avancar_ramo_evento()"
     },
     {
@@ -2544,7 +2544,7 @@
       "_origin": "ast",
       "id": "rpg_api_app_core_engine_systems_eventsystem_processar_evento_antigo",
       "community": 10,
-      "community_name": "EventSystem",
+      "community_name": "StatsComponent",
       "norm_label": "._processar_evento_antigo()"
     },
     {
@@ -2620,8 +2620,8 @@
       "source_location": "L765",
       "_origin": "ast",
       "id": "rpg_api_app_core_engine_systems_battlesystem",
-      "community": 57,
-      "community_name": "StatsComponent",
+      "community": 6,
+      "community_name": "BattleSystem",
       "norm_label": "battlesystem"
     },
     {
@@ -2642,8 +2642,8 @@
       "source_location": "L782",
       "_origin": "ast",
       "id": "rpg_api_app_core_engine_systems_battlesystem_inimigo",
-      "community": 57,
-      "community_name": "StatsComponent",
+      "community": 6,
+      "community_name": "BattleSystem",
       "norm_label": ".inimigo()"
     },
     {
@@ -2653,8 +2653,8 @@
       "source_location": "L786",
       "_origin": "ast",
       "id": "rpg_api_app_core_engine_systems_battlesystem_iniciar_combate",
-      "community": 57,
-      "community_name": "StatsComponent",
+      "community": 6,
+      "community_name": "BattleSystem",
       "norm_label": ".iniciar_combate()"
     },
     {
@@ -2763,8 +2763,8 @@
       "source_location": "L1088",
       "_origin": "ast",
       "id": "rpg_api_app_core_engine_systems_battlesystem_process",
-      "community": 57,
-      "community_name": "StatsComponent",
+      "community": 6,
+      "community_name": "BattleSystem",
       "norm_label": ".process()"
     },
     {
@@ -2830,7 +2830,7 @@
       "_origin": "ast",
       "id": "rpg_api_app_core_engine_systems_rationale_277",
       "community": 10,
-      "community_name": "EventSystem",
+      "community_name": "StatsComponent",
       "norm_label": "gerencia estoques de baus e o inventario do personagem."
     },
     {
@@ -2852,7 +2852,7 @@
       "_origin": "ast",
       "id": "rpg_api_app_core_engine_systems_rationale_363",
       "community": 10,
-      "community_name": "EventSystem",
+      "community_name": "StatsComponent",
       "norm_label": "sistema processador de eventos universais."
     },
     {
@@ -2863,7 +2863,7 @@
       "_origin": "ast",
       "id": "rpg_api_app_core_engine_systems_rationale_389",
       "community": 10,
-      "community_name": "EventSystem",
+      "community_name": "StatsComponent",
       "norm_label": "callback disparado pelo esper event_handler assim que o jogador interage com um..."
     },
     {
@@ -2874,7 +2874,7 @@
       "_origin": "ast",
       "id": "rpg_api_app_core_engine_systems_rationale_437",
       "community": 10,
-      "community_name": "EventSystem",
+      "community_name": "StatsComponent",
       "norm_label": "loop executor nao-bloqueante que processa a pilha ate o fim ou ate uma..."
     },
     {
@@ -2885,7 +2885,7 @@
       "_origin": "ast",
       "id": "rpg_api_app_core_engine_systems_rationale_479",
       "community": 10,
-      "community_name": "EventSystem",
+      "community_name": "StatsComponent",
       "norm_label": "interpretador generico e atomico de comandos estruturados do json."
     },
     {
@@ -2906,8 +2906,8 @@
       "source_location": "L766",
       "_origin": "ast",
       "id": "rpg_api_app_core_engine_systems_rationale_766",
-      "community": 57,
-      "community_name": "StatsComponent",
+      "community": 6,
+      "community_name": "BattleSystem",
       "norm_label": "motor logico puro de combate por turnos. opera exclusivamente sobre objetos..."
     },
     {
@@ -2917,8 +2917,8 @@
       "source_location": "L783",
       "_origin": "ast",
       "id": "rpg_api_app_core_engine_systems_rationale_783",
-      "community": 57,
-      "community_name": "StatsComponent",
+      "community": 6,
+      "community_name": "BattleSystem",
       "norm_label": "alias de retrocompatibilidade: retorna o primeiro inimigo da lista."
     },
     {
@@ -2928,8 +2928,8 @@
       "source_location": "L787",
       "_origin": "ast",
       "id": "rpg_api_app_core_engine_systems_rationale_787",
-      "community": 57,
-      "community_name": "StatsComponent",
+      "community": 6,
+      "community_name": "BattleSystem",
       "norm_label": "configura os combatentes com deepcopy e dispara o evento de inicio. o deepcopy..."
     },
     {
@@ -3038,8 +3038,8 @@
       "source_location": "L1089",
       "_origin": "ast",
       "id": "rpg_api_app_core_engine_systems_rationale_1089",
-      "community": 57,
-      "community_name": "StatsComponent",
+      "community": 6,
+      "community_name": "BattleSystem",
       "norm_label": "o battlesystem nao precisa de processamento periodico \u2014 opera sob demanda."
     },
     {
@@ -5304,8 +5304,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "rpg_api_app_views_battle_screen",
-      "community": 57,
-      "community_name": "StatsComponent",
+      "community": 2,
+      "community_name": "BattleScreen",
       "norm_label": "battle_screen.py"
     },
     {
@@ -5315,8 +5315,8 @@
       "source_location": "L38",
       "_origin": "ast",
       "id": "rpg_api_app_views_battle_screen_combatentesprite",
-      "community": 57,
-      "community_name": "StatsComponent",
+      "community": 2,
+      "community_name": "BattleScreen",
       "norm_label": "combatentesprite"
     },
     {
@@ -5326,8 +5326,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "rpg_api_app_views_battle_screen_py_static",
-      "community": 57,
-      "community_name": "StatsComponent",
+      "community": 2,
+      "community_name": "BattleScreen",
       "norm_label": "static"
     },
     {
@@ -5337,8 +5337,8 @@
       "source_location": "L48",
       "_origin": "ast",
       "id": "rpg_api_app_views_battle_screen_combatentesprite_watch_x_pos",
-      "community": 57,
-      "community_name": "StatsComponent",
+      "community": 2,
+      "community_name": "BattleScreen",
       "norm_label": ".watch_x_pos()"
     },
     {
@@ -5348,8 +5348,8 @@
       "source_location": "L52",
       "_origin": "ast",
       "id": "rpg_api_app_views_battle_screen_combatentesprite_watch_y_pos",
-      "community": 57,
-      "community_name": "StatsComponent",
+      "community": 2,
+      "community_name": "BattleScreen",
       "norm_label": ".watch_y_pos()"
     },
     {
@@ -5359,8 +5359,8 @@
       "source_location": "L60",
       "_origin": "ast",
       "id": "rpg_api_app_views_battle_screen_efeitoataque",
-      "community": 57,
-      "community_name": "StatsComponent",
+      "community": 2,
+      "community_name": "BattleScreen",
       "norm_label": "efeitoataque"
     },
     {
@@ -5370,8 +5370,8 @@
       "source_location": "L72",
       "_origin": "ast",
       "id": "rpg_api_app_views_battle_screen_barrastatuscombate",
-      "community": 57,
-      "community_name": "StatsComponent",
+      "community": 2,
+      "community_name": "BattleScreen",
       "norm_label": "barrastatuscombate"
     },
     {
@@ -5381,8 +5381,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "rpg_api_app_views_battle_screen_py_widget",
-      "community": 57,
-      "community_name": "StatsComponent",
+      "community": 2,
+      "community_name": "BattleScreen",
       "norm_label": "widget"
     },
     {
@@ -5392,8 +5392,8 @@
       "source_location": "L79",
       "_origin": "ast",
       "id": "rpg_api_app_views_battle_screen_barrastatuscombate_init",
-      "community": 57,
-      "community_name": "StatsComponent",
+      "community": 2,
+      "community_name": "BattleScreen",
       "norm_label": ".__init__()"
     },
     {
@@ -5403,8 +5403,8 @@
       "source_location": "L96",
       "_origin": "ast",
       "id": "rpg_api_app_views_battle_screen_barrastatuscombate_compose",
-      "community": 57,
-      "community_name": "StatsComponent",
+      "community": 2,
+      "community_name": "BattleScreen",
       "norm_label": ".compose()"
     },
     {
@@ -5458,8 +5458,8 @@
       "source_location": "L186",
       "_origin": "ast",
       "id": "rpg_api_app_views_battle_screen_acaoconfirmada",
-      "community": 57,
-      "community_name": "StatsComponent",
+      "community": 2,
+      "community_name": "BattleScreen",
       "norm_label": "acaoconfirmada"
     },
     {
@@ -5469,8 +5469,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "rpg_api_app_views_battle_screen_py_message",
-      "community": 57,
-      "community_name": "StatsComponent",
+      "community": 2,
+      "community_name": "BattleScreen",
       "norm_label": "message"
     },
     {
@@ -5480,8 +5480,8 @@
       "source_location": "L193",
       "_origin": "ast",
       "id": "rpg_api_app_views_battle_screen_acaoconfirmada_init",
-      "community": 57,
-      "community_name": "StatsComponent",
+      "community": 2,
+      "community_name": "BattleScreen",
       "norm_label": ".__init__()"
     },
     {
@@ -5491,8 +5491,8 @@
       "source_location": "L199",
       "_origin": "ast",
       "id": "rpg_api_app_views_battle_screen_acaoconfirmada_control",
-      "community": 57,
-      "community_name": "StatsComponent",
+      "community": 2,
+      "community_name": "BattleScreen",
       "norm_label": ".control()"
     },
     {
@@ -5524,8 +5524,8 @@
       "source_location": "L220",
       "_origin": "ast",
       "id": "rpg_api_app_views_battle_screen_battlescreen_compose",
-      "community": 57,
-      "community_name": "StatsComponent",
+      "community": 2,
+      "community_name": "BattleScreen",
       "norm_label": ".compose()"
     },
     {
@@ -5799,8 +5799,8 @@
       "source_location": "L862",
       "_origin": "ast",
       "id": "rpg_api_app_views_battle_screen_usaritembatalhamodal",
-      "community": 57,
-      "community_name": "StatsComponent",
+      "community": 2,
+      "community_name": "BattleScreen",
       "norm_label": "usaritembatalhamodal"
     },
     {
@@ -5810,8 +5810,8 @@
       "source_location": "L868",
       "_origin": "ast",
       "id": "rpg_api_app_views_battle_screen_usaritembatalhamodal_init",
-      "community": 57,
-      "community_name": "StatsComponent",
+      "community": 2,
+      "community_name": "BattleScreen",
       "norm_label": ".__init__()"
     },
     {
@@ -5821,8 +5821,8 @@
       "source_location": "L873",
       "_origin": "ast",
       "id": "rpg_api_app_views_battle_screen_usaritembatalhamodal_compose",
-      "community": 57,
-      "community_name": "StatsComponent",
+      "community": 2,
+      "community_name": "BattleScreen",
       "norm_label": ".compose()"
     },
     {
@@ -5832,8 +5832,8 @@
       "source_location": "L882",
       "_origin": "ast",
       "id": "rpg_api_app_views_battle_screen_usaritembatalhamodal_on_mount",
-      "community": 57,
-      "community_name": "StatsComponent",
+      "community": 2,
+      "community_name": "BattleScreen",
       "norm_label": ".on_mount()"
     },
     {
@@ -5865,8 +5865,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "rpg_api_app_views_battle_screen_rationale_1",
-      "community": 57,
-      "community_name": "StatsComponent",
+      "community": 2,
+      "community_name": "BattleScreen",
       "norm_label": "tela de combate por turnos \u2014 battlescreen interface tui do sistema de combate..."
     },
     {
@@ -5876,8 +5876,8 @@
       "source_location": "L39",
       "_origin": "ast",
       "id": "rpg_api_app_views_battle_screen_rationale_39",
-      "community": 57,
-      "community_name": "StatsComponent",
+      "community": 2,
+      "community_name": "BattleScreen",
       "norm_label": "widget de sprite do combatente com posicao x animavel via reactive. seguindo o..."
     },
     {
@@ -5887,8 +5887,8 @@
       "source_location": "L49",
       "_origin": "ast",
       "id": "rpg_api_app_views_battle_screen_rationale_49",
-      "community": 57,
-      "community_name": "StatsComponent",
+      "community": 2,
+      "community_name": "BattleScreen",
       "norm_label": "sempre que x_pos mudar (via animacao), atualiza o offset visual do sprite."
     },
     {
@@ -5898,8 +5898,8 @@
       "source_location": "L61",
       "_origin": "ast",
       "id": "rpg_api_app_views_battle_screen_rationale_61",
-      "community": 57,
-      "community_name": "StatsComponent",
+      "community": 2,
+      "community_name": "BattleScreen",
       "norm_label": "emoji de impacto que aparece brevemente na arena durante o ataque. criado..."
     },
     {
@@ -5909,8 +5909,8 @@
       "source_location": "L73",
       "_origin": "ast",
       "id": "rpg_api_app_views_battle_screen_rationale_73",
-      "community": 57,
-      "community_name": "StatsComponent",
+      "community": 2,
+      "community_name": "BattleScreen",
       "norm_label": "widget composto de barra de status (nome + hp bar + mp bar) para um combatente...."
     },
     {
@@ -5942,8 +5942,8 @@
       "source_location": "L187",
       "_origin": "ast",
       "id": "rpg_api_app_views_battle_screen_rationale_187",
-      "community": 57,
-      "community_name": "StatsComponent",
+      "community": 2,
+      "community_name": "BattleScreen",
       "norm_label": "mensagem interna emitida quando o jogador confirma sua acao. segue o padrao da..."
     },
     {
@@ -6184,8 +6184,8 @@
       "source_location": "L863",
       "_origin": "ast",
       "id": "rpg_api_app_views_battle_screen_rationale_863",
-      "community": 57,
-      "community_name": "StatsComponent",
+      "community": 2,
+      "community_name": "BattleScreen",
       "norm_label": "modal de selecao de item usavel durante a batalha."
     },
     {
@@ -10519,7 +10519,7 @@
       "_origin": "ast",
       "id": "rpg_api_tests_test_battle_system_testcomponentescombate",
       "community": 6,
-      "community_name": "TestInicializacaoCombate",
+      "community_name": "BattleSystem",
       "norm_label": "testcomponentescombate"
     },
     {
@@ -10530,7 +10530,7 @@
       "_origin": "ast",
       "id": "rpg_api_tests_test_battle_system_testcomponentescombate_test_combat_state_component_valores_padrao",
       "community": 6,
-      "community_name": "TestInicializacaoCombate",
+      "community_name": "BattleSystem",
       "norm_label": ".test_combat_state_component_valores_padrao()"
     },
     {
@@ -10541,7 +10541,7 @@
       "_origin": "ast",
       "id": "rpg_api_tests_test_battle_system_testcomponentescombate_test_battle_participant_component_criacao",
       "community": 6,
-      "community_name": "TestInicializacaoCombate",
+      "community_name": "BattleSystem",
       "norm_label": ".test_battle_participant_component_criacao()"
     },
     {
@@ -10551,7 +10551,7 @@
       "source_location": "L149",
       "_origin": "ast",
       "id": "rpg_api_tests_test_battle_system_testinicializacaocombate",
-      "community": 6,
+      "community": 57,
       "community_name": "TestInicializacaoCombate",
       "norm_label": "testinicializacaocombate"
     },
@@ -10562,7 +10562,7 @@
       "source_location": "L152",
       "_origin": "ast",
       "id": "rpg_api_tests_test_battle_system_testinicializacaocombate_test_iniciar_combate_usa_deepcopy",
-      "community": 6,
+      "community": 57,
       "community_name": "TestInicializacaoCombate",
       "norm_label": ".test_iniciar_combate_usa_deepcopy()"
     },
@@ -10573,7 +10573,7 @@
       "source_location": "L170",
       "_origin": "ast",
       "id": "rpg_api_tests_test_battle_system_testinicializacaocombate_test_iniciar_combate_dispara_evento",
-      "community": 6,
+      "community": 57,
       "community_name": "TestInicializacaoCombate",
       "norm_label": ".test_iniciar_combate_dispara_evento()"
     },
@@ -10584,7 +10584,7 @@
       "source_location": "L185",
       "_origin": "ast",
       "id": "rpg_api_tests_test_battle_system_testinicializacaocombate_test_iniciar_combate_ativa_flag_combate_ativo",
-      "community": 6,
+      "community": 57,
       "community_name": "TestInicializacaoCombate",
       "norm_label": ".test_iniciar_combate_ativa_flag_combate_ativo()"
     },
@@ -10595,7 +10595,7 @@
       "source_location": "L191",
       "_origin": "ast",
       "id": "rpg_api_tests_test_battle_system_testinicializacaocombate_test_iniciativa_considera_agilidade",
-      "community": 6,
+      "community": 57,
       "community_name": "TestInicializacaoCombate",
       "norm_label": ".test_iniciativa_considera_agilidade()"
     },
@@ -10716,8 +10716,8 @@
       "source_location": "L366",
       "_origin": "ast",
       "id": "rpg_api_tests_test_battle_system_testiainimigo",
-      "community": 117,
-      "community_name": "TestIAInimigo",
+      "community": 6,
+      "community_name": "BattleSystem",
       "norm_label": "testiainimigo"
     },
     {
@@ -10727,8 +10727,8 @@
       "source_location": "L369",
       "_origin": "ast",
       "id": "rpg_api_tests_test_battle_system_testiainimigo_test_ia_ataca_com_hp_alto",
-      "community": 117,
-      "community_name": "TestIAInimigo",
+      "community": 6,
+      "community_name": "BattleSystem",
       "norm_label": ".test_ia_ataca_com_hp_alto()"
     },
     {
@@ -10738,8 +10738,8 @@
       "source_location": "L384",
       "_origin": "ast",
       "id": "rpg_api_tests_test_battle_system_testiainimigo_test_ia_pode_curar_com_hp_baixo",
-      "community": 117,
-      "community_name": "TestIAInimigo",
+      "community": 6,
+      "community_name": "BattleSystem",
       "norm_label": ".test_ia_pode_curar_com_hp_baixo()"
     },
     {
@@ -10749,8 +10749,8 @@
       "source_location": "L398",
       "_origin": "ast",
       "id": "rpg_api_tests_test_battle_system_testiainimigo_test_turno_inimigo_sincronizado_dispara_evento",
-      "community": 117,
-      "community_name": "TestIAInimigo",
+      "community": 6,
+      "community_name": "BattleSystem",
       "norm_label": ".test_turno_inimigo_sincronizado_dispara_evento()"
     },
     {
@@ -10760,8 +10760,8 @@
       "source_location": "L416",
       "_origin": "ast",
       "id": "rpg_api_tests_test_battle_system_testiainimigo_test_heroi_morto_encerra_com_derrota",
-      "community": 117,
-      "community_name": "TestIAInimigo",
+      "community": 6,
+      "community_name": "BattleSystem",
       "norm_label": ".test_heroi_morto_encerra_com_derrota()"
     },
     {
@@ -10771,8 +10771,8 @@
       "source_location": "L443",
       "_origin": "ast",
       "id": "rpg_api_tests_test_battle_system_testresolucaoacoes",
-      "community": 118,
-      "community_name": "TestResolucaoAcoes",
+      "community": 6,
+      "community_name": "BattleSystem",
       "norm_label": "testresolucaoacoes"
     },
     {
@@ -10782,8 +10782,8 @@
       "source_location": "L446",
       "_origin": "ast",
       "id": "rpg_api_tests_test_battle_system_testresolucaoacoes_test_resolver_ataque_retorna_resultado_valido",
-      "community": 118,
-      "community_name": "TestResolucaoAcoes",
+      "community": 6,
+      "community_name": "BattleSystem",
       "norm_label": ".test_resolver_ataque_retorna_resultado_valido()"
     },
     {
@@ -10793,8 +10793,8 @@
       "source_location": "L453",
       "_origin": "ast",
       "id": "rpg_api_tests_test_battle_system_testresolucaoacoes_test_resolver_acao_invalida_usa_ataque_fallback",
-      "community": 118,
-      "community_name": "TestResolucaoAcoes",
+      "community": 6,
+      "community_name": "BattleSystem",
       "norm_label": ".test_resolver_acao_invalida_usa_ataque_fallback()"
     },
     {
@@ -10804,8 +10804,8 @@
       "source_location": "L459",
       "_origin": "ast",
       "id": "rpg_api_tests_test_battle_system_testresolucaoacoes_test_resolver_cura_retorna_sem_dano",
-      "community": 118,
-      "community_name": "TestResolucaoAcoes",
+      "community": 6,
+      "community_name": "BattleSystem",
       "norm_label": ".test_resolver_cura_retorna_sem_dano()"
     },
     {
@@ -10816,7 +10816,7 @@
       "_origin": "ast",
       "id": "rpg_api_tests_test_battle_system_testencerramentocombate",
       "community": 6,
-      "community_name": "TestInicializacaoCombate",
+      "community_name": "BattleSystem",
       "norm_label": "testencerramentocombate"
     },
     {
@@ -10827,7 +10827,7 @@
       "_origin": "ast",
       "id": "rpg_api_tests_test_battle_system_testencerramentocombate_test_encerrar_combate_desativa_flag",
       "community": 6,
-      "community_name": "TestInicializacaoCombate",
+      "community_name": "BattleSystem",
       "norm_label": ".test_encerrar_combate_desativa_flag()"
     },
     {
@@ -10838,7 +10838,7 @@
       "_origin": "ast",
       "id": "rpg_api_tests_test_battle_system_testencerramentocombate_test_encerrar_dispara_evento_correto",
       "community": 6,
-      "community_name": "TestInicializacaoCombate",
+      "community_name": "BattleSystem",
       "norm_label": ".test_encerrar_dispara_evento_correto()"
     },
     {
@@ -10849,7 +10849,7 @@
       "_origin": "ast",
       "id": "rpg_api_tests_test_battle_system_testeventoiniciarcombate",
       "community": 10,
-      "community_name": "EventSystem",
+      "community_name": "StatsComponent",
       "norm_label": "testeventoiniciarcombate"
     },
     {
@@ -10860,7 +10860,7 @@
       "_origin": "ast",
       "id": "rpg_api_tests_test_battle_system_testeventoiniciarcombate_test_command_iniciar_combate_dispara_evento_esper",
       "community": 10,
-      "community_name": "EventSystem",
+      "community_name": "StatsComponent",
       "norm_label": ".test_command_iniciar_combate_dispara_evento_esper()"
     },
     {
@@ -10871,7 +10871,7 @@
       "_origin": "ast",
       "id": "rpg_api_tests_test_battle_system_testeventoiniciarcombate_test_iniciar_combate_executa_ramos_conforme_resultado",
       "community": 10,
-      "community_name": "EventSystem",
+      "community_name": "StatsComponent",
       "norm_label": ".test_iniciar_combate_executa_ramos_conforme_resultado()"
     },
     {
@@ -10882,7 +10882,7 @@
       "_origin": "ast",
       "id": "rpg_api_tests_test_battle_system_testeventoiniciarcombate_test_ramo_perdeu_com_notificacao_e_teleporte",
       "community": 10,
-      "community_name": "EventSystem",
+      "community_name": "StatsComponent",
       "norm_label": ".test_ramo_perdeu_com_notificacao_e_teleporte()"
     },
     {
@@ -11003,7 +11003,7 @@
       "_origin": "ast",
       "id": "rpg_api_tests_test_battle_system_rationale_120",
       "community": 6,
-      "community_name": "TestInicializacaoCombate",
+      "community_name": "BattleSystem",
       "norm_label": "testa os novos componentes ecs relacionados ao combate."
     },
     {
@@ -11014,7 +11014,7 @@
       "_origin": "ast",
       "id": "rpg_api_tests_test_battle_system_rationale_123",
       "community": 6,
-      "community_name": "TestInicializacaoCombate",
+      "community_name": "BattleSystem",
       "norm_label": "combatstatecomponent deve inicializar com valores padrao corretos."
     },
     {
@@ -11025,7 +11025,7 @@
       "_origin": "ast",
       "id": "rpg_api_tests_test_battle_system_rationale_132",
       "community": 6,
-      "community_name": "TestInicializacaoCombate",
+      "community_name": "BattleSystem",
       "norm_label": "battleparticipantcomponent deve aceitar tipo jogador/inimigo/rede."
     },
     {
@@ -11035,7 +11035,7 @@
       "source_location": "L150",
       "_origin": "ast",
       "id": "rpg_api_tests_test_battle_system_rationale_150",
-      "community": 6,
+      "community": 57,
       "community_name": "TestInicializacaoCombate",
       "norm_label": "testa o setup do combate via battlesystem.iniciar_combate."
     },
@@ -11046,7 +11046,7 @@
       "source_location": "L153",
       "_origin": "ast",
       "id": "rpg_api_tests_test_battle_system_rationale_153",
-      "community": 6,
+      "community": 57,
       "community_name": "TestInicializacaoCombate",
       "norm_label": "regra 5: o battlesystem deve usar deepcopy para isolar os combatentes...."
     },
@@ -11057,7 +11057,7 @@
       "source_location": "L171",
       "_origin": "ast",
       "id": "rpg_api_tests_test_battle_system_rationale_171",
-      "community": 6,
+      "community": 57,
       "community_name": "TestInicializacaoCombate",
       "norm_label": "battlesystem deve disparar o evento 'combate_iniciado' ao iniciar."
     },
@@ -11068,7 +11068,7 @@
       "source_location": "L186",
       "_origin": "ast",
       "id": "rpg_api_tests_test_battle_system_rationale_186",
-      "community": 6,
+      "community": 57,
       "community_name": "TestInicializacaoCombate",
       "norm_label": "battle_sys.combate_ativo deve ser true apos iniciar."
     },
@@ -11079,7 +11079,7 @@
       "source_location": "L192",
       "_origin": "ast",
       "id": "rpg_api_tests_test_battle_system_rationale_192",
-      "community": 6,
+      "community": 57,
       "community_name": "TestInicializacaoCombate",
       "norm_label": "regra 5: iniciativa = 1d6 + agilidade. com d6 fixo em 1, o personagem com maior..."
     },
@@ -11200,8 +11200,8 @@
       "source_location": "L367",
       "_origin": "ast",
       "id": "rpg_api_tests_test_battle_system_rationale_367",
-      "community": 117,
-      "community_name": "TestIAInimigo",
+      "community": 6,
+      "community_name": "BattleSystem",
       "norm_label": "testa o comportamento de tomada de decisao da ia do inimigo."
     },
     {
@@ -11211,8 +11211,8 @@
       "source_location": "L370",
       "_origin": "ast",
       "id": "rpg_api_tests_test_battle_system_rationale_370",
-      "community": 117,
-      "community_name": "TestIAInimigo",
+      "community": 6,
+      "community_name": "BattleSystem",
       "norm_label": "com hp > 30%, a ia deve preferir atacar (sem chance de cura)."
     },
     {
@@ -11222,8 +11222,8 @@
       "source_location": "L385",
       "_origin": "ast",
       "id": "rpg_api_tests_test_battle_system_rationale_385",
-      "community": 117,
-      "community_name": "TestIAInimigo",
+      "community": 6,
+      "community_name": "BattleSystem",
       "norm_label": "com hp < 30% e random < 0.4, a ia deve tentar se curar."
     },
     {
@@ -11233,8 +11233,8 @@
       "source_location": "L401",
       "_origin": "ast",
       "id": "rpg_api_tests_test_battle_system_rationale_401",
-      "community": 117,
-      "community_name": "TestIAInimigo",
+      "community": 6,
+      "community_name": "BattleSystem",
       "norm_label": "o turno sincrono do inimigo deve disparar 'turno_calculado' com fase='inimigo'."
     },
     {
@@ -11244,8 +11244,8 @@
       "source_location": "L419",
       "_origin": "ast",
       "id": "rpg_api_tests_test_battle_system_rationale_419",
-      "community": 117,
-      "community_name": "TestIAInimigo",
+      "community": 6,
+      "community_name": "BattleSystem",
       "norm_label": "quando o heroi morre no turno do inimigo, deve disparar 'combate_encerrado' com..."
     },
     {
@@ -11255,8 +11255,8 @@
       "source_location": "L444",
       "_origin": "ast",
       "id": "rpg_api_tests_test_battle_system_rationale_444",
-      "community": 118,
-      "community_name": "TestResolucaoAcoes",
+      "community": 6,
+      "community_name": "BattleSystem",
       "norm_label": "testa o mapeamento de acoes para metodos do personagem de dominio."
     },
     {
@@ -11266,8 +11266,8 @@
       "source_location": "L447",
       "_origin": "ast",
       "id": "rpg_api_tests_test_battle_system_rationale_447",
-      "community": 118,
-      "community_name": "TestResolucaoAcoes",
+      "community": 6,
+      "community_name": "BattleSystem",
       "norm_label": "_resolver_acao_personagem('ataque') deve retornar dict com 'acertou' e..."
     },
     {
@@ -11277,8 +11277,8 @@
       "source_location": "L454",
       "_origin": "ast",
       "id": "rpg_api_tests_test_battle_system_rationale_454",
-      "community": 118,
-      "community_name": "TestResolucaoAcoes",
+      "community": 6,
+      "community_name": "BattleSystem",
       "norm_label": "acao desconhecida deve cair no fallback de ataque desarmado."
     },
     {
@@ -11288,8 +11288,8 @@
       "source_location": "L460",
       "_origin": "ast",
       "id": "rpg_api_tests_test_battle_system_rationale_460",
-      "community": 118,
-      "community_name": "TestResolucaoAcoes",
+      "community": 6,
+      "community_name": "BattleSystem",
       "norm_label": "acao 'cura' da ia deve retornar dano_causado=0."
     },
     {
@@ -11300,7 +11300,7 @@
       "_origin": "ast",
       "id": "rpg_api_tests_test_battle_system_rationale_471",
       "community": 6,
-      "community_name": "TestInicializacaoCombate",
+      "community_name": "BattleSystem",
       "norm_label": "testa o processo de encerramento do combate e limpeza do ecs."
     },
     {
@@ -11311,7 +11311,7 @@
       "_origin": "ast",
       "id": "rpg_api_tests_test_battle_system_rationale_474",
       "community": 6,
-      "community_name": "TestInicializacaoCombate",
+      "community_name": "BattleSystem",
       "norm_label": "apos _encerrar_combate, battle_sys.combate_ativo deve ser false."
     },
     {
@@ -11322,7 +11322,7 @@
       "_origin": "ast",
       "id": "rpg_api_tests_test_battle_system_rationale_484",
       "community": 6,
-      "community_name": "TestInicializacaoCombate",
+      "community_name": "BattleSystem",
       "norm_label": "_encerrar_combate deve disparar 'combate_encerrado' com o vencedor correto."
     },
     {
@@ -11333,7 +11333,7 @@
       "_origin": "ast",
       "id": "rpg_api_tests_test_battle_system_rationale_503",
       "community": 10,
-      "community_name": "EventSystem",
+      "community_name": "StatsComponent",
       "norm_label": "testa que o eventsystem processa corretamente o tipo 'iniciar_combate'."
     },
     {
@@ -11344,7 +11344,7 @@
       "_origin": "ast",
       "id": "rpg_api_tests_test_battle_system_rationale_506",
       "community": 10,
-      "community_name": "EventSystem",
+      "community_name": "StatsComponent",
       "norm_label": "o eventsystem deve disparar 'solicitar_iniciar_combate' ao processar um comando..."
     },
     {
@@ -11355,7 +11355,7 @@
       "_origin": "ast",
       "id": "rpg_api_tests_test_battle_system_rationale_550",
       "community": 10,
-      "community_name": "EventSystem",
+      "community_name": "StatsComponent",
       "norm_label": "testa que o comando iniciar_combate processa ramos de resultado (ex: venceu)."
     },
     {
@@ -11366,7 +11366,7 @@
       "_origin": "ast",
       "id": "rpg_api_tests_test_battle_system_rationale_591",
       "community": 10,
-      "community_name": "EventSystem",
+      "community_name": "StatsComponent",
       "norm_label": "testa que o ramo 'perdeu' executando notificacao seguida de teleporte nao causa..."
     },
     {
@@ -13246,8 +13246,8 @@
       "source_location": "L235",
       "_origin": "ast",
       "id": "rpg_api_tests_test_game_controller_testgamecontrollerconsultas_test_listar_racas",
-      "community": 30,
-      "community_name": "TestValidacaoEntradas",
+      "community": 51,
+      "community_name": "TestGameControllerConsultas",
       "norm_label": ".test_listar_racas()"
     },
     {
@@ -13609,8 +13609,8 @@
       "source_location": "L236",
       "_origin": "ast",
       "id": "rpg_api_tests_test_game_controller_rationale_236",
-      "community": 30,
-      "community_name": "TestValidacaoEntradas",
+      "community": 51,
+      "community_name": "TestGameControllerConsultas",
       "norm_label": "deve listar todas as racas cadastradas."
     },
     {
@@ -17478,7 +17478,7 @@
       "label": "Contexto do Projeto",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L47",
+      "source_location": "L40",
       "_origin": "ast",
       "id": "readme_contexto_do_projeto",
       "community": 49,
@@ -17489,7 +17489,7 @@
       "label": "Contexto do Projeto - Fase 2: Integra\u00e7\u00e3o Cloud",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L53",
+      "source_location": "L46",
       "_origin": "ast",
       "id": "readme_contexto_do_projeto_fase_2_integra\u00e7\u00e3o_cloud",
       "community": 49,
@@ -17500,7 +17500,7 @@
       "label": "Obs.",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L60",
+      "source_location": "L53",
       "_origin": "ast",
       "id": "readme_obs",
       "community": 49,
@@ -17511,7 +17511,7 @@
       "label": "Este projeto tem potencial para se tornar um MMORPG de linha de comando!",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L63",
+      "source_location": "L56",
       "_origin": "ast",
       "id": "readme_este_projeto_tem_potencial_para_se_tornar_um_mmorpg_de_linha_de_comando",
       "community": 49,
@@ -17522,7 +17522,7 @@
       "label": "Apoie o projeto pela chave pix:",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L66",
+      "source_location": "L59",
       "_origin": "ast",
       "id": "readme_apoie_o_projeto_pela_chave_pix",
       "community": 49,
@@ -53339,7 +53339,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "README.md",
-      "source_location": "L47",
+      "source_location": "L40",
       "weight": 1.0,
       "_origin": "ast",
       "source": "readme",
@@ -53350,7 +53350,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "README.md",
-      "source_location": "L53",
+      "source_location": "L46",
       "weight": 1.0,
       "_origin": "ast",
       "source": "readme",
@@ -53405,7 +53405,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "README.md",
-      "source_location": "L63",
+      "source_location": "L56",
       "weight": 1.0,
       "_origin": "ast",
       "source": "readme_contexto_do_projeto_fase_2_integra\u00e7\u00e3o_cloud",
@@ -53416,7 +53416,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "README.md",
-      "source_location": "L60",
+      "source_location": "L53",
       "weight": 1.0,
       "_origin": "ast",
       "source": "readme_contexto_do_projeto_fase_2_integra\u00e7\u00e3o_cloud",
@@ -53427,7 +53427,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "README.md",
-      "source_location": "L66",
+      "source_location": "L59",
       "weight": 1.0,
       "_origin": "ast",
       "source": "readme_este_projeto_tem_potencial_para_se_tornar_um_mmorpg_de_linha_de_comando",
@@ -53546,5 +53546,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "97cb99bc145ef095699ce57beb88c8fbad1f90e6"
+  "built_at_commit": "521e7c236272934cf444ff78fa6b7b2df5c2c06d"
 }
