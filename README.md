@@ -7,9 +7,16 @@
 
 - O usuário pode, até o momento, criar personagens informando seu Nome, Nivel, Classe, Raça e os atributos, também uma lista de habilidades, caminhos de magia (água, ar, fogo, terra, trevas e luz). Criar e equipar itens, simular batalhas.
 
+![Sistema de Batalha](.specs/imagens/sistema%20de%20batalha.png)
+
 - Agora temos um editor de mapas que pode gerar masmorras, cavernas e cidades aleatórias e preencher com emojis de várias coisas.
 
+![Editor de Mapas](.specs/imagens/Editor%20de%20mapas.png)
+![Gerador de Mapas](.specs/imagens/Gerador%20de%20mapas.png)
+
 - A Jogabilidade já está em fase de testes ( Você pode andar pelo mapa de "id 1" e interagir com eventos )
+
+![Tela de Jogo](.specs/imagens/tela%20de%20jogo.png)
 
 - Consulte o contexto de desenvolvimento em `.specs/*.md`
 

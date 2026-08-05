@@ -1,11 +1,11 @@
-# Regra 7: Testes Automatizados e Práticas de TDD (Test-Driven Development)
+# Regra 7: Testes/TDD
 
-A qualidade e a integridade lógica do motor de RPG são garantidas por uma suíte robusta de testes automatizados executados via `pytest`.
+Qualidade e integridade garantidas por `pytest`.
 
-## 1. Isolamento de Testes de Dados Aleatórios
+## 1. Isolamento Dados Aleatórios
 
-- **Determinismo nas Rolagens:** Os testes que dependem de resultados de rolagens de dados (ataque, defesa, iniciativa, dano, absorção) não podem ser suscetíveis à aleatoriedade dos geradores de números pseudo-aleatorios.
-- **Uso de `monkeypatch`:** Use o utilitário `monkeypatch` do pytest para interceptar a função de rolar dados (ex: `_rolar_d6` ou equivalentes) e forçar retornos determinísticos. Isso permite validar as fórmulas de dano e acerto com exatidão matemática previsível.
+- **Determinismo:** Testes de rolagem (ataque, defesa, dano) não podem ter aleatoriedade.
+- **`monkeypatch`:** Use `monkeypatch` (pytest) para interceptar função rolar dados (`_rolar_d6`) e forçar retornos determinísticos. Valide fórmulas com precisão.
   
   ```python
   # Exemplo de mock determinístico no pytest
@@ -19,18 +19,18 @@ A qualidade e a integridade lógica do motor de RPG são garantidas por uma suí
 
 ---
 
-## 2. Gerenciamento e Limpeza de Banco de Dados de Teste
+## 2. Limpeza DB Teste
 
-- **Uso do Banco de Memória:** Os testes de integração de banco de dados e ORM devem ser executados com a variável `TEST_VERSION=True`, forçando a conexão a usar o SQLite em memória ou o arquivo `rpg_teste.db`.
-- **Fixtures de Transação / Hooks de Setup/Teardown:**
-  - Garanta que cada módulo de teste inicialize a estrutura de tabelas do banco de dados antes da execução (`Base.metadata.create_all(engine)`) e realize a limpeza completa ao final (`Base.metadata.drop_all(engine)`).
-  - Use fixtures do pytest com escopo de função (`scope="function"`) para limpar ou reverter transações, garantindo que um teste não influencie os dados do teste seguinte.
+- **Banco Memória:** Testes integração ORM com `TEST_VERSION=True` (SQLite memória/`rpg_teste.db`).
+- **Setup/Teardown:**
+  - Iniciar tabelas antes (`Base.metadata.create_all(engine)`), limpar ao final (`Base.metadata.drop_all(engine)`).
+  - Fixtures `scope="function"` para limpar/reverter transações entre testes.
 
 ---
 
-## 3. Cobertura de Código Mínima
+## 3. Cobertura Mínima
 
-Toda nova funcionalidade implementada no Domínio (Core), no motor ECS (Esper) ou nas rotas de API deve obrigatoriamente possuir testes unitários correspondentes sob a pasta `tests/`. Garanta cobertura para:
-- Casos felizes (sucesso das regras).
-- Casos de exceção (ex: ValueError disparado ao aprender magias sem requisitos elementais).
-- Mapeamento e conversão de modelos (Mapper do Banco de Dados para Entidade).
+Nova funcionalidade (Domínio, ECS, API) requer testes unitários em `tests/`. Cubra:
+- Casos felizes (sucesso regras).
+- Casos exceção (ex: erro requisitos magia).
+- Mapeamento (DB para Entidade).

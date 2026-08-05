@@ -1,4 +1,5 @@
 import esper
+from typing import Optional
 from textual.screen import Screen
 from textual.widgets import Static, RichLog, Label, Input
 from textual.containers import Container, ScrollableContainer
@@ -8,10 +9,11 @@ from app.views.components.choice_box import ChoiceBox
 from app.db.database import SessionLocal
 from app.models.mapas_db import MapaDB
 from app.core.engine.systems import (MovementSystem, InteractionSystem, AISystem,
-                                     RenderSystem, InventarySystem, EventSystem, NetworkSystem)
+                                     RenderSystem, InventarySystem, EventSystem,
+                                     NetworkSystem, BattleSystem)
 from app.core.engine.engine_loader import GameEngineLoader
 from app.core.engine.components import (PositionComponent, StatsComponent,
-                                        InventoryComponent, EquipmentComponent                                       
+                                        InventoryComponent, EquipmentComponent
 )
 from app.core.engine.game_state import GameStateManager
 from app.packages.stylewriter import ChatLog
@@ -112,13 +114,23 @@ class GamePlayScreen(Screen):
                     pass
                 esper.add_processor(proc_inst)
             
+            # Registra o BattleSystem separadamente (sistema de combate)
+            self.battle_sys = BattleSystem()
+            try:
+                esper.remove_processor(BattleSystem)
+            except KeyError:
+                pass
+            esper.add_processor(self.battle_sys)
+            
             esper.remove_handler('mudar_mapa', self.ao_mudar_de_mapa)
             esper.remove_handler('INTERACTION_SUCCESS', self.on_evento_interacao)
             esper.remove_handler('disparar_bifurcacao', self.disparar_bifurcacao_visual)
+            esper.remove_handler('solicitar_iniciar_combate', self._ao_solicitar_combate)
 
             esper.set_handler('mudar_mapa', self.ao_mudar_de_mapa)
             esper.set_handler('INTERACTION_SUCCESS', self.on_evento_interacao)
             esper.set_handler('disparar_bifurcacao', self.disparar_bifurcacao_visual)
+            esper.set_handler('solicitar_iniciar_combate', self._ao_solicitar_combate)
             
             self.game_loop()
             
@@ -134,6 +146,7 @@ class GamePlayScreen(Screen):
         esper.remove_handler("mudar_mapa", self.ao_mudar_de_mapa)
         esper.remove_handler("INTERACTION_SUCCESS", self.on_evento_interacao)
         esper.remove_handler('disparar_bifurcacao', self.disparar_bifurcacao_visual)
+        esper.remove_handler('solicitar_iniciar_combate', self._ao_solicitar_combate)
             
 
     def ao_mudar_de_mapa(self, dados_teleporte):
@@ -173,8 +186,9 @@ class GamePlayScreen(Screen):
             self.network_sys = NetworkSystem()
             self.render_sys = RenderSystem(self.game_state)
             self.event_sys = EventSystem(self.invSys, self.game_state, self.log_mensagem)
+            self.battle_sys = BattleSystem()
             
-            for proc_inst in (self.movimento_sys, self.event_sys, self.interacao_sys, self.ai_sys, self.network_sys, self.render_sys):
+            for proc_inst in (self.movimento_sys, self.event_sys, self.interacao_sys, self.ai_sys, self.network_sys, self.render_sys, self.battle_sys):
                 try:
                     esper.remove_processor(proc_inst.__class__)
                 except KeyError:
@@ -192,10 +206,6 @@ class GamePlayScreen(Screen):
         except Exception as e:
             self.log_mensagem(f'Erro ao posicionar jogador: {e}')
             
-        esper.remove_handler('mudar_mapa', self.ao_mudar_de_mapa)
-        esper.remove_handler('INTERACTION_SUCCESS', self.on_evento_interacao)
-        esper.remove_handler('disparar_bifurcacao', self.disparar_bifurcacao_visual)
-
         esper.set_handler('mudar_mapa', self.ao_mudar_de_mapa)
         esper.set_handler('INTERACTION_SUCCESS', self.on_evento_interacao)
         esper.set_handler('disparar_bifurcacao', self.disparar_bifurcacao_visual)
@@ -276,6 +286,115 @@ class GamePlayScreen(Screen):
                     '[bold background red]💀 VOCÊ MORREU! Fim de Jogo.[/]')
         
         self.atualizar_paineis_status()
+
+    # ==========================================
+    # COMBATE POR TURNOS — INTEGRAÇÃO
+    # ==========================================
+
+    def _ao_solicitar_combate(self, dados_inimigo: dict) -> None:
+        """
+        Handler disparado pelo EventSystem quando o comando 'iniciar_combate'
+        é processado. Mapeia o herói do ECS para o domínio Personagem e
+        empilha a BattleScreen sobre o GamePlayScreen.
+
+        Suporta dois formatos de dados:
+        - Dict único (retrocompatível): {'nome': ..., 'nivel': ...}
+        - Dict com lista: {'inimigos': [{...}, {...}]}  → 1 a 4 inimigos
+        """
+        if not self.is_mounted:
+            return
+
+        heroi_dominio = self._obter_heroi_dominio()
+        if heroi_dominio is None:
+            self.log_mensagem('[bold red]❌ Erro: não foi possível carregar o herói para o combate.[/]')
+            return
+
+        # Detecta se é formato de lista ou único inimigo (retrocompatibilidade)
+        if "inimigos" in dados_inimigo:
+            inimigos_dados = dados_inimigo["inimigos"][:4]  # Máximo de 4
+        else:
+            inimigos_dados = [dados_inimigo]
+
+        def _ao_concluir_combate(resultado: str | None = None):
+            res = resultado if (resultado and isinstance(resultado, str)) else "venceu"
+            esper.dispatch_event("combate_finalizado_gui", res)
+
+        try:
+            from app.views.battle_screen import BattleScreen
+            self.app.push_screen(BattleScreen(heroi_dominio, inimigos_dados), _ao_concluir_combate)
+        except Exception as erro_push:
+            self.log_mensagem(f'[bold red]❌ Erro ao abrir a tela de combate: {erro_push}[/]')
+            logging.error(f'_ao_solicitar_combate: {erro_push}')
+            esper.dispatch_event("combate_finalizado_gui", "venceu")
+
+
+    def _obter_heroi_dominio(self) -> Optional[object]:
+        """
+        Mapper: StatsComponent/ECS → objeto Personagem do domínio.
+        Utiliza GameController.converter_para_dominio com os dados do personagem
+        carregados do banco de dados, enriquecendo-os com o estado atual do ECS (HP, MP e equipamentos).
+        Padrão Mapper conforme Regra 1.
+        """
+        try:
+            from app.controllers.game_controller import GameController
+            from app.models.personagens_db import PersonagemDB
+
+            with SessionLocal() as db_session:
+                personagem_db = db_session.query(PersonagemDB).filter_by(
+                    id=self.personagem_id
+                ).first()
+                if personagem_db is None:
+                    logging.error(f'_obter_heroi_dominio: PersonagemDB id={self.personagem_id} não encontrado.')
+                    return None
+                
+                heroi_dominio = GameController.converter_para_dominio(personagem_db)
+                if heroi_dominio:
+                    stats = esper.component_for_entity(1, StatsComponent)
+                    eqp = esper.component_for_entity(1, EquipmentComponent)
+                    
+                    # Sincroniza Equipamentos do ECS para o Domínio
+                    if eqp:
+                        from app.core.entities.equipamentos import Arma, Armadura, Escudo
+                        
+                        if eqp.arma:
+                            nome = eqp.arma.get("nome", "Espada")
+                            dano = eqp.arma.get("bonus_atk") or eqp.arma.get("dano", 3)
+                            tipo_ataque = eqp.arma.get("tipo", "corpo")
+                            heroi_dominio.mao_direita = Arma(nome=nome, dano=dano, tipo=tipo_ataque)
+                        else:
+                            heroi_dominio.mao_direita = None
+
+                        arma_esquerda = None
+                        armadura = None
+                        
+                        if hasattr(eqp, "escudo") and eqp.escudo:
+                            nome = eqp.escudo.get("nome", "Escudo")
+                            defesa = eqp.escudo.get("bonus_def") or eqp.escudo.get("defesa", 3)
+                            arma_esquerda = Escudo(nome=nome, defesa_extra=defesa)
+                        
+                        if eqp.armadura:
+                            nome = eqp.armadura.get("nome", "Armadura")
+                            bonus = eqp.armadura.get("bonus_def") or eqp.armadura.get("defesa", 3)
+                            if "escudo" in nome.lower():
+                                arma_esquerda = Escudo(nome=nome, defesa_extra=bonus)
+                            else:
+                                armadura = Armadura(nome=nome, defesa=bonus)
+                        
+                        heroi_dominio.mao_esquerda = arma_esquerda
+                        heroi_dominio.armadura = armadura
+                        
+                    # Recalcula atributos do domínio (inclusive max_hp e max_mp baseados em fórmulas)
+                    heroi_dominio.atualizar_atributos_totais()
+                    
+                    # Sincroniza HP e Mana atuais salvando nos campos lógicos correspondentes
+                    if stats:
+                        heroi_dominio.pv_atual = min(stats.hp, heroi_dominio.max_hp)
+                        heroi_dominio.pm_atual = min(stats.mp, heroi_dominio.max_mp)
+                    
+                return heroi_dominio
+        except Exception as erro_mapper:
+            logging.error(f'_obter_heroi_dominio: {erro_mapper}')
+            return None
 
 
     def disparar_bifurcacao_visual(self, dados):
@@ -366,39 +485,29 @@ class GamePlayScreen(Screen):
 
         # 🥤 COMANDO: /usar
         if comando == '/usar':
-            if inv and self.invSys._inventory_has_item(inv, argumento):
-                if argumento in ('poção', 'potion'):
-                    if self.invSys._inventory_remove_item(inv, argumento, 1):
-                        stats.hp = min(stats.max_hp, stats.hp + 20)
-                        self.log_mensagem(
-                            f'[bold green]✨ Você tomou uma poção. Recuperou 20 hp![/]')
-                    else:
-                        self.log_mensagem(f'[red]Erro ao usar "{argumento}".[/]')
-                else:
-                    self.log_mensagem(f'[orange]O item "{argumento}" não possui efeito de uso imediato.[/]')
+            if argumento:
+                from app.core.engine.item_system import aplicar_usar_item
+                sucesso, msg = aplicar_usar_item(stats, inv, argumento)
+                self.log_mensagem(msg)
             else:
-                self.log_mensagem(f'[red]Você não possui "{argumento}" no seu inventário.[/]')
+                from app.views.inventario_screen import InventarioMenuScreen
+                self.app.push_screen(InventarioMenuScreen(aba_inicial="tab-itens"), lambda res: self.atualizar_paineis_status())
             self.atualizar_paineis_status()
-            
-        # ⚔️ COMANDO: /equipar
-        elif comando == '/equipar':
-            if not argumento:
-                self.log_mensagem('[orange]Use: /equipar <nome_da_arma_ou_armadura>[/]')
-                return
 
-            if inv and self.invSys._inventory_has_item(inv, argumento):
-                if 'espada' in argumento:
-                    bonus = 5 if 'longa' in argumento else 3
-                    eqp.arma = {'nome': argumento, 'bonus_atk': bonus}
-                    self.log_mensagem(f'[bold blue]⚔️ Equipado com sucesso: {argumento.upper()} (+{bonus} ATK).[/]')
-                elif 'armadura' in argumento or 'escudo' in argumento:
-                    bonus = 6 if 'placas' in argumento else 3
-                    eqp.armadura = {'nome': argumento, 'bonus_def': bonus}
-                    self.log_mensagem(f'[bold blue]🛡️ Equipado com sucesso: {argumento.upper()} (+{bonus} DEF).[/]')
-                else:
-                    self.log_mensagem('[orange]Este item não pode ser equipado como arma ou armadura.[/]')
+        # ⚔️ COMANDO: /equipar
+        elif comando in ['/equipar', '/equipamentos', '/equip']:
+            if argumento:
+                from app.core.engine.item_system import aplicar_equipar_item
+                sucesso, msg = aplicar_equipar_item(eqp, inv, argumento)
+                self.log_mensagem(msg)
             else:
-                self.log_mensagem(f'[red]Você não possui o equipamento "{argumento}" no inventário.[/]')
+                from app.views.inventario_screen import InventarioMenuScreen
+                self.app.push_screen(InventarioMenuScreen(aba_inicial="tab-equipamentos"), lambda res: self.atualizar_paineis_status())
+            self.atualizar_paineis_status()
+
+        elif comando in ['/inv', '/inventario', '/itens']:
+            from app.views.inventario_screen import InventarioMenuScreen
+            self.app.push_screen(InventarioMenuScreen(aba_inicial="tab-itens"), lambda res: self.atualizar_paineis_status())
             self.atualizar_paineis_status()
         
         elif comando in ['/h', '/help', ]:
@@ -562,3 +671,7 @@ class GamePlayScreen(Screen):
                     texto_inv += f'• {nome_item.capitalize()} (x{qtd})\n'
         self.query_one(
             '#lbl-inventario', Static).update(texto_inv if texto_inv else 'Inventário Vazio')
+
+    def on_resume(self) -> None:
+        """Chamado quando a tela de batalha é fechada e voltamos ao GamePlayScreen."""
+        self.atualizar_paineis_status()

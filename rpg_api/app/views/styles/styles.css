@@ -461,3 +461,113 @@ GamePlayScreen {
     }
 }
 
+/* =========================================
+   ESTILOS DO MENU DE INVENTÁRIO E EQUIPAMENTOS
+   ========================================= */
+InventarioMenuScreen {
+    align: center middle;
+    background: $background 60%;
+}
+
+#inv-dialog {
+    width: 75;
+    height: 80%;
+    padding: 1 2;
+    background: $surface;
+    border: double $primary;
+}
+
+#inv-main-title {
+    width: 100%;
+    text-align: center;
+    text-style: bold;
+    color: $accent;
+    margin-bottom: 1;
+}
+
+#inv-tabs {
+    height: 1fr;
+    width: 100%;
+}
+
+.inv-pane-layout {
+    width: 100%;
+    height: 1fr;
+    padding: 0 1;
+}
+
+.inv-lista-container {
+    width: 1fr;
+    height: 1fr;
+    margin-right: 1;
+}
+
+.inv-detalhes-container {
+    width: 1fr;
+    height: 1fr;
+    border-left: solid $primary;
+    padding-left: 1;
+}
+
+#list-itens-usaveis, #list-equipamentos {
+    height: 1fr;
+}
+
+.subtitulo {
+    text-style: bold;
+    color: $secondary;
+    margin-bottom: 1;
+}
+
+#painel-equipados-atuais {
+    height: auto;
+    border: solid $accent;
+    padding: 0 1;
+    margin-bottom: 1;
+}
+
+.linha-slot-eqp {
+    height: 3;
+    align: left middle;
+    margin-bottom: 0;
+}
+
+.linha-slot-eqp Static {
+    width: 1fr;
+}
+
+.btn-compacto {
+    width: 14;
+    height: 1;
+    margin: 0;
+}
+
+.inv-eqp-lista-layout {
+    height: 1fr;
+    width: 100%;
+}
+
+#inv-rodape-botoes {
+    height: 3;
+    margin-top: 1;
+    align: right middle;
+}
+
+#inv-rodape-botoes Button {
+    width: 24;
+}
+
+/* Modal de escolha de item na batalha */
+UsarItemBatalhaModal {
+    align: center middle;
+    background: $background 70%;
+}
+
+#batalha-item-dialog {
+    width: 60;
+    height: 70%;
+    padding: 1 2;
+    background: #10101c;
+    border: double #74b9ff;
+}
+

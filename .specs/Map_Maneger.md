@@ -27,51 +27,46 @@ Menu  -> Novo, Salvar, Importar_csv, Exportar_csv, Sair
 Editar-> Recorta, Cola, Propriedades
 Opções-> Paleta, Eventos, Musica, Dados
 
-[x] Novo: abre o formulário de criação de mapas.
-[x] Salvar: salva o mapa no banco de dados.
-[x] Importar/Exportar: csv importa ou exporta csv.
-[x] Sair: sai, assim como o 'X'.
-Recortar: recorta uma área quadrada do mapa para colar.
-Colar: cola a parte de mapa da transferência.
-[x] Propriedades: acessa e altera as propriedades do mapa.
-[x] Paleta: Fornece opções de tiles para edição.
-Eventos: Permite colocar um tile especial que ao acionado dispara eventos programados.
-Musica: vai permitir gerenciar músicas.
-[x] Dados: o formulário de Pesquisa/Edição de dados do sistema.
+[x] Novo: abre formulário criação mapas.
+[x] Salvar: salva mapa banco dados.
+[x] Importar/Exportar: csv importa/exporta.
+[x] Sair: sai, igual 'X'.
+Recortar: recorta área quadrada mapa para colar.
+Colar: cola parte mapa transferência.
+[x] Propriedades: acessa/altera propriedades mapa.
+[x] Paleta: fornece opções tiles edição.
+Eventos: permite tile especial dispara eventos programados.
+Musica: gerencia músicas.
+[x] Dados: formulário Pesquisa/Edição dados sistema.
 ---
 
-A Paleta permite a seleção de tiles para colocar no mapa.
+Paleta permite seleção tiles para mapa.
 
-[x] Mapas é uma árvore de mapas criados, aninhados pela propriedade mapa_pai e que podem ser selecionados para edição.
+[x] Mapas: árvore mapas criados, aninhados mapa_pai, selecionáveis edição.
 
 
 #===========================================
 #  GESTOR DE MAPAS NÍVEL 2
 #===========================================
 
-A composição do mapa a partir de emojis tras o seguinte problema:
-Temos emojis do tipo chão, emojis do tipo parede e emojis adicionados que não são nem um e nem outro.
-Vamos chamar de emojis de objeto estes que não são nem chão nem parede.
-Quando temos o uso do caracter "  " (espaço duplo) seria do tipo fundo.
-O problema é que: em um mapa de com emoji chão 🟫 por exemplo, ao colocar objetos como por exemplo 🪑,
-temos algo como:  
+Composição mapa via emojis traz problema:
+Emojis: chão, parede, objetos (nem chão, nem parede). "  " (espaço duplo) = fundo.
+Objeto tem fundo transparente, compatível apenas com "  " (fundo terminal).
+Exemplo:
 🟫🟫🟫
 🟫🪑🟫 
 🟫🟫🟫
-Emojis objeto tem fundo transparente, o que só é compativel com "  " pois é o mesmo fundo do terminal.
-Por tanto, devemos:
-1 - Dividir os emojis em categorias. Para isso devemos estabelescer como será atribuido esta característica no sistema.
-[x] - Temos as categorias: Terreno, Objetos e Eventos
-2 - Estabelescer como tratar sobreposição de objeto e chão: Se haverão 2 camadas ou outra forma.
-[x] A sobreposição foi tratada com o mapeamento da cor do tile anterior e repreenchimento no background do emoji
+
+Solução:
+1 - Dividir emojis em categorias: Terreno, Objetos, Eventos. Estabelecer atribuição.
+2 - Tratar sobreposição objeto/chão:
+[x] Sobreposição tratada via mapeamento cor tile anterior + preenchimento background emoji.
 
 ===============
 
-Antes da implementação desta ou de qualquer outra solução para este problema, vamos reavaliar a situação
-confrontando com um dos objetivos do projeto:
-A jogabilidade (possibilidade de jogar) no mapa com um "char", um personagem que será representado pelo seu caracter.
-Assim, em um futuro, vem a implementação de um motor que execute os recursos orquestrados como um jogo em 
-uma tela que atualize o movimento, permite acesso ao um menu e interação com eventos.
-Quais as implicações de seguir este caminho? Qual a arquitetura ideal para game engines deste tipo?
+Antes implementação, reavaliar confrontando objetivos:
+Jogabilidade com "char" (personagem).
+Futuro: motor execução recursos tipo jogo, tela atualiza movimento, acesso menu, interação eventos.
+Implicações? Arquitetura ideal game engines?
 [x] Arquitetura ECS: Event Component System
-[x] Maquina de Estados: Um sistema de Interação com Eventos do mapa ao verificar o 'tile' a sua frente.
+[x] Máquina Estados: Interação eventos mapa verificando 'tile' frente.

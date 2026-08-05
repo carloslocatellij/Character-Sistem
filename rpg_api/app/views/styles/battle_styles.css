@@ -1,0 +1,333 @@
+/* =====================================================
+   ESTILOS DA TELA DE COMBATE — BattleScreen
+   Layout: 3 colunas (aliados | arena central | inimigos)
+   ===================================================== */
+
+/* --- Tela base --- */
+BattleScreen {
+    background: #0d0d1a;
+    layout: vertical;
+}
+
+/* --- Flash de impacto: ataque do herói (pisca vermelho) --- */
+BattleScreen.flash-red {
+    background: #3a0000;
+}
+
+/* --- Flash de impacto: ataque do inimigo (pisca azul) --- */
+BattleScreen.flash-blue {
+    background: #00003a;
+}
+
+/* --- Animação de vitória --- */
+BattleScreen.vitoria {
+    background: #001a00;
+}
+
+/* --- Animação de derrota --- */
+BattleScreen.derrota {
+    background: #1a0000;
+}
+
+/* =====================================================
+   LAYOUT PRINCIPAL — 3 COLUNAS HORIZONTAIS
+   ===================================================== */
+
+#battle-layout {
+    width: 100%;
+    height: 100%;
+    layout: horizontal;
+}
+
+/* =====================================================
+   COLUNA ESQUERDA — ALIADOS
+   ===================================================== */
+
+#painel-aliados {
+    width: 22;
+    height: 100%;
+    background: #091520;
+    border: solid #3a5a8a;
+    padding: 0 1;
+    layout: vertical;
+}
+
+/* =====================================================
+   COLUNA CENTRAL — ARENA + LOG + AÇÕES
+   ===================================================== */
+
+#painel-central {
+    width: 1fr;
+    height: 100%;
+    layout: vertical;
+    background: $background 50%;
+}
+
+/* =====================================================
+   COLUNA DIREITA — INIMIGOS
+   ===================================================== */
+
+#painel-inimigos {
+    width: 22;
+    height: 100%;
+    background: #200910;
+    border: solid #8a3a3a;
+    padding: 0 1;
+    layout: vertical;
+}
+
+/* =====================================================
+   TÍTULOS DOS PAINÉIS LATERAIS
+   ===================================================== */
+
+.painel-titulo {
+    width: 100%;
+    height: 1;
+    text-align: center;
+    text-style: bold;
+    color: $accent;
+    margin-bottom: 1;
+}
+
+/* =====================================================
+   BARRAS DE STATUS — VERSÃO COMPACTA (COLUNAS LATERAIS)
+   ===================================================== */
+
+/* Barra do herói / aliados */
+.barra-aliado {
+    height: auto;
+    width: 100%;
+    background: #0f1a2e;
+    border: solid #3a5a8a;
+    margin-bottom: 1;
+    padding: 0 1;
+    layout: vertical;
+}
+
+/* Barra de inimigo */
+.barra-inimigo {
+    height: auto;
+    width: 100%;
+    background: #2e0f0f;
+    border: solid #8a3a3a;
+    margin-bottom: 1;
+    padding: 0 1;
+    layout: vertical;
+}
+
+/* Inimigo derrotado — opacidade reduzida + borda tracejada */
+.combatente-derrotado {
+    opacity: 0.35;
+    border: dashed #555555;
+}
+
+/* Conteúdo interno das barras (layout vertical compacto) */
+.barra-status-interna {
+    width: 100%;
+    height: auto;
+    layout: vertical;
+}
+
+.combatente-nome {
+    width: 100%;
+    height: 1;
+    color: $text;
+    text-style: bold;
+    overflow: auto;
+}
+
+.barras-verticais {
+    width: 100%;
+    height: auto;
+    layout: vertical;
+}
+
+/* Barra de HP (vermelho vibrante) */
+.hp-bar {
+    width: 100%;
+    height: 1;
+    margin: 0;
+}
+
+.hp-bar Bar {
+    color: #e74c3c;
+    background: #3a1010;
+}
+
+.hp-label {
+    height: 1;
+    color: #ff6b6b;
+    margin-bottom: 0;
+}
+
+/* Barra de MP (azul profundo) */
+.mp-bar {
+    width: 100%;
+    height: 1;
+    margin: 0;
+}
+
+.mp-bar Bar {
+    color: #3498db;
+    background: #101a3a;
+}
+
+.mp-label {
+    height: 1;
+    color: #74b9ff;
+    margin-bottom: 0;
+}
+
+/* =====================================================
+   ARENA DE SPRITES DOS COMBATENTES
+   ===================================================== */
+
+#arena {
+    height: 21;
+    width: 100%;
+    border: double #6a4f7b;
+    background: #1a1030;
+    margin: 0;
+    position: relative;
+}
+
+/* Label "VS" no centro da arena */
+#lbl-vs {
+    position: absolute;
+    content-align: center top;
+    text-style: bold;
+    color: #ff6b6b;
+    width: 5;
+    height: 3;
+    offset: 28 3;
+}
+
+/* Sprites dos combatentes */
+.combatente {
+    width: 5;
+    height: 3;
+    content-align: center middle;
+    text-style: bold;
+    position: absolute;
+    text-opacity: 1.0;
+    background: transparent;
+}
+
+.heroi-side {
+    color: #74b9ff;
+}
+
+.inimigo-side {
+    color: #ff6b6b;
+}
+
+/* Sprite de inimigo derrotado */
+.sprite-derrotado {
+    text-opacity: 0.2;
+    color: #555555;
+}
+
+/* =====================================================
+   EFEITO DE ATAQUE 💥 ✨ 💊
+   ===================================================== */
+
+EfeitoAtaque {
+    position: absolute;
+    width: 5;
+    height: 3;
+    content-align: center middle;
+    text-style: bold;
+    color: #ffdd00;
+    background: transparent;
+    text-opacity: 1.0;
+}
+
+.efeito-ataque {
+    text-style: bold;
+}
+
+/* =====================================================
+   LOG DE BATALHA
+   ===================================================== */
+
+#battle-log {
+    height: 12;
+    border: solid #2a4a2a;
+    background: #091209;
+    padding: 0 1;
+    margin: 0;
+    overflow-y: auto;
+}
+
+/* =====================================================
+   PAINEL DE AÇÕES DO JOGADOR
+   ===================================================== */
+
+#action-panel {
+    height: auto;
+    width: 1fr;
+    border: solid #4a4a1a;
+    background: #12120a;
+    padding: 1;
+    margin-top: 0;
+    layout: vertical;
+}
+
+#action-horizontal {
+    height: auto;
+    width: 1fr;
+    layout: horizontal;
+}
+
+#acao-coluna {
+    width: 2fr;
+    height: auto;
+    margin-right: 1;
+    layout: vertical;
+}
+
+#alvo-coluna {
+    width: 1fr;
+    height: auto;
+    layout: vertical;
+}
+
+/* Painel de alvo oculto (apenas 1 inimigo) */
+/*#alvo-coluna.oculto {
+ display: none;
+}
+*/
+
+#action-label, #target-label {
+    color: $accent;
+    text-style: bold;
+    height: 1;
+    margin-bottom: 1;
+}
+
+/* RadioSet de escolha de ações */
+#action-radioset, #target-radioset {
+    height: auto;
+    background: transparent;
+    border: tall $primary;
+    padding: 0;
+}
+
+/* RadioButtons compactos */
+#action-radioset RadioButton, #target-radioset RadioButton {
+    height: 1;
+    margin: 0;
+    padding: 0 1;
+}
+
+/* Botão de confirmação */
+#btn-confirmar-acao {
+    margin-top: 0;
+    width: 100%;
+    height: 3;
+}
+
+#btn-confirmar-acao:disabled {
+    opacity: 0.5;
+    color: $text-disabled;
+}

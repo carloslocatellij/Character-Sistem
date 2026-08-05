@@ -103,16 +103,18 @@ def avaliar_condicoes(condicoes: dict, entidade_id: int, game_state: Any = None,
 
 def _checar_item_inventario(inv: InventoryComponent, nome: str) -> bool:
     """Verifica se o componente de inventário possui o item especificado pelo nome."""
+    if not inv:
+        return False
     itens = getattr(inv, "itens", None)
     if isinstance(itens, dict):
-        return itens.get(nome, 0) > 0
+        return any(k.lower() == nome.lower() and v > 0 for k, v in itens.items())
     if isinstance(itens, list):
         for entry in itens:
             if isinstance(entry, dict):
                 entry_nome = entry.get("nome") or entry.get("item") or entry.get("nome_item")
             else:
                 entry_nome = str(entry)
-            if entry_nome == nome:
+            if entry_nome and entry_nome.lower() == nome.lower():
                 return True
     return False
 
