@@ -4,18 +4,16 @@
 
 [x] O resultado do combate (venceu/ perdeu/ fugiu/ inimigo fugiu) deve poder se ligar a mudanças parâmetros como atribuição/mudança de variáveis, switches.     
 
-[ ] A parte de itens/equipamentos está em estagio experimental:
-        - adicionar por eventos recebe qualquer valor digitado ao invés de itens do banco de dados.
-        - os comandos /usar e /equipar foram escritos apenas para itens de exemplo ('poção', 'espada longa')
-        - na batalha, o comando usar item, apenas tenta usar uma poção do inventário.
-        ---
+[X] A parte de itens/equipamentos:
         + As referencias a itens ou equipamentos nos eventos devem ser listas para os itens da tabela ItensDB.
         + Os comandos /usar e /equipar devem mostrar um menu com abas para os itens e equipamentos do personagem onde ele pode usar, equipar/desequipar.
         + na batalha o usar item deve mostra um menu com os itens usaveis e estes devem fazer seu efeito próprio quando usados
 
+[ ] O sistema de Magias e Habilidades descrito nas especificações:
+
+
 [ ] Adicionar membro na equipe (A Equipe é o personagem do jogador + 3 personagens totalizando 4 personagem por jogador) - Nas batalhas cada personagem pode atacar em sua vez.
 
-[ ] O sistema de Magias e Habilidades descrito nas especificações:
 
 [ ] É necessário uma opção de loop lógico que desencadeia o funcionamento de loop nas interações com eventos.
 

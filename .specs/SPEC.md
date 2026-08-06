@@ -88,9 +88,14 @@ Emojis posicionados no mapa, parâmetros passados ao `EventSystem` ao acionar.
 4. Regras Negócio e Mecânicas
 4.1. Validação Magias/Habilidades
 
-    Magias possuem requisitos (ex: `{"água": 2}`, Exuberância >= 2).
-
-    Regra Estrita: Ao ensinar magia, validar "Caminhos Magia Totais" (Base + Bônus Classe). Se requisitos não atingidos, levanta `ValueError`, impede aprendizado.
+    Modelar estas especificações abaixo no sistema: Será necessário criar tabelas para entidades magia e efeito;
+    Magias podem causar efeitos: sono, veneno, lentidão, atordoado, regenerar.
+    Efeitos são estados temporarios dos personagens ou monstros: Duram x turnos.
+    A cada turno ativo o efeito pode: causar y de dano, curar y de hp, atributo fica y ponto a cima ou abaixo, deixa de atacar x turnos (dormindo), ataca aleatorio (louco), proteção ou fraqueza contra tipos de magia ou habilidades.
+    Magias ou habilidade podem causar dano em área (> de 1 inimigo).
+    Habilidades podem ter maior chance de crítico, ignorar bonus de defeza, contra-ataque, tentativa dupla ou tripla de ataque com taxas menores de acerto.
+    Magias possuem requisitos (ex: `{"água": 2}`, Exuberância >= 2) para serem aprendidas/ adquiridas/ executadas.
+    Regra Estrita: Ao ensinar magia, validar "Caminhos Magia Totais" (Base + Bônus Classe). Se requisitos não atingidos impede aprendizado/execução da magia/habilidade.
 
 4.2. Fluxo Combate
 
