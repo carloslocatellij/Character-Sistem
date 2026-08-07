@@ -549,25 +549,27 @@ class BattleScreen(Screen):
             logging.info(f"_animar_entrada_sprites: {erro_anim}")
 
     def _animar_ataque(self, atacante: str, resultado: dict) -> None:
-        """Anima o sprite do atacante avançando sobre o alvo e recuando."""
+        """Anima o sprite do atacante avançando sobre o alvo e recuando, ou lança projétil mágico."""
         try:
+            acao = resultado.get("acao", "ataque")
+            
             if atacante == "heroi":
                 sprite = self.query_one("#sprite-heroi", CombatenteSprite)
                 posicao_original = 8.0
-                posicao_ataque = 40.0
+                posicao_ataque = 38.0
             else:
                 # Encontra o inimigo atacante pelo nome no resultado
                 nome_atacante = resultado.get("atacante", "")
                 sprite = None
                 posicao_original = 52.0
-                posicao_ataque = 18.0
+                posicao_ataque = 12.0
                 for i, dados in enumerate(self.inimigos_dados):
                     if dados.get("nome", "") == nome_atacante or i == 0:
                         try:
                             sprite = self.query_one(f"#sprite-inimigo-{i}", CombatenteSprite)
                             posicoes = self._calcular_posicoes_inimigos(len(self.inimigos_dados))
                             posicao_original = float(posicoes[i])
-                            posicao_ataque = 18.0
+                            posicao_ataque = 12.0
                         except Exception:
                             pass
                         break
@@ -577,14 +579,74 @@ class BattleScreen(Screen):
                     except Exception:
                         return
 
-            sprite.animate(
-                "x_pos",
-                value=posicao_ataque,
-                duration=0.18,
-                on_complete=lambda: self._flash_impacto(atacante, resultado, sprite, posicao_original),
-            )
+            if acao == "magia":
+                # Animação Especial de Magia!
+                magia_nome = resultado.get("magia", "").lower()
+                
+                # Escolhe o emoji condizente com a magia
+                if "fogo" in magia_nome:
+                    emoji_magico = "🔥"
+                elif "gelo" in magia_nome or "frio" in magia_nome:
+                    emoji_magico = "❄️"
+                elif "eletro" in magia_nome or "raio" in magia_nome or "trovao" in magia_nome:
+                    emoji_magico = "⚡"
+                elif "cura" in magia_nome or "recupera" in magia_nome:
+                    emoji_magico = "💚"
+                elif "luz" in magia_nome:
+                    emoji_magico = "☀️"
+                elif "treva" in magia_nome or "sombra" in magia_nome:
+                    emoji_magico = "🔮"
+                else:
+                    emoji_magico = "✨"
+
+                # 1. Faz o conjurador dar um leve passo de conjuração (3-4 de distância) e vibrar
+                direcao = 1.0 if atacante == "heroi" else -1.0
+                passo_conjuracao = posicao_original + (4.0 * direcao)
+                
+                # 2. Cria e lança o projétil mágico do conjurador até o alvo
+                arena = self.query_one("#arena")
+                projeteis_x_origem = posicao_original + (2.0 * direcao)
+                projeteis_x_destino = posicao_ataque
+                
+                projeteil = EfeitoAtaque(emoji_magico, classes="efeito-ataque")
+                projeteil.x_pos = projeteis_x_origem
+                projeteil.y_pos = 2.0
+                projeteil.styles.offset = (int(projeteil.x_pos), int(projeteil.y_pos))
+                arena.mount(projeteil)
+                
+                # Conjurador dá um passo à frente
+                sprite.animate(
+                    "x_pos",
+                    value=passo_conjuracao,
+                    duration=0.15,
+                    on_complete=lambda: None
+                )
+
+                # Projétil viaja até o alvo
+                projeteil.animate(
+                    "x_pos",
+                    value=projeteis_x_destino,
+                    duration=0.35,
+                    on_complete=lambda: self._completar_magia_hit(projeteil, atacante, resultado, sprite, posicao_original)
+                )
+            else:
+                # Ataque físico básico padrão
+                sprite.animate(
+                    "x_pos",
+                    value=posicao_ataque,
+                    duration=0.18,
+                    on_complete=lambda: self._flash_impacto(atacante, resultado, sprite, posicao_original),
+                )
         except Exception as erro_ataque:
             logging.info(f"_animar_ataque: {erro_ataque}")
+
+    def _completar_magia_hit(self, projeteil: EfeitoAtaque, atacante: str, resultado: dict, sprite: CombatenteSprite, posicao_original: float) -> None:
+        """Remove o projétil e dispara o flash de impacto e o recuo do conjurador."""
+        try:
+            projeteil.remove()
+        except Exception:
+            pass
+        self._flash_impacto(atacante, resultado, sprite, posicao_original)
 
     def _flash_impacto(
         self, atacante: str, resultado: dict, sprite: CombatenteSprite, posicao_original: float
@@ -741,6 +803,28 @@ class BattleScreen(Screen):
             if acao == "cura":
                 descricao = resultado.get("descricao", f"{atacante_nome} se recuperou.")
                 self._escrever_log(f"{prefixo} [dim]{descricao}[/]")
+                return
+
+            if acao == "magia":
+                magia_nome = resultado.get("magia", "Magia")
+                if acertou:
+                    cura = resultado.get("cura_realizada", 0)
+                    if cura > 0:
+                        self._escrever_log(
+                            f"{prefixo} [bold]{atacante_nome}[/] conjurou [bold yellow]{magia_nome}[/] em [bold]{alvo_nome}[/]! "
+                            f"[green]💚 +{cura} HP[/]"
+                        )
+                    else:
+                        self._escrever_log(
+                            f"{prefixo} [bold]{atacante_nome}[/] conjurou [bold yellow]{magia_nome}[/] contra [bold]{alvo_nome}[/]! "
+                            f"[red]🔥 -{dano_causado} HP[/]"
+                        )
+                    if resultado.get("alvo_morreu"):
+                        self._escrever_log(f"[bold red]☠ {alvo_nome} foi derrotado![/]")
+                else:
+                    self._escrever_log(
+                        f"{prefixo} [dim]{atacante_nome} conjurou {magia_nome} contra {alvo_nome}, mas o alvo resistiu ou esquivou![/]"
+                    )
                 return
 
             if acertou:

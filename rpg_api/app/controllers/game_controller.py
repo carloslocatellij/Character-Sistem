@@ -2,7 +2,9 @@ from sqlalchemy.orm import Session
 from typing import List, Dict, Any
 from app.models.personagens_db import PersonagemDB, RacaDB, ClasseRPGDB
 from app.models.equipamentos_db import ItemDB
+from app.models.habilidades_magias_db import MagiaDB, EfeitoDB
 from app.core.entities.personagens import Personagem, Raca, ClasseRPG
+from app.core.entities.habilidades_magias import Magia, Efeito
 from app.views.simulador import SimuladorCombate
 from app.core.entities.equipamentos import Arma, Armadura, Escudo
 
@@ -19,6 +21,41 @@ class GameController:
     # ==========================================
     # TRADUTOR (MAPPER): BANCO DE DADOS -> DOMÍNIO
     # ==========================================
+    
+    @staticmethod
+    def converter_efeito_db_para_dominio(db_efeito: EfeitoDB) -> Efeito:
+        if not db_efeito:
+            return None
+        return Efeito(
+            id=db_efeito.id,
+            nome=db_efeito.nome,
+            duracao_turnos=db_efeito.duracao_turnos,
+            tipo=db_efeito.tipo,
+            valor=db_efeito.valor or 0,
+            atributo_alvo=db_efeito.atributo_alvo,
+            configuracoes=db_efeito.configuracoes or {}
+        )
+
+    @staticmethod
+    def converter_magia_db_para_dominio(db_magia: MagiaDB) -> Magia:
+        if not db_magia:
+            return None
+        efeito_domain = GameController.converter_efeito_db_para_dominio(db_magia.efeito) if db_magia.efeito else None
+        return Magia(
+            id=db_magia.id,
+            nome=db_magia.nome,
+            custo_pm=db_magia.custo_pm,
+            requisito_caminhos=db_magia.requisito_caminhos or {},
+            dano_base=db_magia.dano_base or 0,
+            cura_base=db_magia.cura_base or 0,
+            dano_area=bool(db_magia.dano_area),
+            tipo_execucao=db_magia.tipo_execucao or "combate",
+            descricao=db_magia.descricao or "",
+            propriedades_combate=db_magia.propriedades_combate or {},
+            efeito_aplicado=efeito_domain,
+            requisito_exuberancia=db_magia.requisito_exuberancia or 1
+        )
+
     
     def converter_para_dominio(db_char: PersonagemDB) -> Personagem:
         """Converte um modelo do SQLAlchemy para a Entidade pura do RPG."""
@@ -80,6 +117,25 @@ class GameController:
             except Exception as e:
                 logging.info(f"Erro ao instanciar armadura: {e}")
                 
+        # Hydrate class abilities/spells from database into personagem.magias_conhecidas
+        if db_char.classe and db_char.classe.habilidades:
+            try:
+                from sqlalchemy.orm import object_session
+                from app.models.habilidades_magias_db import MagiaDB
+                session = object_session(db_char)
+                if not session:
+                    from app.db.database import SessionLocal
+                    session = SessionLocal()
+                
+                for hab_nome in db_char.classe.habilidades:
+                    magia_db = session.query(MagiaDB).filter(MagiaDB.nome.ilike(hab_nome)).first()
+                    if magia_db:
+                        magia_dom = GameController.converter_magia_db_para_dominio(magia_db)
+                        if magia_dom and magia_dom not in personagem.magias_conhecidas:
+                            personagem.magias_conhecidas.append(magia_dom)
+            except Exception as e:
+                logging.info(f"Erro ao hidratar magias da classe para o personagem: {e}")
+
         return personagem
     
     
@@ -171,6 +227,34 @@ class GameController:
             return f"✅ Item '{nome}' forjado e salvo com sucesso no Banco de Dados!"
         except Exception as e:
             return f"Não foi possível registrar o item devido ao ERRO: {e}"
+
+    @staticmethod
+    def criar_magia(db, nome, custo_pm, requisito_caminhos, requisito_exuberancia=1, dano_base=0, cura_base=0, dano_area=False, tipo_execucao="combate", descricao="", propriedades_combate=None, efeito_id=None):
+        if propriedades_combate is None:
+            propriedades_combate = {}
+        if requisito_caminhos is None:
+            requisito_caminhos = {}
+        nova_magia = MagiaDB(
+            nome=nome,
+            descricao=descricao,
+            tipo_execucao=tipo_execucao,
+            custo_pm=int(custo_pm),
+            requisito_caminhos=requisito_caminhos,
+            requisito_exuberancia=int(requisito_exuberancia),
+            dano_base=int(dano_base),
+            cura_base=int(cura_base),
+            dano_area=bool(dano_area),
+            propriedades_combate=propriedades_combate,
+            efeito_id=efeito_id
+        )
+        try:
+            db.add(nova_magia)
+            db.commit()
+            return f"✅ Magia '{nome}' salva com sucesso no Banco de Dados!"
+        except Exception as e:
+            db.rollback()
+            return f"Não foi possível registrar a magia devido ao ERRO: {e}"
+
         
         
     def obter_personagem_por_id(db, p_id: int):

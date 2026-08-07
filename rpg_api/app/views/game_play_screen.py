@@ -391,6 +391,15 @@ class GamePlayScreen(Screen):
                         heroi_dominio.pv_atual = min(stats.hp, heroi_dominio.max_hp)
                         heroi_dominio.pm_atual = min(stats.mp, heroi_dominio.max_mp)
                     
+                    # Sincroniza magias conhecidas do HeroComponent (ECS) para o Domínio
+                    from app.core.engine.components import HeroComponent
+                    if esper.has_component(1, HeroComponent):
+                        hero_comp = esper.component_for_entity(1, HeroComponent)
+                        if hero_comp and hasattr(hero_comp, "personagem") and hero_comp.personagem:
+                            for magia in hero_comp.personagem.magias_conhecidas:
+                                if not any(m.nome == magia.nome for m in heroi_dominio.magias_conhecidas):
+                                    heroi_dominio.magias_conhecidas.append(magia)
+                    
                 return heroi_dominio
         except Exception as erro_mapper:
             logging.error(f'_obter_heroi_dominio: {erro_mapper}')

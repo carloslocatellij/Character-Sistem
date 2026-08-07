@@ -480,8 +480,10 @@ class EventSystem(esper.Processor):
         world = self.world if (hasattr(self, "world") and self.world is not None) else esper
         tipo = comando.get("tipo")
         dados = comando.get("dados", {})
-        entidade_id = self.entidade_atual_id
-        emoji = self.parms.get('paginas')[0].get('configuracao_visual', {}).get('emoji', '💬') if self.parms.get('paginas') else '💬'
+        parms = getattr(self, "parms", {}) or {}
+        paginas = parms.get("paginas", [])
+        emoji = paginas[0].get("configuracao_visual", {}).get("emoji", "💬") if paginas and isinstance(paginas, list) and isinstance(paginas[0], dict) else "💬"
+
 
         logging.info(f"comando: {comando}")
 
@@ -578,6 +580,54 @@ class EventSystem(esper.Processor):
             except Exception as e:
                 self.log_callback(f"[red] ERRO_: {e}[/]")
             return
+
+        elif tipo in ["aprender_magia", "ensinar_magia"]:
+            nome_magia = dados.get("magia_nome") or dados.get("magia") or dados.get("nome")
+            custo_pm = dados.get("custo_pm", 2)
+            req_caminhos = dados.get("requisito_caminhos", {})
+            req_exub = dados.get("requisito_exuberancia", 1)
+
+            from app.db.database import SessionLocal
+            from app.models.habilidades_magias_db import MagiaDB
+            from app.controllers.game_controller import GameController
+            from app.core.entities.habilidades_magias import Magia
+            from app.core.engine.components import HeroComponent, StatsComponent
+
+            magia_obj = None
+            if nome_magia:
+                try:
+                    with SessionLocal() as db:
+                        m_db = db.query(MagiaDB).filter(MagiaDB.nome.ilike(nome_magia)).first()
+                        if m_db:
+                            magia_obj = GameController.converter_magia_db_para_dominio(m_db)
+                except Exception as e:
+                    logging.info(f"Erro ao buscar magia {nome_magia}: {e}")
+
+            if not magia_obj and nome_magia:
+                magia_obj = Magia(
+                    nome=nome_magia,
+                    custo_pm=custo_pm,
+                    requisito_caminhos=req_caminhos,
+                    requisito_exuberancia=req_exub
+                )
+
+            hero = None
+            if world.entity_exists(1):
+                if world.has_component(1, HeroComponent):
+                    hero = world.component_for_entity(1, HeroComponent).personagem
+                elif world.has_component(1, StatsComponent):
+                    stats = world.component_for_entity(1, StatsComponent)
+                    hero = getattr(stats, "personagem", None)
+
+            if hero and magia_obj:
+                try:
+                    hero.aprender_magia(magia_obj)
+                    self.log_callback(f"[bold green]✨ {hero.nome} aprendeu a magia '{magia_obj.nome}'![/]")
+                except ValueError as err:
+                    self.log_callback(f"[bold red]❌ Requisitos insuficientes para aprender '{magia_obj.nome}': {err}[/]")
+            elif magia_obj:
+                self.log_callback(f"[bold green]✨ Magia '{magia_obj.nome}' aprendida com sucesso![/]")
+
 
         elif tipo == "teleporte":
             try:
@@ -839,7 +889,7 @@ class BattleSystem(esper.Processor):
             for idx, i in enumerate(self.inimigos)
         ]
 
-    def executar_acao_jogador(self, acao: str, alvo_index: int = 0, nome_item: Optional[str] = None) -> None:
+    def executar_acao_jogador(self, acao: str, alvo_index: int = 0, nome_item: Optional[str] = None, nome_magia: Optional[str] = None) -> None:
         """
         Processa a ação escolhida pelo jogador e depois agenda o turno da IA de forma assíncrona.
         Este método é invocado diretamente pela BattleScreen após a confirmação no RadioSet.
@@ -928,7 +978,7 @@ class BattleSystem(esper.Processor):
                     })
                     return
         else:
-            resultado = self._resolver_acao_personagem(acao, atacante=self.heroi, alvo=alvo)
+            resultado = self._resolver_acao_personagem(acao, atacante=self.heroi, alvo=alvo, nome_magia=nome_magia)
 
         logging.info(f"Turno {self.turno} - Jogador: {acao} alvo={alvo.nome} | Resultado: {resultado}")
 
@@ -1045,14 +1095,24 @@ class BattleSystem(esper.Processor):
 
         return "ataque"
 
-    def _resolver_acao_personagem(self, acao: str, atacante: object, alvo: object) -> dict:
+    def _resolver_acao_personagem(self, acao: str, atacante: object, alvo: object, nome_magia: Optional[str] = None) -> dict:
         """Roteia a ação para o método correto da entidade Personagem do domínio."""
         try:
             if acao == "ataque":
                 return atacante.atacar(alvo)
             elif acao == "magia" and atacante.magias_conhecidas:
-                magia = atacante.magias_conhecidas[0]
-                return atacante.lancar_magia(magia, alvo)
+                magia = None
+                if nome_magia:
+                    magia = next((m for m in atacante.magias_conhecidas if m.nome == nome_magia), None)
+                if not magia:
+                    magia = atacante.magias_conhecidas[0]
+                res = atacante.lancar_magia(magia, alvo)
+                if isinstance(res, dict):
+                    res["acao"] = "magia"
+                    res["magia"] = magia.nome
+                    if "sucesso" in res and "acertou" not in res:
+                        res["acertou"] = res["sucesso"]
+                return res
             elif acao == "cura":
                 # IA usando cura não causa dano — retorna resultado descritivo
                 return {

@@ -107,3 +107,19 @@ class BattleParticipantComponent:
     nome_display: str = "Inimigo"
     xp_recompensa: int = 10
     drops_possiveis: List[Dict[str, Any]] = field(default_factory=list)
+
+
+@dataclass
+class ActiveEffectsComponent:
+    """
+    Dataclass pura que armazena e monitora em tempo de execução os efeitos aplicados
+    nas entidades e seus turnos de duração restantes.
+    """
+    efeitos_ativos: List[Dict[str, Any]] = field(default_factory=list)
+
+
+@dataclass
+class HeroComponent:
+    """Guarda a referência para a instância Personagem do domínio para o jogador."""
+    personagem: Any = None
+

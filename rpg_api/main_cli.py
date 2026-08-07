@@ -53,6 +53,8 @@ def salvar_novo(dados: dict, modelo):
 # ECRÃ 1: CRIAR PERSONAGEM
 # ==========================================
 
+from app.models.habilidades_magias_db import EfeitoDB, MagiaDB
+
 class CreationScreen(Screen):
     def compose(self):
         yield Header()
@@ -61,6 +63,7 @@ class CreationScreen(Screen):
                 yield Label("🛡️ Escolha o que Criar 🛡️", id="main-title")
                 yield Button("🧝 Criar Raça", id="menu-create-raca", variant="success")
                 yield Button("🤺 Criar Classe", id="menu-create-classe", variant="primary")
+                yield Button("✨ Criar Magia / Habilidade", id="menu-create-magia", variant="warning")
                 yield Button("👤 Criar Personagem", id="menu-create-person", variant="success")
                 yield Button("💍 Criar Item", id="menu-create-item", variant="primary")
                 yield Button("🗡️ Equipar Personagem", id="menu-equip", variant="success")
@@ -78,18 +81,147 @@ class CreationScreen(Screen):
             self.app.push_screen(RacaFormScreen())
         elif event.button.id == "menu-create-classe":
             self.app.push_screen(ClasseFormScreen())
+        elif event.button.id == "menu-create-magia":
+            self.app.push_screen(MagiaFormScreen())
         elif event.button.id == "menu-create-person":
             self.app.push_screen(CharacterFormScreen())
         elif event.button.id == "menu-equip":
             self.app.push_screen(EquipScreen())
         elif event.button.id == "menu-create-item":
             self.app.push_screen(ItemFormScreen())
-            
-            
+
+
+class MagiaFormScreen(Screen):
+    def __init__(self, magia_id: int = None):
+        super().__init__()
+        self.magia_id = magia_id
+        self.req_caminhos = {}
+
+    def compose(self) -> ComposeResult:
+        yield Header()
+        with Center(), Middle():
+            with Vertical(id="create-dialog"):
+                yield Label("✨ Forjar Nova Magia / Habilidade", id="title")
+                yield Input(placeholder="Nome da Magia/Habilidade", id="inp-nome")
+                yield Input(placeholder="Descrição (ex: 'Lança chama arcana')", id="inp-desc")
+                yield Input(placeholder="Custo PM (ex: 2)", id="inp-custo-pm", value="2")
+                yield Label("Escopo de Execução:")
+                yield Select([("Combate", "combate"), ("Fora de Combate", "fora_combate"), ("Ambos (Combate e Fora)", "ambos")], value="combate", id="sel-tipo-execucao")
+                
+                yield Label("✨ Requisitos de Caminhos Elementais:")
+                with Horizontal():
+                    yield Select([(c, c) for c in ["fogo", "água", "terra", "ar", "luz", "trevas"]], prompt="Caminho", id="sel-caminho-req")
+                    yield Input(placeholder="Pontos ex: 2", id="inp-pontos-caminho-req")
+                yield Button("Adicionar Requisito", variant="primary", id="btn-add-caminho-req")
+                yield Label(f"Requisitos Atuais: {self.req_caminhos}", id="lbl-caminhos-req")
+                
+                yield Input(placeholder="Requisito Exuberância (mínimo 1)", id="inp-exuberancia", value="1")
+                yield Input(placeholder="Dano Base (ex: 6)", id="inp-dano-base", value="0")
+                yield Input(placeholder="Cura Base (ex: 5)", id="inp-cura-base", value="0")
+                
+                yield Select([("Alvo Único", "unico"), ("Dano em Área (Múltiplos)", "area")], value="unico", id="sel-dano-area")
+                
+                yield Label("Efeito Temporário Associado:")
+                yield Select([
+                    ("Nenhum", "nenhum"),
+                    ("Veneno (Dano Contínuo)", "veneno"),
+                    ("Queimadura (Dano Contínuo)", "queimadura"),
+                    ("Regeneração (Cura Contínua)", "regeneracao"),
+                    ("Sono (Pula Turno)", "sono"),
+                    ("Atordoado (Pula Turno)", "atordoado"),
+                    ("Fúria (Buff Força)", "furia"),
+                    ("Fraqueza (Debuff Força)", "fraqueza")
+                ], value="nenhum", id="sel-efeito")
+                with Horizontal():
+                    yield Input(placeholder="Duração Turnos (ex: 2)", id="inp-efeito-duracao", value="2")
+                    yield Input(placeholder="Valor do Efeito (ex: 3)", id="inp-efeito-valor", value="2")
+
+                yield Horizontal(
+                    Button("Salvar", variant="success", id="btn-save"),
+                    Button("Cancelar", variant="error", id="btn-cancel")
+                )
+        yield Footer()
+
+    def on_button_pressed(self, event: Button.Pressed):
+        if event.button.id == "btn-cancel":
+            self.dismiss(False)
+        elif event.button.id == "btn-add-caminho-req":
+            caminho = self.query_one("#sel-caminho-req").value
+            pontos = self.query_one("#inp-pontos-caminho-req").value
+            if caminho and pontos and pontos.isdigit():
+                self.req_caminhos[caminho.lower()] = int(pontos)
+                self.query_one("#lbl-caminhos-req").update(f"Requisitos Atuais: {self.req_caminhos}")
+                self.query_one("#inp-pontos-caminho-req").value = ""
+        elif event.button.id == "btn-save":
+            nome = self.query_one("#inp-nome").value.strip()
+            desc = self.query_one("#inp-desc").value.strip()
+            custo_pm = self.query_one("#inp-custo-pm").value.strip()
+            tipo_exec = self.query_one("#sel-tipo-execucao").value or "combate"
+            exub = self.query_one("#inp-exuberancia").value.strip()
+            dano_base = self.query_one("#inp-dano-base").value.strip()
+            cura_base = self.query_one("#inp-cura-base").value.strip()
+            dano_area = self.query_one("#sel-dano-area").value == "area"
+
+            efeito_tipo_sel = self.query_one("#sel-efeito").value
+            efeito_id = None
+
+            if nome:
+                with SessionLocal() as db:
+                    if efeito_tipo_sel != "nenhum":
+                        dur = int(self.query_one("#inp-efeito-duracao").value or 2)
+                        val = int(self.query_one("#inp-efeito-valor").value or 2)
+                        
+                        m_tipo = "dano_continuo"
+                        atrq = None
+                        if efeito_tipo_sel in ["veneno", "queimadura"]:
+                            m_tipo = "dano_continuo"
+                        elif efeito_tipo_sel == "regeneracao":
+                            m_tipo = "cura_continua"
+                        elif efeito_tipo_sel == "sono":
+                            m_tipo = "sono"
+                        elif efeito_tipo_sel == "atordoado":
+                            m_tipo = "atordoado"
+                        elif efeito_tipo_sel == "furia":
+                            m_tipo = "buff_atributo"
+                            atrq = "forca"
+                        elif efeito_tipo_sel == "fraqueza":
+                            m_tipo = "debuff_atributo"
+                            atrq = "forca"
+
+                        novo_ef = EfeitoDB(
+                            nome=f"Efeito {nome}",
+                            duracao_turnos=dur,
+                            tipo=m_tipo,
+                            valor=val,
+                            atributo_alvo=atrq
+                        )
+                        db.add(novo_ef)
+                        db.commit()
+                        db.refresh(novo_ef)
+                        efeito_id = novo_ef.id
+
+                    msg = GameController.criar_magia(
+                        db=db,
+                        nome=nome,
+                        custo_pm=int(custo_pm) if custo_pm.isdigit() else 2,
+                        requisito_caminhos=self.req_caminhos,
+                        requisito_exuberancia=int(exub) if exub.isdigit() else 1,
+                        dano_base=int(dano_base) if dano_base.isdigit() else 0,
+                        cura_base=int(cura_base) if cura_base.isdigit() else 0,
+                        dano_area=dano_area,
+                        tipo_execucao=tipo_exec,
+                        descricao=desc,
+                        efeito_id=efeito_id
+                    )
+                    self.notify(msg, title="Sucesso" if "sucesso" in msg else "Aviso")
+                self.dismiss(True)
+
+
 class ClasseFormScreen(Screen):
     def __init__(self, classe_id: int = None):
         super().__init__()
         self.caminhos_definidos = {}
+        self.habilidades_selecionadas = []
         self.classe_id = classe_id 
 
     def compose(self) -> ComposeResult:
@@ -98,18 +230,23 @@ class ClasseFormScreen(Screen):
             with Vertical(id="create-dialog"):
                 yield Label("✨ Forjar Nova Classe", id="title")
                 yield Input(placeholder="Nome da Classe", id="inp-nome")
-                yield Label("✨ Bônus de Caminhos (Ex: 'Fogo': 2, 'Água': 1):")
+                yield Label("✨ Bônus de Caminhos (Ex: 'fogo': 2, 'água': 1):")
                 with Horizontal():
                     yield Select([], prompt="Selecione um Caminho", id="sel-caminho")
                     yield Input(placeholder="Pontos no Caminho", id="inp-caminho")
                 yield Vertical(
-                        Button("Adicionar", variant="success", id="btn-add-caminho"),
+                        Button("Adicionar Caminho", variant="success", id="btn-add-caminho"),
                         Label(f"Caminhos definidos: {self.caminhos_definidos}", id="caminhos-definidos"),
                         id="caminhos-add",
                     )
+                yield Label("✨ Selecionar Magia / Habilidade Inicial:")
+                with Horizontal():
+                    yield Select([], prompt="Selecione uma Magia Cadastrada", id="sel-magia-add")
+                    yield Button("Atribuir Magia", variant="primary", id="btn-add-magia-cadastrada")
                 yield Vertical(
-                    Label("Habilidades (Ex: 'Ataque Furtivo, Magia Arcana'):"),
-                    Input(placeholder="Habilidades (Ex: 'Ataque Furtivo, Magia Arcana')", id="inp-habilidades")
+                    Label("Habilidades Adicionais (separadas por vírgula):"),
+                    Input(placeholder="Habilidades extras (ex: 'Ataque Furtivo')", id="inp-habilidades"),
+                    Label(f"Habilidades Atribuidas: {self.habilidades_selecionadas}", id="lbl-habilidades-lista")
                 )
                 yield Horizontal(
                     Button("Salvar", variant="success", id="btn-save"),
@@ -120,19 +257,23 @@ class ClasseFormScreen(Screen):
         
     def on_mount(self):
         with SessionLocal() as db:
+            caminhos = ["fogo", "água", "terra", "ar", "luz", "trevas"]
+            self.query_one("#sel-caminho").set_options([(c, c) for c in caminhos])
+
+            # Carrega magias cadastradas no banco para seleção
+            magias_db = db.query(MagiaDB).all()
+            options_magia = [(m.nome, m.nome) for m in magias_db]
+            if options_magia:
+                self.query_one("#sel-magia-add").set_options(options_magia)
+
             if self.classe_id:
                 classe = db.query(ClasseRPGDB).get(self.classe_id)
                 if classe:
                     self.query_one("#inp-nome").value = classe.nome
-                    self.caminhos_definidos = classe.bonus_caminhos
+                    self.caminhos_definidos = classe.bonus_caminhos or {}
+                    self.habilidades_selecionadas = list(classe.habilidades or [])
                     self.query_one("#caminhos-definidos").update(f"Caminhos definidos: {self.caminhos_definidos}")
-                    self.query_one("#inp-habilidades").value = ", ".join(classe.habilidades)
-                    caminhos = ["Fogo", "Água", "Terra", "Ar", "Luz", "Trevas"]
-                    self.query_one("#sel-caminho").set_options([(c, c) for c in caminhos])
-            else:
-                caminhos = ["Fogo", "Água", "Terra", "Ar", "Luz", "Trevas"]
-                self.query_one("#sel-caminho").set_options([(c, c) for c in caminhos])
-                self.caminhos_definidos = {}
+                    self.query_one("#lbl-habilidades-lista").update(f"Habilidades Atribuidas: {self.habilidades_selecionadas}")
         
     def on_button_pressed(self, event: Button.Pressed):
         if event.button.id == "btn-cancel":
@@ -140,28 +281,38 @@ class ClasseFormScreen(Screen):
         elif event.button.id == "btn-add-caminho":
             caminho = self.query_one("#sel-caminho").value
             pontos = self.query_one("#inp-caminho").value
-            if caminho and pontos:
-                self.caminhos_definidos[caminho] = int(pontos)
+            if caminho and pontos and pontos.isdigit():
+                self.caminhos_definidos[caminho.lower()] = int(pontos)
                 self.query_one("#caminhos-definidos").update(f"Caminhos definidos: {self.caminhos_definidos}")
                 self.query_one("#inp-caminho").value = ""
+        elif event.button.id == "btn-add-magia-cadastrada":
+            magia_nome = self.query_one("#sel-magia-add").value
+            if magia_nome and magia_nome not in self.habilidades_selecionadas:
+                self.habilidades_selecionadas.append(magia_nome)
+                self.query_one("#lbl-habilidades-lista").update(f"Habilidades Atribuidas: {self.habilidades_selecionadas}")
         elif event.button.id == "btn-save":
-            dados = dict(nome=self.query_one("#inp-nome").value,
-                        bonus_caminhos=self.caminhos_definidos,
-                        habilidades=[h.strip() for h in self.query_one("#inp-habilidades").value.split(",") if h.strip()])
+            extras = [h.strip() for h in self.query_one("#inp-habilidades").value.split(",") if h.strip()]
+            habs_finais = list(set(self.habilidades_selecionadas + extras))
+            dados = dict(
+                nome=self.query_one("#inp-nome").value.strip(),
+                bonus_caminhos=self.caminhos_definidos,
+                habilidades=habs_finais
+            )
             if self.classe_id:
                 try:
                     salvar_edicao(self.classe_id, dados, "Classe")
-                    self.notify("Classe reforjada e guardada no banco de dados com sucesso!", title="Sucesso", severity="information")
+                    self.notify("Classe reforjada com sucesso!", title="Sucesso", severity="information")
                 except Exception as e:
-                    self.notify(f"Erro ao criar/atualizar! {e}", severity="error")
+                    self.notify(f"Erro ao atualizar! {e}", severity="error")
                 self.dismiss(True)
             else:
                 try:
-                    self.notify("Classe forjada e salva no banco de dados com sucesso!", title="Sucesso", severity="information")
                     salvar_novo(dados, "Classe")
+                    self.notify("Classe forjada com sucesso!", title="Sucesso", severity="information")
                 except Exception as e:
-                    self.notify(f"Erro ao criar/atualizar! {e}", severity="error")
+                    self.notify(f"Erro ao criar! {e}", severity="error")
                 self.dismiss(False)
+
                 
 
 class RacaFormScreen(Screen):

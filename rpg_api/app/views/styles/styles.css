@@ -21,7 +21,47 @@ Switch {
 #main-title { width: 100%; text-align: center; text-style: bold; margin-bottom: 2; color: $secondary; }
 Button { width: 100%; margin-bottom: 1; }
 
-#create-dialog, #equip-dialog { width: 60; padding: 2; border: tall $primary; background: $surface; }
+#equip-dialog { width: 60; padding: 2; border: tall $primary; background: $surface; }
+#create-dialog {
+    width: 65;
+    height: 85%;
+    overflow-y: scroll;
+    padding: 1 2;
+    border: tall $primary;
+    background: $surface;
+}
+
+#create-dialog Label {
+    margin-top: 1;
+    text-style: bold;
+    color: $secondary;
+}
+
+#create-dialog Input, #create-dialog Select {
+    margin-bottom: 1;
+}
+
+#create-dialog Horizontal {
+    height: auto;
+    width: 100%;
+    margin-bottom: 1;
+}
+
+#create-dialog Horizontal > Select {
+    width: 1fr;
+    margin-right: 1;
+}
+
+#create-dialog Horizontal > Input {
+    width: 1fr;
+    margin-right: 1;
+}
+
+#create-dialog Horizontal > Button {
+    width: 1fr;
+    margin-right: 1;
+}
+
 #title { width: 100%; text-align: center; text-style: bold; margin-bottom: 1; color: $warning; }
 
 #attr-inputs > Input { width: 1fr; margin-right: 1; }
@@ -564,8 +604,8 @@ InventarioMenuScreen {
     width: 24;
 }
 
-/* Modal de escolha de item na batalha */
-UsarItemBatalhaModal {
+/* Modal de escolha de item/magia na batalha */
+UsarItemBatalhaModal, UsarMagiaBatalhaModal {
     align: center middle;
     background: $background 70%;
 }

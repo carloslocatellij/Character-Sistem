@@ -288,37 +288,83 @@ class Personagem:
         
     def lancar_magia(self, magia: Magia, alvo: 'Personagem') -> Dict:
         """Executa a magia conforme MANUAL.md (Teste Resistido)."""
+        if magia.tipo_execucao == "fora_combate":
+            return {"atacante": self.nome, "sucesso": False, "motivo": f"A magia '{magia.nome}' só pode ser usada fora de combate"}
+
         if self.pm_atual < magia.custo_pm:
             return {"atacante": self.nome, "sucesso": False, "motivo": "Mana insuficiente"}
             
         if not self.validar_requisitos_magia(magia):
-             return {"atacante": self.nome, "sucesso": False, "motivo": "Exuberância insuficiente"}
+             return {"atacante": self.nome, "sucesso": False, "motivo": "Exuberância ou Caminhos insuficientes"}
 
         self.pm_atual -= magia.custo_pm
         
-        # Teste de Ataque Mágico (Exuberância do Atacante vs Dificuldade Base 4)
-        # Assumindo que a força do caminho dá bônus. Para simplificar, usamos Exuberância + Rolar d6
+        # Teste de Ataque Mágico
         ataque_magico = self._rolar_d6(3) + self.atributos_totais["exuberancia"]
-        
-        # Alvo tenta esquivar com agilidade ou resistir
         defesa_alvo = alvo.calcular_defesa_esquiva()
         
-        acertou = ataque_magico > defesa_alvo
+        # Propriedades de combate (ignorar defesa, etc.)
+        props = magia.propriedades_combate or {}
+        if props.get("ignorar_defesa"):
+            defesa_alvo = 0
+
+        acertou = ataque_magico > defesa_alvo or magia.cura_base > 0
         evento = {
             "atacante": self.nome, "alvo": alvo.nome, "magia": magia.nome,
-            "sucesso": acertou, "pm_restante": self.pm_atual, "dano_causado": 0
+            "sucesso": acertou, "pm_restante": self.pm_atual, "dano_causado": 0, "cura_realizada": 0
         }
 
         if acertou:
-            # Magias ignoram armadura convencional, dão dano direto ou aplicam efeito
             if magia.dano_base > 0:
-                dano_final = self._rolar_d6(1) + magia.dano_base # Dano = 1d6 + Base
+                dano_final = self._rolar_d6(1) + magia.dano_base
                 evento_dano = alvo.receber_dano_de_efeito(dano_final)
                 evento["dano_causado"] = evento_dano["dano_recebido"]
                 evento["alvo_morreu"] = evento_dano["morreu"]
-                
+
+            if magia.cura_base > 0:
+                pv_antes = alvo.pv_atual
+                alvo.pv_atual = min(alvo.max_hp, alvo.pv_atual + magia.cura_base)
+                evento["cura_realizada"] = alvo.pv_atual - pv_antes
+
             if magia.efeito_aplicado:
                 alvo.aplicar_efeito(magia.efeito_aplicado)
                 evento["efeito_aplicado"] = magia.efeito_aplicado.nome
 
         return evento
+
+    def lancar_magia_fora_combate(self, magia: Magia, alvo: Optional['Personagem'] = None) -> Dict[str, Any]:
+        """Lança uma magia ou habilidade de suporte/cura fora de combate."""
+        if alvo is None:
+            alvo = self
+
+        if magia.tipo_execucao not in ["fora_combate", "ambos"]:
+            return {"conjurador": self.nome, "sucesso": False, "motivo": f"A magia '{magia.nome}' só pode ser lançada em combate."}
+
+        if self.pm_atual < magia.custo_pm:
+            return {"conjurador": self.nome, "sucesso": False, "motivo": "Pontos de Mana insuficientes"}
+
+        if not self.validar_requisitos_magia(magia):
+            return {"conjurador": self.nome, "sucesso": False, "motivo": "Requisitos mágicos não atendidos"}
+
+        self.pm_atual -= magia.custo_pm
+
+        resultado = {
+            "conjurador": self.nome,
+            "alvo": alvo.nome,
+            "magia": magia.nome,
+            "sucesso": True,
+            "pm_restante": self.pm_atual,
+            "cura_realizada": 0,
+            "efeito_aplicado": None
+        }
+
+        if magia.cura_base > 0:
+            pv_antes = alvo.pv_atual
+            alvo.pv_atual = min(alvo.max_hp, alvo.pv_atual + magia.cura_base)
+            resultado["cura_realizada"] = alvo.pv_atual - pv_antes
+
+        if magia.efeito_aplicado:
+            alvo.aplicar_efeito(magia.efeito_aplicado)
+            resultado["efeito_aplicado"] = magia.efeito_aplicado.nome
+
+        return resultado

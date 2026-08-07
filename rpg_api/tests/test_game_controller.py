@@ -327,6 +327,49 @@ class TestGameControllerConversao:
         assert personagem_domain.mao_esquerda is not None
         assert personagem_domain.armadura is not None
 
+    def test_converter_personagem_com_magias_de_classe(self, test_db, raca_default):
+        """Deve converter personagem e hidratar magias definidas na classe."""
+        from app.models.habilidades_magias_db import MagiaDB
+        
+        # Cria classe com habilidade
+        classe_mago = ClasseRPGDB(nome="Mago Supremo", bonus_caminhos={"fogo": 2}, habilidades=["Bola de Fogo"])
+        test_db.add(classe_mago)
+        
+        # Cria magia correspondente no banco
+        magia_bola_fogo = MagiaDB(
+            nome="Bola de Fogo",
+            custo_pm=4,
+            requisito_caminhos={"fogo": 1},
+            dano_base=12,
+            requisito_exuberancia=2
+        )
+        test_db.add(magia_bola_fogo)
+        test_db.commit()
+        
+        # Cria personagem dessa classe
+        mago = PersonagemDB(
+            nome="Gandalf",
+            nivel=1,
+            raca_id=raca_default.id,
+            classe_id=classe_mago.id,
+            forca_base=1,
+            agilidade_base=2,
+            resistencia_base=2,
+            percepcao_base=3,
+            exuberancia_base=3
+        )
+        test_db.add(mago)
+        test_db.commit()
+        test_db.refresh(mago)
+        
+        # Converte
+        personagem_domain = GameController.converter_para_dominio(mago)
+        
+        # Deve ter a magia carregada
+        assert len(personagem_domain.magias_conhecidas) == 1
+        assert personagem_domain.magias_conhecidas[0].nome == "Bola de Fogo"
+        assert personagem_domain.magias_conhecidas[0].custo_pm == 4
+
 
 class TestSimuladorArena:
     """Testes da simulação de arena."""

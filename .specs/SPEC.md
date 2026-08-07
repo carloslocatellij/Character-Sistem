@@ -86,9 +86,10 @@ Emojis posicionados no mapa, parâmetros passados ao `EventSystem` ao acionar.
 
 
 4. Regras Negócio e Mecânicas
-4.1. Validação Magias/Habilidades
 
-    Modelar estas especificações abaixo no sistema: Será necessário criar tabelas para entidades magia e efeito;
+4.1. Sistema de Aquisição e Lançamento de Magias/Habilidades:
+
+    Modelagem da persistência: utilizar tabelas com colunas JSON para modificadores e efeitos temporários criar tabelas para magias e para efeitos; A entidade ClasseRPGDB que compõe o Personagem recebe Magias na coluna habilidades.
     Magias podem causar efeitos: sono, veneno, lentidão, atordoado, regenerar.
     Efeitos são estados temporarios dos personagens ou monstros: Duram x turnos.
     A cada turno ativo o efeito pode: causar y de dano, curar y de hp, atributo fica y ponto a cima ou abaixo, deixa de atacar x turnos (dormindo), ataca aleatorio (louco), proteção ou fraqueza contra tipos de magia ou habilidades.
@@ -96,6 +97,19 @@ Emojis posicionados no mapa, parâmetros passados ao `EventSystem` ao acionar.
     Habilidades podem ter maior chance de crítico, ignorar bonus de defeza, contra-ataque, tentativa dupla ou tripla de ataque com taxas menores de acerto.
     Magias possuem requisitos (ex: `{"água": 2}`, Exuberância >= 2) para serem aprendidas/ adquiridas/ executadas.
     Regra Estrita: Ao ensinar magia, validar "Caminhos Magia Totais" (Base + Bônus Classe). Se requisitos não atingidos impede aprendizado/execução da magia/habilidade.
+    1. **Modelagem de Persistência (SQLAlchemy):**
+   - **`EfeitoDB` (Tabela `efeitos`):** Estados temporários (sono, veneno, lentidão, atordoado, regenerar) durando $x$ turnos. O campo `configuracoes` (JSON) define o comportamento do "tick" por turno: causar/curar $y$ de dano/HP, alterar atributos temporariamente, deixar de atacar por $x$ turnos (sono), atacar de forma aleatória (louco) ou conferir proteção/fraqueza elemental.
+   - **`MagiaDB` (Tabela `magias`):** Metadados de magias e habilidades. Inclui flags de `dano_area` (alvos múltiplos), as propriedades de combate (taxa de crítico ampliada, ignorar bônus de defesa, contra-ataque, chance de ataques múltiplos com penalidade de acerto) e o campo JSON de `requisitos`.
+
+2. **Lógica em Memória (Esper ECS):**
+   - **`ActiveEffectsComponent`:** Dataclass pura que armazena e monitora em tempo de execução os efeitos aplicados nas entidades e seus turnos de duração restantes.
+   - **Sistemas de Combate e Atualização:** Processam os "ticks" dos efeitos ativos e aplicam suas respectivas alterações lógicas na RAM a cada turno da rodada.
+
+3. **Validação Estrita de Requisitos:**
+   - Crie uma rotina de verificação matemática impeditiva que valida se o personagem atende aos pré-requisitos lógicos e de atributos do JSON da magia:
+     $$\text{Caminhos Totais} = \text{Caminhos Base (Personagem)} + \text{Bônus da Classe}$$
+   - Caso os "Caminhos Magia Totais" ou os atributos requeridos do herói (ex: Exuberância $\ge 2$) sejam insuficientes, impeça o aprendizado ou a execução de forma absoluta.
+
 
 4.2. Fluxo Combate
 
@@ -106,6 +120,7 @@ Emojis posicionados no mapa, parâmetros passados ao `EventSystem` ao acionar.
     Dano: Se acertar, dano bruto `1d6` por ponto atributo base (Força/Agilidade) + dano arma.
 
     Absorção: Alvo reduz dano bruto rolando `1d6` por ponto Resistência + defesa Armadura.
+
 
 5. Simulação Batalhas
 
