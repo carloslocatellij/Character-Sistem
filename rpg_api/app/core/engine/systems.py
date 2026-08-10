@@ -21,7 +21,7 @@ from app.core.engine.components import (
     PositionComponent, InteractableComponent, RenderComponent,
     StatsComponent, MovimentComponent, InventoryComponent,
     CollisionComponent, NetworkPlayerComponent,
-    CombatStateComponent, BattleParticipantComponent
+    CombatStateComponent, BattleParticipantComponent, HeroComponent
 )
 from app.core.entities.emojis import CatalogoTiles
 from app.views.simulador import SimuladorCombate
@@ -425,6 +425,7 @@ class EventSystem(esper.Processor):
 
     def _processar_comandos_sequenciais(self, comandos: list, entidade_id: int):
         try:
+            self.entidade_atual_id = entidade_id
             self.pilha_de_comandos = [list(comandos)]
             self.aguardando_escolha = False
             self.aguardando_combate = False
@@ -478,6 +479,7 @@ class EventSystem(esper.Processor):
     def _processar_comando_individual(self, comando):
         """Interpretador genérico e atômico de comandos estruturados do JSON."""
         world = self.world if (hasattr(self, "world") and self.world is not None) else esper
+        entidade_id = getattr(self, "entidade_atual_id", None)
         tipo = comando.get("tipo")
         dados = comando.get("dados", {})
         parms = getattr(self, "parms", {}) or {}
@@ -591,7 +593,6 @@ class EventSystem(esper.Processor):
             from app.models.habilidades_magias_db import MagiaDB
             from app.controllers.game_controller import GameController
             from app.core.entities.habilidades_magias import Magia
-            from app.core.engine.components import HeroComponent, StatsComponent
 
             magia_obj = None
             if nome_magia:
@@ -911,10 +912,63 @@ class BattleSystem(esper.Processor):
 
         alvo = inimigos_vivos[min(alvo_index, len(inimigos_vivos) - 1)]
 
+        # Processa efeitos temporários ativos no herói
+        efeitos_relatorio = self.heroi.finalizar_turno() if hasattr(self.heroi, "finalizar_turno") else []
+        pula_turno_heroi = any(ef.get("pula_turno") for ef in efeitos_relatorio)
+
+        if self.heroi.pv_atual <= 0:
+            resultado = {
+                "atacante": self.heroi.nome,
+                "alvo": self.heroi.nome,
+                "acertou": False,
+                "acao": "efeito",
+                "descricao": f"{self.heroi.nome} sofreu dano fatal de efeito!",
+                "efeitos_processados": efeitos_relatorio,
+                "alvo_morreu": True
+            }
+            esper.dispatch_event("turno_calculado", {
+                "turno": self.turno,
+                "fase": "jogador",
+                "acao": "efeito",
+                "resultado": resultado,
+                "heroi_hp": self.heroi.pv_atual,
+                "heroi_mp": self.heroi.pm_atual,
+                "inimigos": self._snapshot_inimigos(),
+                "inimigo_hp": alvo.pv_atual,
+            })
+            self._encerrar_combate(vencedor="inimigo")
+            return
+
+        if pula_turno_heroi:
+            msg_pula = next((ef.get("mensagem") for ef in efeitos_relatorio if ef.get("pula_turno")), f"{self.heroi.nome} perdeu o turno!")
+            resultado = {
+                "atacante": self.heroi.nome,
+                "alvo": self.heroi.nome,
+                "acertou": False,
+                "acao": "efeito",
+                "descricao": msg_pula,
+                "efeitos_processados": efeitos_relatorio
+            }
+            esper.dispatch_event("turno_calculado", {
+                "turno": self.turno,
+                "fase": "jogador",
+                "acao": "efeito",
+                "resultado": resultado,
+                "heroi_hp": self.heroi.pv_atual,
+                "heroi_mp": self.heroi.pm_atual,
+                "inimigos": self._snapshot_inimigos(),
+                "inimigo_hp": alvo.pv_atual,
+            })
+            try:
+                loop = asyncio.get_event_loop()
+                loop.call_soon(self._agendar_turno_inimigo)
+            except RuntimeError:
+                self._executar_turno_inimigo_sincrono()
+            return
+
         # Caso especial: Ação de usar Item
         if acao == "item":
             world = self.world if (hasattr(self, "world") and self.world is not None) else esper
-            from app.core.engine.components import InventoryComponent
             inv = world.component_for_entity(1, InventoryComponent) if world.entity_exists(1) and world.has_component(1, InventoryComponent) else None
 
             from app.core.engine.item_system import aplicar_usar_item, obter_itens_usaveis
@@ -980,6 +1034,9 @@ class BattleSystem(esper.Processor):
         else:
             resultado = self._resolver_acao_personagem(acao, atacante=self.heroi, alvo=alvo, nome_magia=nome_magia)
 
+        if efeitos_relatorio and isinstance(resultado, dict):
+            resultado["efeitos_processados"] = efeitos_relatorio
+
         logging.info(f"Turno {self.turno} - Jogador: {acao} alvo={alvo.nome} | Resultado: {resultado}")
 
         esper.dispatch_event("turno_calculado", {
@@ -1038,8 +1095,61 @@ class BattleSystem(esper.Processor):
             if not self.combate_ativo:
                 break
 
+            efeitos_relatorio = inimigo_ativo.finalizar_turno() if hasattr(inimigo_ativo, "finalizar_turno") else []
+            pula_turno_inimigo = any(ef.get("pula_turno") for ef in efeitos_relatorio)
+
+            if inimigo_ativo.pv_atual <= 0:
+                logging.info(f"☠ {inimigo_ativo.nome} foi derrotado por efeito contínuo!")
+                resultado = {
+                    "atacante": inimigo_ativo.nome,
+                    "alvo": inimigo_ativo.nome,
+                    "acertou": False,
+                    "acao": "efeito",
+                    "descricao": f"{inimigo_ativo.nome} foi derrotado por efeito contínuo!",
+                    "efeitos_processados": efeitos_relatorio,
+                    "alvo_morreu": True
+                }
+                esper.dispatch_event("turno_calculado", {
+                    "turno": self.turno,
+                    "fase": "inimigo",
+                    "acao": "efeito",
+                    "resultado": resultado,
+                    "heroi_hp": self.heroi.pv_atual,
+                    "heroi_mp": self.heroi.pm_atual,
+                    "inimigos": self._snapshot_inimigos(),
+                    "inimigo_hp": inimigo_ativo.pv_atual,
+                })
+                if all(i.pv_atual <= 0 for i in self.inimigos):
+                    self._encerrar_combate(vencedor="jogador")
+                    return
+                continue
+
+            if pula_turno_inimigo:
+                self.turno += 1
+                msg_pula = next((ef.get("mensagem") for ef in efeitos_relatorio if ef.get("pula_turno")), f"{inimigo_ativo.nome} perdeu o turno!")
+                esper.dispatch_event("turno_calculado", {
+                    "turno": self.turno,
+                    "fase": "inimigo",
+                    "acao": "efeito",
+                    "resultado": {
+                        "atacante": inimigo_ativo.nome,
+                        "alvo": inimigo_ativo.nome,
+                        "acertou": False,
+                        "acao": "efeito",
+                        "descricao": msg_pula,
+                        "efeitos_processados": efeitos_relatorio
+                    },
+                    "heroi_hp": self.heroi.pv_atual,
+                    "heroi_mp": self.heroi.pm_atual,
+                    "inimigos": self._snapshot_inimigos(),
+                    "inimigo_hp": inimigo_ativo.pv_atual,
+                })
+                continue
+
             acao_ia = self._decidir_acao_ia_por(inimigo_ativo)
             resultado = self._resolver_acao_personagem(acao_ia, atacante=inimigo_ativo, alvo=self.heroi)
+            if efeitos_relatorio and isinstance(resultado, dict):
+                resultado["efeitos_processados"] = efeitos_relatorio
             self.turno += 1
             logging.info(
                 f"Turno {self.turno} - IA [{inimigo_ativo.nome}]: {acao_ia} | Resultado: {resultado}"
@@ -1106,7 +1216,13 @@ class BattleSystem(esper.Processor):
                     magia = next((m for m in atacante.magias_conhecidas if m.nome == nome_magia), None)
                 if not magia:
                     magia = atacante.magias_conhecidas[0]
-                res = atacante.lancar_magia(magia, alvo)
+
+                # Se a magia for de cura ou efeito benéfico (buff, cura contínua, proteção), o alvo é o próprio atacante
+                alvo_magia = alvo
+                if magia.cura_base > 0 or (magia.efeito_aplicado and magia.efeito_aplicado.tipo in ["cura_continua", "buff_atributo", "protecao_elemental"]):
+                    alvo_magia = atacante
+
+                res = atacante.lancar_magia(magia, alvo_magia)
                 if isinstance(res, dict):
                     res["acao"] = "magia"
                     res["magia"] = magia.nome

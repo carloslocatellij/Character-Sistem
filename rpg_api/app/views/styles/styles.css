@@ -610,11 +610,34 @@ UsarItemBatalhaModal, UsarMagiaBatalhaModal {
     background: $background 70%;
 }
 
-#batalha-item-dialog {
-    width: 60;
-    height: 70%;
+#batalha-item-dialog, #batalha-magia-dialog {
+    width: 65;
+    height: 75%;
     padding: 1 2;
     background: #10101c;
     border: double #74b9ff;
 }
+
+#list-itens-batalha, #list-magias-batalha {
+    height: 1fr;
+    border: solid #2a4a2a;
+    background: #091209;
+    margin: 1 0;
+}
+
+#lbl-batalha-item-desc, #lbl-batalha-magia-desc {
+    height: auto;
+    color: #f1c40f;
+    margin-bottom: 1;
+}
+
+#batalha-item-botoes, #batalha-magia-botoes {
+    height: auto;
+    align-horizontal: right;
+}
+
+#batalha-item-botoes Button, #batalha-magia-botoes Button {
+    margin-left: 1;
+}
+
 

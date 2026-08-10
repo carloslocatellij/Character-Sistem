@@ -59,9 +59,9 @@ class Personagem:
         self.efeitos_ativos: List[Dict] = []
         
         self.max_hp = 0
-        self.pv_atual = 0
+        self.pv_atual = None
         self.max_mp = 0
-        self.pm_atual = 0
+        self.pm_atual = None
         self.mod_atq_corpo = 0
         self.mod_atq_distancia = 0
         
@@ -117,18 +117,20 @@ class Personagem:
         forca = self.atributos_totais["forca"]
         agi = self.atributos_totais["agilidade"]
 
-        self.max_hp =  int(7+ (ceil(self.nivel * ceil((res+2) / 2) + ceil((self.nivel + res) *3)))) #int((((self.nivel + 4) / 4) * (res + 1.5)) ** 2)
-        self.max_mp =  int((ceil((self.nivel + 5) / 4) * ceil((perc + exub + 1) / 2)) * 3) #int((((self.nivel + 5) / 5) * ((perc + exub + 0.5) / 1.5)) ** 2)
-        self.mod_atq_corpo = int(self.nivel * ceil(forca + (agi / 2))) #int((((self.nivel + 5) / 5) * (forca + (agi / 2))) ** 2)
-        self.mod_atq_distancia = int(self.nivel * ceil(agi + (forca / 2))) #int((((self.nivel + 5) / 5) * (agi + (forca / 2))) ** 2)
-        
-        # self.max_hp =  int((((self.nivel + 4) / 4) * (res + 1.5)) ** 2)
-        # self.max_mp =  int((((self.nivel + 5) / 5) * ((perc + exub + 0.5) / 1.5)) ** 2)
-        # self.mod_atq_corpo = int((((self.nivel + 5) / 5) * (forca + (agi / 2))) ** 2)
-        # self.mod_atq_distancia = int((((self.nivel + 5) / 5) * (agi + (forca / 2))) ** 2)
-        
-        
-        self.reset_status()
+        self.max_hp = int(7 + (ceil(self.nivel * ceil((res + 2) / 2) + ceil((self.nivel + res) * 3))))
+        self.max_mp = int((ceil((self.nivel + 5) / 4) * ceil((perc + exub + 1) / 2)) * 3)
+        self.mod_atq_corpo = int(self.nivel * ceil(forca + (agi / 2)))
+        self.mod_atq_distancia = int(self.nivel * ceil(agi + (forca / 2)))
+
+        if not hasattr(self, "pv_atual") or self.pv_atual is None:
+            self.pv_atual = self.max_hp
+        else:
+            self.pv_atual = min(self.pv_atual, self.max_hp)
+
+        if not hasattr(self, "pm_atual") or self.pm_atual is None:
+            self.pm_atual = self.max_mp
+        else:
+            self.pm_atual = min(self.pm_atual, self.max_mp)
 
     def reset_status(self):
         self.pv_atual = self.max_hp
@@ -146,7 +148,10 @@ class Personagem:
     def calcular_defesa_esquiva(self) -> int:
         """1d6 + Agilidade + Defesa do Escudo (se houver)."""
         agi = self.atributos_totais["agilidade"]
-        rolagem = self._rolar_d6(2 + int(agi // 2)) # Mais agilidade dá direito a rolar mais dados
+        # Se atordoado, dormindo ou com lentidao:
+        if any(ef.tipo in ["sono", "atordoado", "lentidao"] for ef in self.efeitos_ativos):
+            agi = max(0, agi - 2) if any(ef.tipo == "lentidao" for ef in self.efeitos_ativos) else 0
+        rolagem = self._rolar_d6(3 + int(agi // 3)) 
         bonus_escudo = self.mao_esquerda.defesa_extra if isinstance(self.mao_esquerda, Escudo) else 0
         return rolagem + (agi * (bonus_escudo+1))
 
@@ -226,8 +231,9 @@ class Personagem:
         # Se for um buff de atributo, aplicamos imediatamente
         if efeito.tipo in ["buff_atributo", "debuff_atributo"] and efeito.atributo_alvo:
             modificador = efeito.valor if efeito.tipo == "buff_atributo" else -efeito.valor
-            self.atributos_totais[efeito.atributo_alvo] += modificador
-            self._calcular_status_derivados() # Recalcula vida/ataque se o atributo mudar
+            if efeito.atributo_alvo in self.atributos_totais:
+                self.atributos_totais[efeito.atributo_alvo] += modificador
+                self._calcular_status_derivados() # Recalcula vida/ataque se o atributo mudar
             
         # Guarda na lista para controle de tempo
         from copy import deepcopy
@@ -240,17 +246,27 @@ class Personagem:
         efeitos_restantes = []
 
         for efeito in self.efeitos_ativos:
-            resultado = efeito.processar_efeito(self)
-            relatorio_efeitos.append(resultado)
+            try:
+                resultado = efeito.processar_efeito(self)
+            except Exception as e:
+                logging.error(f"Erro ao processar efeito {efeito}: {e}")
+                resultado = {"nome": getattr(efeito, "nome", "Efeito"), "tipo": getattr(efeito, "tipo", "desconhecido"), "valor": 0, "turnos_restantes": 0}
             
+            resultado["personagem"] = self.nome
+
             if efeito.duracao_turnos > 0:
                 efeitos_restantes.append(efeito)
             else:
-                # Se o efeito acabou e era um buff, removemos o modificador
+                # Se o efeito acabou e era um buff/debuff, removemos o modificador
                 if efeito.tipo in ["buff_atributo", "debuff_atributo"] and efeito.atributo_alvo:
                     modificador = -efeito.valor if efeito.tipo == "buff_atributo" else efeito.valor
-                    self.atributos_totais[efeito.atributo_alvo] += modificador
-                    self._calcular_status_derivados()
+                    if efeito.atributo_alvo in self.atributos_totais:
+                        self.atributos_totais[efeito.atributo_alvo] += modificador
+                        self._calcular_status_derivados()
+                resultado["finalizado"] = True
+                resultado["mensagem_fim"] = f"O efeito '{efeito.nome}' em {self.nome} expirou!"
+
+            relatorio_efeitos.append(resultado)
 
         self.efeitos_ativos = efeitos_restantes
         return relatorio_efeitos
@@ -308,7 +324,7 @@ class Personagem:
         if props.get("ignorar_defesa"):
             defesa_alvo = 0
 
-        acertou = ataque_magico > defesa_alvo or magia.cura_base > 0
+        acertou = ataque_magico > defesa_alvo or magia.cura_base > 0 or alvo == self
         evento = {
             "atacante": self.nome, "alvo": alvo.nome, "magia": magia.nome,
             "sucesso": acertou, "pm_restante": self.pm_atual, "dano_causado": 0, "cura_realizada": 0

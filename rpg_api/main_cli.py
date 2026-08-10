@@ -12,6 +12,7 @@ from textual import on
 from app.db.database import SessionLocal, engine, Base
 from app.models.personagens_db import PersonagemDB, RacaDB, ClasseRPGDB
 from app.models.equipamentos_db import ItemDB
+from app.models.habilidades_magias_db import EfeitoDB, MagiaDB
 from app.controllers.game_controller import GameController, simular_arena
 from musics.audio_player import music
 from app.models.mapas_db import MapaDB
@@ -32,7 +33,7 @@ def action_start_stop_music():
 # Funções de edição e salvamento
 # ==========================================
 
-map_entidades = {"Personagem": PersonagemDB, "Raça": RacaDB, "Classe": ClasseRPGDB, "Item": ItemDB}
+map_entidades = {"Personagem": PersonagemDB, "Raça": RacaDB, "Classe": ClasseRPGDB, "Item": ItemDB, "Magia": MagiaDB}
 
 def salvar_edicao(id_entity: int, dados: dict, modelo: dict):
     modelo = map_entidades.get(modelo)
@@ -142,6 +143,39 @@ class MagiaFormScreen(Screen):
                 )
         yield Footer()
 
+    def on_mount(self):
+        if self.magia_id:
+            with SessionLocal() as db:
+                magia = db.query(MagiaDB).get(self.magia_id)
+                if magia:
+                    self.query_one("#title").update("✨ Editar Magia / Habilidade")
+                    self.query_one("#inp-nome").value = magia.nome or ""
+                    self.query_one("#inp-desc").value = magia.descricao or ""
+                    self.query_one("#inp-custo-pm").value = str(magia.custo_pm)
+                    self.query_one("#sel-tipo-execucao").value = magia.tipo_execucao or "combate"
+                    self.req_caminhos = dict(magia.requisito_caminhos or {})
+                    self.query_one("#lbl-caminhos-req").update(f"Requisitos Atuais: {self.req_caminhos}")
+                    self.query_one("#inp-exuberancia").value = str(magia.requisito_exuberancia or 1)
+                    self.query_one("#inp-dano-base").value = str(magia.dano_base or 0)
+                    self.query_one("#inp-cura-base").value = str(magia.cura_base or 0)
+                    self.query_one("#sel-dano-area").value = "area" if magia.dano_area else "unico"
+                    if magia.efeito:
+                        self.query_one("#inp-efeito-duracao").value = str(magia.efeito.duracao_turnos or 2)
+                        self.query_one("#inp-efeito-valor").value = str(magia.efeito.valor or 2)
+                        tipo_ef = magia.efeito.tipo
+                        if tipo_ef == "dano_continuo":
+                            self.query_one("#sel-efeito").value = "queimadura" if "queimadura" in (magia.efeito.nome or "").lower() else "veneno"
+                        elif tipo_ef == "cura_continua":
+                            self.query_one("#sel-efeito").value = "regeneracao"
+                        elif tipo_ef == "sono":
+                            self.query_one("#sel-efeito").value = "sono"
+                        elif tipo_ef == "atordoado":
+                            self.query_one("#sel-efeito").value = "atordoado"
+                        elif tipo_ef == "buff_atributo":
+                            self.query_one("#sel-efeito").value = "furia"
+                        elif tipo_ef == "debuff_atributo":
+                            self.query_one("#sel-efeito").value = "fraqueza"
+
     def on_button_pressed(self, event: Button.Pressed):
         if event.button.id == "btn-cancel":
             self.dismiss(False)
@@ -167,6 +201,11 @@ class MagiaFormScreen(Screen):
 
             if nome:
                 with SessionLocal() as db:
+                    if self.magia_id:
+                        magia_existente = db.query(MagiaDB).get(self.magia_id)
+                        if magia_existente and magia_existente.efeito_id:
+                            efeito_id = magia_existente.efeito_id
+
                     if efeito_tipo_sel != "nenhum":
                         dur = int(self.query_one("#inp-efeito-duracao").value or 2)
                         val = int(self.query_one("#inp-efeito-valor").value or 2)
@@ -188,32 +227,57 @@ class MagiaFormScreen(Screen):
                             m_tipo = "debuff_atributo"
                             atrq = "forca"
 
-                        novo_ef = EfeitoDB(
-                            nome=f"Efeito {nome}",
-                            duracao_turnos=dur,
-                            tipo=m_tipo,
-                            valor=val,
-                            atributo_alvo=atrq
-                        )
-                        db.add(novo_ef)
-                        db.commit()
-                        db.refresh(novo_ef)
-                        efeito_id = novo_ef.id
+                        if efeito_id:
+                            ef_db = db.query(EfeitoDB).get(efeito_id)
+                            if ef_db:
+                                ef_db.duracao_turnos = dur
+                                ef_db.tipo = m_tipo
+                                ef_db.valor = val
+                                ef_db.atributo_alvo = atrq
+                                db.commit()
+                        else:
+                            novo_ef = EfeitoDB(
+                                nome=f"Efeito {nome}",
+                                duracao_turnos=dur,
+                                tipo=m_tipo,
+                                valor=val,
+                                atributo_alvo=atrq
+                            )
+                            db.add(novo_ef)
+                            db.commit()
+                            db.refresh(novo_ef)
+                            efeito_id = novo_ef.id
 
-                    msg = GameController.criar_magia(
-                        db=db,
-                        nome=nome,
-                        custo_pm=int(custo_pm) if custo_pm.isdigit() else 2,
-                        requisito_caminhos=self.req_caminhos,
-                        requisito_exuberancia=int(exub) if exub.isdigit() else 1,
-                        dano_base=int(dano_base) if dano_base.isdigit() else 0,
-                        cura_base=int(cura_base) if cura_base.isdigit() else 0,
-                        dano_area=dano_area,
-                        tipo_execucao=tipo_exec,
-                        descricao=desc,
-                        efeito_id=efeito_id
-                    )
-                    self.notify(msg, title="Sucesso" if "sucesso" in msg else "Aviso")
+                    if self.magia_id:
+                        dados = {
+                            "nome": nome,
+                            "descricao": desc,
+                            "custo_pm": int(custo_pm) if custo_pm.isdigit() else 2,
+                            "requisito_caminhos": self.req_caminhos,
+                            "requisito_exuberancia": int(exub) if exub.isdigit() else 1,
+                            "dano_base": int(dano_base) if dano_base.isdigit() else 0,
+                            "cura_base": int(cura_base) if cura_base.isdigit() else 0,
+                            "dano_area": dano_area,
+                            "tipo_execucao": tipo_exec,
+                            "efeito_id": efeito_id
+                        }
+                        salvar_edicao(self.magia_id, dados, "Magia")
+                        self.notify(f"✅ Magia '{nome}' atualizada com sucesso!", title="Sucesso")
+                    else:
+                        msg = GameController.criar_magia(
+                            db=db,
+                            nome=nome,
+                            custo_pm=int(custo_pm) if custo_pm.isdigit() else 2,
+                            requisito_caminhos=self.req_caminhos,
+                            requisito_exuberancia=int(exub) if exub.isdigit() else 1,
+                            dano_base=int(dano_base) if dano_base.isdigit() else 0,
+                            cura_base=int(cura_base) if cura_base.isdigit() else 0,
+                            dano_area=dano_area,
+                            tipo_execucao=tipo_exec,
+                            descricao=desc,
+                            efeito_id=efeito_id
+                        )
+                        self.notify(msg, title="Sucesso" if "sucesso" in msg else "Aviso")
                 self.dismiss(True)
 
 
@@ -697,6 +761,7 @@ class ManagementMenuScreen(Screen):
         "racas": {"model": RacaDB, "label": "Raças"},
         "classes": {"model": ClasseRPGDB, "label": "Classes"},
         "itens": {"model": ItemDB, "label": "Itens/Equipamentos"},
+        "magias": {"model": MagiaDB, "label": "Magias/Habilidades"},
     }
 
     def compose(self):
@@ -751,7 +816,7 @@ class ManagementMenuScreen(Screen):
                 query = db.query(PersonagemDB)
                 if filter_text: query = query.filter(PersonagemDB.nome.contains(filter_text))
                 for p in query.all():
-                    data_table.add_row(str(p.id), p.nome, str(p.nivel), p.raca.nome, key=str(p.id))
+                    data_table.add_row(str(p.id), p.nome, str(p.nivel), p.raca.nome if p.raca else "Sem Raça", key=str(p.id))
             
             elif model == RacaDB:
                 data_table.add_columns("ID", "Nome", "Bónus")
@@ -783,6 +848,14 @@ class ManagementMenuScreen(Screen):
                 for c in query.all():
                     data_table.add_row(str(c.id), c.nome, str(c.bonus_caminhos), key=str(c.id))
 
+            elif model == MagiaDB:
+                data_table.add_columns("ID", "Nome", "Custo PM", "Dano/Cura", "Tipo Execução")
+                query = db.query(MagiaDB)
+                if filter_text: query = query.filter(MagiaDB.nome.contains(filter_text))
+                for m in query.all():
+                    dano_cura = f"Dano: {m.dano_base}" if m.dano_base else (f"Cura: {m.cura_base}" if m.cura_base else "Nenhum")
+                    data_table.add_row(str(m.id), m.nome, str(m.custo_pm), dano_cura, m.tipo_execucao or "combate", key=str(m.id))
+
     async def on_data_table_row_selected(self, event: DataTable.RowSelected):
         """Redireciona para o formulário correto baseado na tabela atual."""
         table_id = self.query_one("#table-selector").value
@@ -796,13 +869,14 @@ class ManagementMenuScreen(Screen):
         # Lógica de roteamento para o formulário reutilizável correto
         if table_id == "personagens":
             await self.app.push_screen(CharacterFormScreen(char_id=item_id), callback= lambda _: self.refresh_table_data())
-        # Adicione elif para os outros formulários aqui...
         elif table_id == "racas":
             await self.app.push_screen(RacaFormScreen(raca_id=item_id), callback= self.refresh_table_data())
         elif table_id == "classes":
             await self.app.push_screen(ClasseFormScreen(classe_id=item_id), callback=lambda _: self.refresh_table_data())
         elif table_id == "itens":
             await self.app.push_screen(ItemFormScreen(item_id=item_id), callback=lambda _: self.refresh_table_data())
+        elif table_id == "magias":
+            await self.app.push_screen(MagiaFormScreen(magia_id=item_id), callback=lambda _: self.refresh_table_data())
 
     def on_button_pressed(self, event: Button.Pressed):
         if event.button.id == "btn-back":

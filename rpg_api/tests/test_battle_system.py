@@ -87,8 +87,11 @@ def battle_sys():
         pass
 
 
+_GLOBAL_TEST_HANDLERS = {}
+
+
 @pytest.fixture
-def eventos_capturados():
+def eventos_capturados(battle_sys):
     """Captura os eventos disparados pelo Esper durante os testes."""
     eventos = []
 
@@ -97,19 +100,19 @@ def eventos_capturados():
             eventos.append({"evento": nome_evento, "dados": dados})
         return handler
 
-    handlers = {}
     for evento in ["combate_iniciado", "turno_calculado", "combate_encerrado"]:
-        handler = capturar(evento)
-        handlers[evento] = handler
-        esper.set_handler(evento, handler)
+        h = capturar(evento)
+        _GLOBAL_TEST_HANDLERS[evento] = h
+        esper.set_handler(evento, h)
 
     yield eventos
 
-    for evento, handler in handlers.items():
+    for evento, h in list(_GLOBAL_TEST_HANDLERS.items()):
         try:
-            esper.remove_handler(evento, handler)
+            esper.remove_handler(evento, h)
         except Exception:
             pass
+    _GLOBAL_TEST_HANDLERS.clear()
 
 
 # ==============================================================================
@@ -703,16 +706,12 @@ class TestUsoDeItensEBatalha:
 
     def test_sincronizacao_combate_para_ecs(self, heroi):
         """Testa que os status e equipamentos do domínio são sincronizados de volta para o ECS."""
-        esper.clear_database()
         from app.views.battle_screen import BattleScreen
         from app.core.engine.components import StatsComponent, EquipmentComponent
         
-        try:
-            esper.components_for_entity(1)
-        except KeyError:
+        # Adiciona componentes na entidade 1
+        if not esper.entity_exists(1):
             esper.create_entity()
-            
-        # Adiciona componentes vazios para sincronizar
         esper.add_component(1, StatsComponent(nome="Herói", classe="mago", hp=100, max_hp=100, mp=50, max_mp=50, ataque_base=10, defesa_base=5))
         esper.add_component(1, EquipmentComponent())
         
@@ -741,20 +740,15 @@ class TestUsoDeItensEBatalha:
         assert eqp.arma["bonus_atk"] == 8
         assert eqp.armadura["nome"] == "Couro de Teste"
         assert eqp.armadura["bonus_def"] == 4
-        esper.clear_database()
 
     def test_obter_heroi_dominio_hidratacao_do_ecs(self):
         """Testa que _obter_heroi_dominio enriquece a entidade do domínio com o estado do ECS."""
-        esper.clear_database()
         from app.views.game_play_screen import GamePlayScreen
         from app.core.engine.components import StatsComponent, EquipmentComponent
         from app.models.personagens_db import PersonagemDB
         
-        try:
-            esper.components_for_entity(1)
-        except KeyError:
+        if not esper.entity_exists(1):
             esper.create_entity()
-            
         esper.add_component(1, StatsComponent(nome="Herói ECS", classe="mago", hp=20, max_hp=100, mp=12, max_mp=50, ataque_base=10, defesa_base=5))
         
         eqp_comp = EquipmentComponent()
@@ -802,5 +796,211 @@ class TestUsoDeItensEBatalha:
             assert heroi_dominio.mao_direita.dano == 10
             assert heroi_dominio.armadura.nome == "Armadura Divina"
             assert heroi_dominio.armadura.defesa == 8
-            
-        esper.clear_database()
+
+    def test_combate_finalizado_gui_com_controle_self_switch(self):
+        """Testa que o encerramento do combate com ramo de self-switch não lança NameError 'entidade_id'."""
+        from app.core.engine.systems import EventSystem, InventarySystem
+        from unittest.mock import MagicMock
+
+        inv_sys = InventarySystem()
+        game_state = MagicMock()
+        log_callback = MagicMock()
+        event_sys = EventSystem(inv_sys, game_state, log_callback)
+
+        event_sys.entidade_atual_id = 42
+        event_sys.aguardando_combate = True
+        event_sys.inimigo_nome_combate_pendente = "Chefe Goblin"
+        event_sys.ramos_combate_pendente = {
+            "venceu": [
+                {
+                    "tipo": "controle_self_switch",
+                    "dados": {"letra": "A", "valor": True}
+                }
+            ]
+        }
+
+        # Simula o dispatch do evento ao vencer o combate
+        esper.dispatch_event("combate_finalizado_gui", "venceu")
+
+        # Verifica se o switch local com o id do evento foi setado
+        game_state.set_switch.assert_called_with("evento_42_A", True)
+
+    def test_battle_screen_abrir_modal_magia_quando_acao_magia(self, heroi):
+        """Testa que BattleScreen abre UsarMagiaBatalhaModal quando o jogador escolhe magia."""
+        from app.views.battle_screen import BattleScreen, UsarMagiaBatalhaModal
+        from app.core.entities.habilidades_magias import Magia
+        from unittest.mock import MagicMock, patch, PropertyMock
+
+        # Adiciona magias ao herói
+        bola_de_fogo = Magia(nome="Bola de Fogo", custo_pm=5, dano_base=12, tipo_execucao="combate")
+        cura = Magia(nome="Cura Leve", custo_pm=3, cura_base=10, tipo_execucao="combate")
+        heroi.magias_conhecidas = [bola_de_fogo, cura]
+
+        screen = BattleScreen(heroi, [])
+        screen.battle_sys = MagicMock()
+        screen.battle_sys.heroi = heroi
+
+        # Mock do RadioSet selecionando 'act-magia'
+        radioset = MagicMock()
+        btn = MagicMock()
+        btn.id = "act-magia"
+        radioset.pressed_button = btn
+        screen.query_one = MagicMock(return_value=radioset)
+
+        # Dispara confirmação de ação com mock da propriedade app do Textual
+        with patch.object(BattleScreen, "app", new_callable=PropertyMock) as mock_app_prop:
+            mock_app = MagicMock()
+            mock_app_prop.return_value = mock_app
+
+            screen.ao_confirmar_acao(MagicMock())
+
+            # Verifica se empurrou a tela de UsarMagiaBatalhaModal
+            assert mock_app.push_screen.called
+            modal_instanciado = mock_app.push_screen.call_args[0][0]
+            assert isinstance(modal_instanciado, UsarMagiaBatalhaModal)
+            assert len(modal_instanciado.magias_disponiveis) == 2
+
+    def test_comando_mudar_status_heroi_sem_unbound_local_error(self):
+        """Testa que o comando 'mudar_status_heroi' altera o componente de status do herói sem UnboundLocalError."""
+        from app.core.engine.systems import EventSystem, InventarySystem
+        from app.core.engine.components import StatsComponent
+        from unittest.mock import MagicMock
+
+        # Cria entidade do herói (ID 1) no Esper com StatsComponent
+        if not esper.entity_exists(1):
+            esper.create_entity()
+        stats = StatsComponent(nome="Herói", classe="guerreiro", hp=100, max_hp=100, mp=50, max_mp=50, ataque_base=10, defesa_base=5)
+        esper.add_component(1, stats)
+
+        inv_sys = InventarySystem()
+        game_state = MagicMock()
+        log_callback = MagicMock()
+        event_sys = EventSystem(inv_sys, game_state, log_callback)
+
+        comando = {
+            "tipo": "mudar_status_heroi",
+            "dados": {
+                "parametro": "hp",
+                "operacao": "sub",
+                "valor": 15
+            }
+        }
+
+        # Não deve lançar UnboundLocalError
+        event_sys._processar_comando_individual(comando)
+
+        assert stats.hp == 85
+
+    def test_efeitos_temporarios_magia_aplicacao_e_processamento_no_combate(self, battle_sys, heroi, inimigo, monkeypatch):
+        """Testa que os efeitos temporários de magias (ex: veneno/dano contínuo) são aplicados e processados durante o combate."""
+        monkeypatch.setattr("random.random", lambda: 0.9)  # Garante ataque físico sem cura aleatória
+        from app.core.entities.habilidades_magias import Magia, Efeito
+
+        efeito_veneno = Efeito(nome="Veneno", duracao_turnos=2, tipo="dano_continuo", valor=6)
+        magia_veneno = Magia(nome="Infeção Mágica", custo_pm=0, requisito_exuberancia=0, efeito_aplicado=efeito_veneno, tipo_execucao="combate", propriedades_combate={"ignorar_defesa": True})
+        heroi.magias_conhecidas = [magia_veneno]
+
+        battle_sys.iniciar_combate(heroi, [inimigo])
+        target_inimigo = battle_sys.inimigos[0]
+        hp_inicial_inimigo = target_inimigo.pv_atual
+
+        # Herói lança magia de veneno no inimigo
+        battle_sys.executar_acao_jogador("magia", alvo_index=0, nome_magia="Infeção Mágica")
+
+        # Verifica se o efeito de veneno foi aplicado ao inimigo
+        assert len(target_inimigo.efeitos_ativos) == 1
+        assert target_inimigo.efeitos_ativos[0].nome == "Veneno"
+
+        # Simula o turno da IA e o início do próximo turno do herói (executando o processamento do efeito)
+        battle_sys._executar_turno_inimigo_sincrono()
+
+        # O veneno deve ter rodado em finalizar_turno() reduzindo o HP do inimigo em 6
+        assert target_inimigo.pv_atual == hp_inicial_inimigo - 6
+
+    def test_magia_buff_atributo_aplica_no_proprio_conjurador(self, battle_sys, heroi, inimigo):
+        """Testa que magias com buffs de atributos são aplicadas ao próprio conjurador e alteram seus atributos."""
+        from app.core.entities.habilidades_magias import Magia, Efeito
+
+        efeito_forca = Efeito(nome="Força Titânica", duracao_turnos=2, tipo="buff_atributo", valor=4, atributo_alvo="forca")
+        magia_buff = Magia(nome="Bênção da Força", custo_pm=0, requisito_exuberancia=0, efeito_aplicado=efeito_forca, tipo_execucao="combate")
+        heroi.magias_conhecidas = [magia_buff]
+
+        battle_sys.iniciar_combate(heroi, [inimigo])
+        target_heroi = battle_sys.heroi
+        forca_inicial = target_heroi.atributos_totais["forca"]
+
+        # Herói lança a magia de buff
+        battle_sys.executar_acao_jogador("magia", alvo_index=0, nome_magia="Bênção da Força")
+
+        # Buff deve ser aplicado no herói e aumentar a força em +4
+        assert len(target_heroi.efeitos_ativos) == 1
+        assert target_heroi.atributos_totais["forca"] == forca_inicial + 4
+        assert len(battle_sys.inimigos[0].efeitos_ativos) == 0
+
+    def test_efeito_expiracao_e_preservacao_hp(self, heroi):
+        """Testa que ao expirar o efeito de buff, os atributos retornam ao normal sem resetar o HP atual."""
+        from app.core.entities.habilidades_magias import Efeito
+
+        heroi.pv_atual = 10  # HP ferido
+        forca_original = heroi.atributos_totais["forca"]
+
+        efeito_temp = Efeito(nome="Surto de Força", duracao_turnos=1, tipo="buff_atributo", valor=3, atributo_alvo="forca")
+        heroi.aplicar_efeito(efeito_temp)
+
+        assert heroi.atributos_totais["forca"] == forca_original + 3
+        assert heroi.pv_atual == 10  # HP não deve ser restaurado ao máximo!
+
+        # Finaliza o turno (duração cai para 0 e o efeito expira)
+        relatorio = heroi.finalizar_turno()
+
+        assert len(heroi.efeitos_ativos) == 0
+        assert heroi.atributos_totais["forca"] == forca_original
+        assert heroi.pv_atual == 10  # Mantém HP ferido sem resetar!
+        assert relatorio[0]["finalizado"] is True
+
+    def test_efeitos_processados_no_resultado_do_turno(self, battle_sys, heroi, inimigo, monkeypatch, eventos_capturados):
+        """Garante que efeitos_processados é anexado ao resultado da ação enviada ao log da interface."""
+        monkeypatch.setattr("random.random", lambda: 0.9)
+        from app.core.entities.habilidades_magias import Efeito
+        from unittest.mock import patch
+
+        efeito_veneno = Efeito(nome="Veneno", duracao_turnos=1, tipo="dano_continuo", valor=5)
+        heroi.aplicar_efeito(efeito_veneno)
+
+        battle_sys.iniciar_combate(heroi, [inimigo])
+        eventos_capturados.clear()
+
+        with patch.object(battle_sys, "_agendar_turno_inimigo"):
+            battle_sys.executar_acao_jogador("ataque")
+
+        ev = next((e for e in eventos_capturados if e["evento"] == "turno_calculado"), None)
+        assert ev is not None
+        res = ev["dados"]["resultado"]
+        assert "efeitos_processados" in res
+        assert res["efeitos_processados"][0]["nome"] == "Veneno"
+        assert res["efeitos_processados"][0]["finalizado"] is True
+
+    def test_inimigo_morto_por_efeito_dispara_turno_calculado_e_vitoria(self, battle_sys, heroi, inimigo, eventos_capturados):
+        """Testa que quando um inimigo morre por efeito contínuo, spara 'turno_calculado' e em seguida 'combate_encerrado'."""
+        from app.core.entities.habilidades_magias import Efeito
+
+        efeito_veneno = Efeito(nome="Veneno Mortal", duracao_turnos=1, tipo="dano_continuo", valor=999)
+        inimigo.aplicar_efeito(efeito_veneno)
+
+        battle_sys.iniciar_combate(heroi, [inimigo])
+        eventos_capturados.clear()
+
+        battle_sys._executar_turno_inimigo_sincrono()
+
+        ev_turno = next((e for e in eventos_capturados if e["evento"] == "turno_calculado"), None)
+        assert ev_turno is not None
+        assert ev_turno["dados"]["fase"] == "inimigo"
+        assert ev_turno["dados"]["resultado"]["alvo_morreu"] is True
+
+        ev_fim = next((e for e in eventos_capturados if e["evento"] == "combate_encerrado"), None)
+        assert ev_fim is not None
+        assert ev_fim["dados"]["vencedor"] == "jogador"
+
+
+
+

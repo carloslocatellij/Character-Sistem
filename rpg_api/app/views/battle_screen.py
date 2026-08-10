@@ -599,11 +599,9 @@ class BattleScreen(Screen):
                 else:
                     emoji_magico = "✨"
 
-                # 1. Faz o conjurador dar um leve passo de conjuração (3-4 de distância) e vibrar
                 direcao = 1.0 if atacante == "heroi" else -1.0
-                passo_conjuracao = posicao_original + (4.0 * direcao)
                 
-                # 2. Cria e lança o projétil mágico do conjurador até o alvo
+                # 2. Cria e lança o projétil mágico do conjurador até o alvo (SEM mover o conjurador - personagem PARADO)
                 arena = self.query_one("#arena")
                 projeteis_x_origem = posicao_original + (2.0 * direcao)
                 projeteis_x_destino = posicao_ataque
@@ -614,19 +612,11 @@ class BattleScreen(Screen):
                 projeteil.styles.offset = (int(projeteil.x_pos), int(projeteil.y_pos))
                 arena.mount(projeteil)
                 
-                # Conjurador dá um passo à frente
-                sprite.animate(
-                    "x_pos",
-                    value=passo_conjuracao,
-                    duration=0.15,
-                    on_complete=lambda: None
-                )
-
-                # Projétil viaja até o alvo
+                # Projétil viaja na direção do alvo mais devagar (0.75s) para melhor visualização pelo jogador
                 projeteil.animate(
                     "x_pos",
                     value=projeteis_x_destino,
-                    duration=0.35,
+                    duration=0.75,
                     on_complete=lambda: self._completar_magia_hit(projeteil, atacante, resultado, sprite, posicao_original)
                 )
             else:
@@ -656,8 +646,11 @@ class BattleScreen(Screen):
         acao = resultado.get("acao", "ataque")
 
         if acertou:
-            # Flash de tela piscando 2x (mais dramático)
-            classe_flash = "flash-red" if atacante == "heroi" else "flash-blue"
+            # Flash de tela piscando 3x (mais dramático e visível)
+            if acao == "magia":
+                classe_flash = "flash-magic"
+            else:
+                classe_flash = "flash-red" if atacante == "heroi" else "flash-blue"
             self._flash_tela(classe_flash)
 
             # Emoji de impacto na arena
@@ -673,13 +666,15 @@ class BattleScreen(Screen):
         sprite.animate("x_pos", value=posicao_original, duration=0.25)
 
     def _flash_tela(self, classe_css: str) -> None:
-        """Faz a tela piscar 2x com a classe CSS de cor de impacto (efeito dramático)."""
+        """Faz a tela piscar 3x com a classe CSS de cor de impacto (efeito dramático intenso)."""
         def flash_on():  self.screen.add_class(classe_css)
         def flash_off(): self.screen.remove_class(classe_css)
         flash_on()
-        self.set_timer(0.15, flash_off)
-        self.set_timer(0.30, flash_on)
-        self.set_timer(0.45, flash_off)
+        self.set_timer(0.10, flash_off)
+        self.set_timer(0.20, flash_on)
+        self.set_timer(0.30, flash_off)
+        self.set_timer(0.40, flash_on)
+        self.set_timer(0.50, flash_off)
 
     def _mostrar_efeito_impacto(self, emoji: str, atacante: str) -> None:
         """
@@ -752,6 +747,24 @@ class BattleScreen(Screen):
             self.set_timer(0.8, lambda: self._fechar_tela_combate("fugiu"))
             return
 
+        if acao == "magia":
+            heroi = self.battle_sys.heroi if self.battle_sys else self.heroi_personagem
+            magias = getattr(heroi, "magias_conhecidas", [])
+            magias_combate = [m for m in magias if getattr(m, "tipo_execucao", "combate") in ["combate", "ambos"]]
+
+            if not magias_combate:
+                self._escrever_log("[bold red]❌ Você não possui nenhuma magia para usar em combate![/]")
+                return
+
+            def ao_escolher_magia(nome_magia_escolhida):
+                if nome_magia_escolhida:
+                    self.turno_liberado = False
+                    if self.battle_sys:
+                        self.battle_sys.executar_acao_jogador("magia", alvo_index=alvo_index, nome_magia=nome_magia_escolhida)
+
+            self.app.push_screen(UsarMagiaBatalhaModal(magias_combate), ao_escolher_magia)
+            return
+
         if acao == "item":
             from app.core.engine.components import InventoryComponent
             inv = esper.component_for_entity(1, InventoryComponent) if esper.has_component(1, InventoryComponent) else None
@@ -800,6 +813,31 @@ class BattleScreen(Screen):
 
             prefixo = "🧙" if fase == "jogador" else "👹"
 
+            # Registra quaisquer efeitos temporários contínuos que rodaram no início do turno
+            if resultado.get("efeitos_processados"):
+                for ef in resultado["efeitos_processados"]:
+                    nome_ef = ef.get("nome", "Efeito")
+                    val_ef = ef.get("valor", 0)
+                    tipo_ef = ef.get("tipo")
+                    msg_ef = ef.get("mensagem")
+                    alvo_ef = ef.get("personagem", atacante_nome)
+                    if tipo_ef == "dano_continuo":
+                        self._escrever_log(f"🧪 [bold red]Efeito {nome_ef}: {alvo_ef} sofreu -{val_ef} HP![/]")
+                    elif tipo_ef == "cura_continua":
+                        self._escrever_log(f"💊 [bold green]Efeito {nome_ef}: {alvo_ef} recuperou +{val_ef} HP![/]")
+                    elif msg_ef:
+                        self._escrever_log(f"⚡ [bold yellow]{msg_ef}[/]")
+
+                    if ef.get("finalizado"):
+                        msg_fim = ef.get("mensagem_fim", f"O efeito '{nome_ef}' em {alvo_ef} expirou!")
+                        self._escrever_log(f"✨ [bold cyan]{msg_fim}[/]")
+
+            if acao == "efeito":
+                descricao = resultado.get("descricao", "")
+                if descricao:
+                    self._escrever_log(f"{prefixo} [bold yellow]✨ {descricao}[/]")
+                return
+
             if acao == "cura":
                 descricao = resultado.get("descricao", f"{atacante_nome} se recuperou.")
                 self._escrever_log(f"{prefixo} [dim]{descricao}[/]")
@@ -819,12 +857,20 @@ class BattleScreen(Screen):
                             f"{prefixo} [bold]{atacante_nome}[/] conjurou [bold yellow]{magia_nome}[/] contra [bold]{alvo_nome}[/]! "
                             f"[red]🔥 -{dano_causado} HP[/]"
                         )
+                    if resultado.get("efeito_aplicado"):
+                        self._escrever_log(f"✨ [bold cyan]Efeito aplicado em {alvo_nome}: {resultado['efeito_aplicado']}![/]")
                     if resultado.get("alvo_morreu"):
                         self._escrever_log(f"[bold red]☠ {alvo_nome} foi derrotado![/]")
                 else:
-                    self._escrever_log(
-                        f"{prefixo} [dim]{atacante_nome} conjurou {magia_nome} contra {alvo_nome}, mas o alvo resistiu ou esquivou![/]"
-                    )
+                    motivo = resultado.get("motivo")
+                    if motivo:
+                        self._escrever_log(
+                            f"{prefixo} [bold red]{atacante_nome} tentou conjurar {magia_nome}, mas falhou: {motivo}![/]"
+                        )
+                    else:
+                        self._escrever_log(
+                            f"{prefixo} [dim]{atacante_nome} conjurou {magia_nome} contra {alvo_nome}, mas o alvo resistiu ou esquivou![/]"
+                        )
                 return
 
             if acertou:
@@ -835,6 +881,8 @@ class BattleScreen(Screen):
                     f"[red]💥 -{dano_causado} HP[/] "
                     f"[dim](bruto:{dano_bruto} | bloq:{defesa})[/]"
                 )
+                if resultado.get("efeito_aplicado"):
+                    self._escrever_log(f"✨ [bold cyan]Efeito aplicado em {alvo_nome}: {resultado['efeito_aplicado']}![/]")
                 if resultado.get("alvo_morreu"):
                     self._escrever_log(f"[bold red]☠ {alvo_nome} foi derrotado![/]")
             else:
@@ -869,42 +917,31 @@ class BattleScreen(Screen):
                 stats.mp = max(0, int(heroi.pm_atual))
                 stats.max_hp = int(heroi.max_hp)
                 stats.max_mp = int(heroi.max_mp)
-                logging.info(f"Sincronização combate -> ECS realizada com sucesso. HP={stats.hp}, MP={stats.mp}")
-                
+                stats.atributos = dict(heroi.atributos_totais)
+            
             eqp = esper.component_for_entity(1, EquipmentComponent)
             if eqp:
                 heroi = self.battle_sys.heroi
-                
-                # Mapeia mao_direita (Arma) para eqp.arma
                 if heroi.mao_direita:
                     eqp.arma = {
                         "nome": heroi.mao_direita.nome,
-                        "bonus_atk": getattr(heroi.mao_direita, "dano", 3),
-                        "tipo": getattr(heroi.mao_direita, "tipo", "corpo")
+                        "bonus_atk": getattr(heroi.mao_direita, "dano", 0),
+                        "emoji": getattr(heroi.mao_direita, "emoji", "🗡️")
                     }
                 else:
                     eqp.arma = None
                 
-                # Mapeia mao_esquerda (Escudo ou Arma) e armadura para eqp.armadura / eqp.escudo
-                from app.core.entities.equipamentos import Escudo
-                if isinstance(heroi.mao_esquerda, Escudo):
-                    eqp.escudo = {
-                        "nome": heroi.mao_esquerda.nome,
-                        "bonus_def": getattr(heroi.mao_esquerda, "defesa_extra", 2)
-                    }
-                else:
-                    eqp.escudo = None
-                    
-                armadura_item = getattr(heroi, "armadura", None) or getattr(heroi, "armadura_equipada", None)
-                if armadura_item:
+                if heroi.armadura:
                     eqp.armadura = {
-                        "nome": armadura_item.nome,
-                        "bonus_def": getattr(armadura_item, "defesa", 3)
+                        "nome": heroi.armadura.nome,
+                        "bonus_def": getattr(heroi.armadura, "defesa", 0),
+                        "emoji": getattr(heroi.armadura, "emoji", "🛡️")
                     }
                 else:
                     eqp.armadura = None
         except Exception as erro_sync:
-            logging.error(f"Erro ao sincronizar combate de volta para ECS: {erro_sync}")
+            logging.info(f"Erro ao sincronizar combate para ECS: {erro_sync}")
+
 
     def _criar_personagem_inimigo(self, dados: dict) -> Any:
         """
@@ -973,9 +1010,9 @@ class UsarItemBatalhaModal(ModalScreen[Optional[str]]):
         if not self.itens_usaveis:
             self.query_one("#lbl-batalha-item-desc", Static).update("Nenhum item usável no inventário.")
 
-    @on(ListView.Selected, "#list-itens-batalha")
-    def on_item_selecionado(self, event: ListView.Selected):
-        if event.item and hasattr(event.item, "name"):
+    @on(ListView.Highlighted, "#list-itens-batalha")
+    def on_item_highlighted(self, event: ListView.Highlighted):
+        if event.item and hasattr(event.item, "name") and event.item.name:
             self.item_selecionado = event.item.name
             self.query_one("#lbl-batalha-item-desc", Static).update(f"Usar: [bold yellow]{self.item_selecionado}[/]")
             self.query_one("#btn-confirmar-item-batalha", Button).disabled = False
@@ -985,4 +1022,69 @@ class UsarItemBatalhaModal(ModalScreen[Optional[str]]):
         if event.button.id == "btn-confirmar-item-batalha":
             self.dismiss(self.item_selecionado)
         elif event.button.id == "btn-cancelar-item-batalha":
+            self.dismiss(None)
+
+
+class UsarMagiaBatalhaModal(ModalScreen[Optional[str]]):
+    """
+    Modal de seleção de magia para conjurar durante a batalha.
+    """
+    CSS_PATH = "styles/battle_styles.css"
+
+    def __init__(self, magias_disponiveis: list):
+        super().__init__()
+        self.magias_disponiveis = magias_disponiveis
+        self.magia_selecionada = None
+
+    def compose(self):
+        with Vertical(id="batalha-magia-dialog"):
+            yield Label("🪄 Selecione uma Magia para Conjurar", classes="painel-titulo")
+            yield ListView(id="list-magias-batalha")
+            yield Static("Selecione uma magia da lista.", id="lbl-batalha-magia-desc")
+            with Horizontal(id="batalha-magia-botoes"):
+                yield Button("✨ Conjurar Magia", id="btn-confirmar-magia-batalha", variant="success", disabled=True)
+                yield Button("Cancelar", id="btn-cancelar-magia-batalha", variant="error")
+
+    def on_mount(self) -> None:
+        list_view = self.query_one("#list-magias-batalha", ListView)
+        for magia in self.magias_disponiveis:
+            nome = magia.nome if hasattr(magia, "nome") else magia.get("nome", "")
+            custo_pm = magia.custo_pm if hasattr(magia, "custo_pm") else magia.get("custo_pm", 0)
+            desc = magia.descricao if hasattr(magia, "descricao") else magia.get("descricao", "")
+            if not desc:
+                dano = magia.dano_base if hasattr(magia, "dano_base") else magia.get("dano_base", 0)
+                cura = magia.cura_base if hasattr(magia, "cura_base") else magia.get("cura_base", 0)
+                if dano > 0:
+                    desc = f"Dano Base: {dano}"
+                elif cura > 0:
+                    desc = f"Cura Base: {cura}"
+                else:
+                    desc = "Efeito Mágico"
+
+            widget = ListItem(
+                Label(f"✨ {nome} (🔮 {custo_pm} PM) — {desc}"),
+                name=nome
+            )
+            list_view.append(widget)
+        if not self.magias_disponiveis:
+            self.query_one("#lbl-batalha-magia-desc", Static).update("Nenhuma magia conhecida.")
+
+    @on(ListView.Highlighted, "#list-magias-batalha")
+    def on_magia_highlighted(self, event: ListView.Highlighted):
+        if event.item and hasattr(event.item, "name") and event.item.name:
+            self.magia_selecionada = event.item.name
+            self.query_one("#lbl-batalha-magia-desc", Static).update(f"Conjurar: [bold yellow]{self.magia_selecionada}[/]")
+            self.query_one("#btn-confirmar-magia-batalha", Button).disabled = False
+
+    @on(ListView.Selected, "#list-magias-batalha")
+    def on_magia_selecionada(self, event: ListView.Selected):
+        if event.item and hasattr(event.item, "name") and event.item.name:
+            self.magia_selecionada = event.item.name
+            self.dismiss(self.magia_selecionada)
+
+    @on(Button.Pressed)
+    def on_button_click(self, event: Button.Pressed) -> None:
+        if event.button.id == "btn-confirmar-magia-batalha":
+            self.dismiss(self.magia_selecionada)
+        elif event.button.id == "btn-cancelar-magia-batalha":
             self.dismiss(None)
