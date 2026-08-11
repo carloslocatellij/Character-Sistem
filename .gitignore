@@ -99,6 +99,9 @@ Thumbs.db
 .copilot/
 .openai/
 .opencode/
+./graphify*/
+.graphify-out/
+
 
 # ==========================================
 # Windows
