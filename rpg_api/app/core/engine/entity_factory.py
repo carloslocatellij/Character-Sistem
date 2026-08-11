@@ -246,10 +246,8 @@ class EntityFactory:
         inv_salvo = inv_dict.get("itens", {})
         if not inv_salvo:
             inv_salvo = {
-                "Poção de Cura": 2,
+                "Poção de Cura": 1,
                 "Poção de Mana": 1,
-                "Espada Longa": 1,
-                "Armadura de Aço": 1,
             }
         esper.add_component(entity_id, InventoryComponent(itens=inv_salvo))
 
@@ -323,10 +321,8 @@ class EntityFactory:
                 }
 
         inv_inicial = {
-            "Poção de Cura": 2,
+            "Poção de Cura": 1,
             "Poção de Mana": 1,
-            "Espada Longa": 1,
-            "Armadura de Aço": 1,
         }
 
         esper.add_component(

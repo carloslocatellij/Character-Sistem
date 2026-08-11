@@ -501,40 +501,82 @@ class BattleScreen(Screen):
         self.set_timer(2.5, lambda: self._fechar_tela_combate(resultado_final))
 
     # ==========================================
-    # ANIMAÇÕES (padrão poc_animation.py)
+    # ANIMAÇÕES E POSICIONAMENTO DINÂMICO
     # ==========================================
+
+    def _obter_largura_arena(self) -> float:
+        """Retorna a largura atual do container #arena ou um valor fallback (80.0)."""
+        try:
+            arena = self.query_one("#arena")
+            w = arena.content_size.width or arena.size.width
+            if w > 10:
+                return float(w)
+        except Exception:
+            pass
+        return 80.0
+
+    def _calcular_posicao_heroi(self) -> float:
+        """Calcula a posição X do herói centralizado em relação ao centro da arena."""
+        center_x = self._obter_largura_arena() / 2.0
+        return max(2.0, center_x - 22.0)
+
+    def _calcular_posicoes_inimigos(self, n: int) -> list:
+        """Calcula as posições X finais de N inimigos auto-ajustadas à largura da arena."""
+        center_x = self._obter_largura_arena() / 2.0
+        base_center = center_x + 22.0
+        offsets = {
+            1: [0.0],
+            2: [-6.0, 8.0],
+            3: [-8.0, 2.0, 12.0],
+            4: [-7.0, 6.0, 0.0, 13.0]
+        }
+        offsets_list = offsets.get(n, list(range(0, n * 10, 10)))
+        return [base_center + off for off in offsets_list]
+
+    def _atualizar_posicao_vs_label(self) -> None:
+        """Atualiza a posição do rótulo VS no centro exato da arena."""
+        try:
+            lbl_vs = self.query_one("#lbl-vs")
+            center_x = int(self._obter_largura_arena() / 2.0 - 2.5)
+            lbl_vs.styles.offset = (center_x, 3)
+        except Exception:
+            pass
+
+    def on_resize(self, event=None) -> None:
+        """Disparado quando a tela ou o terminal muda de tamanho: ajusta as posições automaticamente."""
+        self._atualizar_posicao_vs_label()
+        try:
+            pos_heroi = self._calcular_posicao_heroi()
+            sprite_heroi = self.query_one("#sprite-heroi", CombatenteSprite)
+            sprite_heroi.x_pos = pos_heroi
+
+            n_inimigos = len(self.inimigos_dados)
+            posicoes_finais = self._calcular_posicoes_inimigos(n_inimigos)
+            for i, pos_x in enumerate(posicoes_finais):
+                sprite = self.query_one(f"#sprite-inimigo-{i}", CombatenteSprite)
+                sprite.x_pos = float(pos_x)
+        except Exception as erro_resize:
+            logging.info(f"on_resize battle: {erro_resize}")
 
     def _posicionar_sprites_iniciais(self) -> None:
         """Posiciona os sprites de inimigos de forma distribuída na arena antes da animação."""
         try:
-            n_inimigos = len(self.inimigos_dados)
-            # Posições X dos inimigos na arena (distribuídas entre 50% e 90% da arena)
-            posicoes_x_inimigos = self._calcular_posicoes_inimigos(n_inimigos)
+            self._atualizar_posicao_vs_label()
+            posicoes_x_inimigos = self._calcular_posicoes_inimigos(len(self.inimigos_dados))
             for i, pos_x in enumerate(posicoes_x_inimigos):
                 sprite = self.query_one(f"#sprite-inimigo-{i}", CombatenteSprite)
                 sprite.x_pos = pos_x + 30.0  # Começa fora da tela para a animação de entrada
         except Exception as erro_pos:
             logging.info(f"_posicionar_sprites_iniciais: {erro_pos}")
 
-    def _calcular_posicoes_inimigos(self, n: int) -> list:
-        """Calcula as posições X finais de N inimigos distribuídos na metade direita da arena."""
-        # Arena centralizada: posições de destino entre 45 e 80
-        base = [45, 58, 52, 65]
-        if n == 1:
-            return [52]
-        elif n == 2:
-            return [46, 60]
-        elif n == 3:
-            return [44, 54, 64]
-        else:
-            return base[:n]
-
     def _animar_entrada_sprites(self) -> None:
         """Sprites entram animados a partir das bordas da arena."""
         try:
+            self._atualizar_posicao_vs_label()
+            pos_heroi = self._calcular_posicao_heroi()
             sprite_heroi = self.query_one("#sprite-heroi", CombatenteSprite)
             sprite_heroi.x_pos = -8.0
-            sprite_heroi.animate("x_pos", value=8.0, duration=0.6)
+            sprite_heroi.animate("x_pos", value=pos_heroi, duration=0.6)
 
             n_inimigos = len(self.inimigos_dados)
             posicoes_finais = self._calcular_posicoes_inimigos(n_inimigos)
@@ -552,24 +594,25 @@ class BattleScreen(Screen):
         """Anima o sprite do atacante avançando sobre o alvo e recuando, ou lança projétil mágico."""
         try:
             acao = resultado.get("acao", "ataque")
+            pos_heroi = self._calcular_posicao_heroi()
             
             if atacante == "heroi":
                 sprite = self.query_one("#sprite-heroi", CombatenteSprite)
-                posicao_original = 8.0
-                posicao_ataque = 38.0
+                posicao_original = pos_heroi
+                posicao_ataque = pos_heroi + 30.0
             else:
                 # Encontra o inimigo atacante pelo nome no resultado
                 nome_atacante = resultado.get("atacante", "")
                 sprite = None
-                posicao_original = 52.0
-                posicao_ataque = 12.0
+                posicoes = self._calcular_posicoes_inimigos(len(self.inimigos_dados))
+                posicao_original = float(posicoes[0]) if posicoes else (pos_heroi + 44.0)
+                posicao_ataque = max(2.0, pos_heroi + 4.0)
                 for i, dados in enumerate(self.inimigos_dados):
                     if dados.get("nome", "") == nome_atacante or i == 0:
                         try:
                             sprite = self.query_one(f"#sprite-inimigo-{i}", CombatenteSprite)
-                            posicoes = self._calcular_posicoes_inimigos(len(self.inimigos_dados))
                             posicao_original = float(posicoes[i])
-                            posicao_ataque = 12.0
+                            posicao_ataque = max(2.0, pos_heroi + 4.0)
                         except Exception:
                             pass
                         break
@@ -683,10 +726,10 @@ class BattleScreen(Screen):
         """
         try:
             arena = self.query_one("#arena")
-            # Posição do emoji: do lado do alvo
-            pos_x = 38 if atacante == "heroi" else 12
+            pos_heroi = self._calcular_posicao_heroi()
+            pos_x = (pos_heroi + 30.0) if atacante == "heroi" else max(2.0, pos_heroi + 4.0)
             efeito = EfeitoAtaque(emoji, classes="efeito-ataque")
-            efeito.styles.offset = (pos_x, 2)
+            efeito.styles.offset = (int(pos_x), 2)
             arena.mount(efeito)
             self.set_timer(0.5, lambda: self._remover_efeito(efeito))
         except Exception as erro_efeito:
