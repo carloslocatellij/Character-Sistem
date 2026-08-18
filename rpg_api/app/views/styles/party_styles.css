@@ -1,0 +1,161 @@
+/* =====================================================
+   ESTILOS DA TELA DE GESTÃO DE EQUIPE E ALISTAMENTO
+   PartyManagementScreen — Padrão Ouro (Final Fantasy Style)
+   ===================================================== */
+
+PartyManagementScreen {
+    align: center middle;
+    background: rgba(10, 14, 26, 0.85);
+}
+
+#party-dialog {
+    width: 90%;
+    height: 88%;
+    background: #0d1322;
+    border: double #3a6090;
+    padding: 1 2;
+    layout: vertical;
+}
+
+#party-main-title {
+    width: 100%;
+    height: 1;
+    text-align: center;
+    text-style: bold;
+    color: #f1c40f;
+    margin-bottom: 1;
+}
+
+#party-tabs {
+    height: 1fr;
+    width: 100%;
+}
+
+/* =====================================================
+   ABA 1: FORMAÇÃO DA EQUIPE
+   ===================================================== */
+
+.party-layout-horizontal {
+    width: 100%;
+    height: 1fr;
+    layout: horizontal;
+}
+
+.party-coluna {
+    width: 1fr;
+    height: 100%;
+    padding: 0 1;
+    layout: vertical;
+}
+
+.party-coluna-titulo {
+    width: 100%;
+    height: 1;
+    text-style: bold;
+    color: #74b9ff;
+    border-bottom: solid #2a4060;
+    margin-bottom: 1;
+}
+
+.party-lista {
+    height: 1fr;
+    background: #080c14;
+    border: solid #1f2e46;
+    margin-bottom: 1;
+}
+
+.party-item-card {
+    height: auto;
+    padding: 0 1;
+    margin: 0;
+}
+
+.party-membro-ativo {
+    color: #2ecc71;
+}
+
+.party-membro-reserva {
+    color: #f39c12;
+}
+
+/* Painel inferior de Detalhes da Ficha */
+#painel-detalhes-personagem {
+    width: 100%;
+    height: 8;
+    background: #080d18;
+    border: solid #2a4060;
+    padding: 0 1;
+    margin-top: 1;
+    layout: horizontal;
+}
+
+#detalhes-ficha-col1 {
+    width: 1fr;
+    height: 100%;
+    layout: vertical;
+}
+
+#detalhes-ficha-col2 {
+    width: 1fr;
+    height: 100%;
+    layout: vertical;
+}
+
+.label-destaque {
+    color: #f1c40f;
+    text-style: bold;
+}
+
+.label-info {
+    color: #dfe6e9;
+}
+
+/* =====================================================
+   ABA 2: TRANSFERÊNCIA DE ITENS
+   ===================================================== */
+
+.transfer-layout {
+    width: 100%;
+    height: 1fr;
+    layout: horizontal;
+}
+
+.transfer-coluna {
+    width: 1fr;
+    height: 100%;
+    padding: 0 1;
+    layout: vertical;
+}
+
+.transfer-painel-meio {
+    width: 24;
+    height: 100%;
+    align: center middle;
+    layout: vertical;
+    padding: 1;
+}
+
+.transfer-btn {
+    width: 100%;
+    margin-bottom: 1;
+}
+
+/* =====================================================
+   RODAPÉ E BOTÕES DE AÇÃO
+   ===================================================== */
+
+#party-rodape-botoes {
+    width: 100%;
+    height: 3;
+    align-horizontal: right;
+    margin-top: 1;
+    layout: horizontal;
+}
+
+#party-rodape-botoes Button {
+    margin-left: 1;
+}
+
+.btn-acao-party {
+    min-width: 16;
+}

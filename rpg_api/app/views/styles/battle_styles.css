@@ -35,12 +35,33 @@ BattleScreen.derrota {
 }
 
 /* =====================================================
+   PAINEL DA TIMELINE / LINHA DO TEMPO SUPERIOR
+   ===================================================== */
+
+#painel-timeline {
+    width: 100%;
+    height: 3;
+    background: #080c14;
+    border-bottom: solid #3a5a8a;
+    padding: 0 1;
+    content-align: center middle;
+}
+
+#lbl-timeline-turnos {
+    width: 100%;
+    height: 1;
+    content-align: center middle;
+    color: #e0e6ed;
+    text-style: bold;
+}
+
+/* =====================================================
    LAYOUT PRINCIPAL — 3 COLUNAS HORIZONTAIS
    ===================================================== */
 
 #battle-layout {
     width: 100%;
-    height: 100%;
+    height: 1fr;
     layout: horizontal;
 }
 
@@ -49,12 +70,13 @@ BattleScreen.derrota {
    ===================================================== */
 
 #painel-aliados {
-    width: 22;
+    width: 26;
     height: 100%;
     background: #091520;
-    border: solid #3a5a8a;
+    border-right: solid #3a5a8a;
     padding: 0 1;
     layout: vertical;
+    overflow-y: auto;
 }
 
 /* =====================================================
@@ -73,12 +95,13 @@ BattleScreen.derrota {
    ===================================================== */
 
 #painel-inimigos {
-    width: 22;
+    width: 26;
     height: 100%;
     background: #200910;
-    border: solid #8a3a3a;
+    border-left: solid #8a3a3a;
     padding: 0 1;
     layout: vertical;
+    overflow-y: auto;
 }
 
 /* =====================================================
@@ -90,7 +113,7 @@ BattleScreen.derrota {
     height: 1;
     text-align: center;
     text-style: bold;
-    color: $accent;
+    color: #f1c40f;
     margin-bottom: 1;
 }
 
@@ -103,10 +126,17 @@ BattleScreen.derrota {
     height: auto;
     width: 100%;
     background: #0f1a2e;
-    border: solid #3a5a8a;
+    border: solid #2a4060;
     margin-bottom: 1;
     padding: 0 1;
     layout: vertical;
+}
+
+/* DESTAQUE DO COMBATENTE ATIVO NA VEZ (Padrão Ouro) */
+.barra-aliado.combatente-ativo {
+    background: #1a3055;
+    border: double #f1c40f;
+    text-style: bold;
 }
 
 /* Barra de inimigo */
@@ -114,13 +144,19 @@ BattleScreen.derrota {
     height: auto;
     width: 100%;
     background: #2e0f0f;
-    border: solid #8a3a3a;
+    border: solid #602a2a;
     margin-bottom: 1;
     padding: 0 1;
     layout: vertical;
 }
 
-/* Inimigo derrotado — opacidade reduzida + borda tracejada */
+.barra-inimigo.combatente-ativo {
+    background: #551a1a;
+    border: double #ff6b6b;
+    text-style: bold;
+}
+
+/* Inimigo ou aliado derrotado — opacidade reduzida + borda tracejada */
 .combatente-derrotado {
     opacity: 0.35;
     border: dashed #555555;

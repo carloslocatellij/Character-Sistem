@@ -46,6 +46,44 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 # 6. Classe Base da qual todos os nossos Modelos de Banco de Dados vão herdar
 Base = declarative_base()
 
+def garantir_schema_atualizado(engine_instancia=None):
+    """
+    Verifica e migra automaticamente colunas ausentes em bancos SQLite existentes.
+    Garante que colunas recém-adicionadas (como personagens.inventario e personagens.slot_equipe)
+    sejam criadas caso o arquivo de banco já existisse previamente sem elas.
+    """
+    target_engine = engine_instancia or engine
+    Base.metadata.create_all(bind=target_engine)
+
+    try:
+        from sqlalchemy import text
+        with target_engine.connect() as conn:
+            # 1. Verifica colunas da tabela personagens
+            res = conn.execute(text("PRAGMA table_info(personagens);")).fetchall()
+            colunas_personagens = {r[1] for r in res}
+
+            if colunas_personagens:
+                if "inventario" not in colunas_personagens:
+                    conn.execute(text("ALTER TABLE personagens ADD COLUMN inventario JSON DEFAULT '[]';"))
+                if "slot_equipe" not in colunas_personagens:
+                    conn.execute(text("ALTER TABLE personagens ADD COLUMN slot_equipe INTEGER DEFAULT 0;"))
+
+            # 2. Verifica colunas da tabela magias
+            res_magias = conn.execute(text("PRAGMA table_info(magias);")).fetchall()
+            colunas_magias = {r[1] for r in res_magias}
+            if colunas_magias:
+                if "dano_area" not in colunas_magias:
+                    conn.execute(text("ALTER TABLE magias ADD COLUMN dano_area BOOLEAN DEFAULT 0;"))
+                if "tipo_execucao" not in colunas_magias:
+                    conn.execute(text("ALTER TABLE magias ADD COLUMN tipo_execucao VARCHAR(50) DEFAULT 'combate';"))
+
+            conn.commit()
+    except Exception as erro_migracao:
+        pass
+
+# Executa a verificação e criação na inicialização
+garantir_schema_atualizado(engine)
+
 def get_db():
     """Função utilitária para abrir e fechar a conexão com o banco corretamente."""
     db = SessionLocal()

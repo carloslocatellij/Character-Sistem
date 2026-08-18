@@ -488,9 +488,9 @@ class GamePlayScreen(Screen):
         comando = partes[0]
         argumento = partes[1] if len(partes) > 1 else ''
 
-        stats = esper.component_for_entity(1, StatsComponent)
-        inv = esper.component_for_entity(1, InventoryComponent)
-        eqp = esper.component_for_entity(1, EquipmentComponent)
+        stats = esper.component_for_entity(1, StatsComponent) if esper.entity_exists(1) and esper.has_component(1, StatsComponent) else None
+        inv = esper.component_for_entity(1, InventoryComponent) if esper.entity_exists(1) and esper.has_component(1, InventoryComponent) else None
+        eqp = esper.component_for_entity(1, EquipmentComponent) if esper.entity_exists(1) and esper.has_component(1, EquipmentComponent) else None
 
         # 🥤 COMANDO: /usar
         if comando == '/usar':
@@ -518,9 +518,14 @@ class GamePlayScreen(Screen):
             from app.views.inventario_screen import InventarioMenuScreen
             self.app.push_screen(InventarioMenuScreen(aba_inicial="tab-itens"), lambda res: self.atualizar_paineis_status())
             self.atualizar_paineis_status()
-        
+
+        elif comando in ['/party', '/equipe', '/recrutar', '/alistamento', '/formacao']:
+            from app.views.party_management_screen import PartyManagementScreen
+            self.app.push_screen(PartyManagementScreen(), lambda res: self.atualizar_paineis_status())
+            self.atualizar_paineis_status()
+
         elif comando in ['/h', '/help', ]:
-            self.log_mensagem(f'[yellow] /usar <item consumível> -> "utiliza o item aplicando seus efeitos" \n /equipar <equipamento> -> "coloca o equipamento no personagem" \n /sair /q /quit -> "Sai do jogo"[/]')
+            self.log_mensagem(f'[yellow] /party -> "Gerencia equipe e alistamento de novos heróis" \n /usar <item consumível> -> "utiliza o item aplicando seus efeitos" \n /equipar <equipamento> -> "coloca o equipamento no personagem" \n /sair /q /quit -> "Sai do jogo"[/]')
 
         elif comando == "/>":
             codigo = argumento.strip()
@@ -595,17 +600,19 @@ class GamePlayScreen(Screen):
             prompt = self.query_one('#terminal-prompt')
             if self.focused == prompt and prompt.value == '':
                 event.prevent_default()
-                achou_evento = self.interacao_sys.interagir(
-                    1, self.direcao_olhar)
-                if not achou_evento:
-                    self.log_mensagem(
-                        '[gray]Não há nada para acionar aqui na sua frente.[/]')
+                if self.interacao_sys:
+                    achou_evento = self.interacao_sys.interagir(
+                        1, self.direcao_olhar)
+                    if not achou_evento:
+                        self.log_mensagem(
+                            '[gray]Não há nada para acionar aqui na sua frente.[/]')
                 telamapa = self.query_one('#tela-mapa', Static)
                 telamapa.focus()
             else:
-                achou_evento = self.interacao_sys.interagir(1, self.direcao_olhar)
-                if not achou_evento:
-                    self.log_mensagem('[gray]Não há nada para acionar aqui na sua frente.[/]')
+                if self.interacao_sys:
+                    achou_evento = self.interacao_sys.interagir(1, self.direcao_olhar)
+                    if not achou_evento:
+                        self.log_mensagem('[gray]Não há nada para acionar aqui na sua frente.[/]')
             self.atualizar_tudo()
             return
         

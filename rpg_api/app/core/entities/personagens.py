@@ -56,6 +56,7 @@ class Personagem:
         self.armadura: Optional[Armadura] = None
         self.itens_corpo: List[Item] = [] 
         self.equipamentos: List[Item] = [] 
+        self.inventario: List[Dict[str, Any]] = []
         self.efeitos_ativos: List[Dict] = []
         
         self.max_hp = 0
@@ -384,3 +385,192 @@ class Personagem:
             resultado["efeito_aplicado"] = magia.efeito_aplicado.nome
 
         return resultado
+
+    # ==========================================
+    # GESTÃO DE INVENTÁRIO INDIVIDUAL
+    # ==========================================
+
+    def adicionar_item_inventario(self, nome: str, quantidade: int = 1, categoria: str = "consumivel") -> bool:
+        """Adiciona uma quantidade de item ao inventário individual do personagem."""
+        if quantidade <= 0:
+            return False
+        for item in self.inventario:
+            if item.get("nome", "").lower() == nome.lower():
+                item["quantidade"] = item.get("quantidade", 1) + quantidade
+                return True
+        self.inventario.append({"nome": nome, "quantidade": quantidade, "categoria": categoria})
+        return True
+
+    def remover_item_inventario(self, nome: str, quantidade: int = 1) -> bool:
+        """Remove uma quantidade de item do inventário individual do personagem."""
+        if quantidade <= 0:
+            return False
+        for idx, item in enumerate(self.inventario):
+            if item.get("nome", "").lower() == nome.lower():
+                qtd_atual = item.get("quantidade", 1)
+                if qtd_atual >= quantidade:
+                    item["quantidade"] = qtd_atual - quantidade
+                    if item["quantidade"] <= 0:
+                        self.inventario.pop(idx)
+                    return True
+                return False
+        return False
+
+    def obter_itens_inventario(self) -> List[Dict[str, Any]]:
+        """Retorna os itens presentes no inventário próprio com quantidade > 0."""
+        return [dict(i) for i in self.inventario if i.get("quantidade", 0) > 0]
+
+    def obter_quantidade_item(self, nome: str) -> int:
+        """Verifica a quantidade de um item específico no inventário próprio."""
+        for item in self.inventario:
+            if item.get("nome", "").lower() == nome.lower():
+                return item.get("quantidade", 0)
+        return 0
+
+    def esta_vivo(self) -> bool:
+        """Retorna True se o personagem tem pontos de vida maiores que zero."""
+        return self.pv_atual is not None and self.pv_atual > 0
+
+
+# ==========================================
+# DOMÍNIO: SISTEMA DE EQUIPE (PARTY / ALISTAMENTO)
+# ==========================================
+
+class Party:
+    """
+    Entidade de Domínio: Representa o grupo/equipe de até 4 personagens aliados.
+    Gerencia membros ativos, reservas alistados, inventários e ordem de formação.
+    """
+    MAX_MEMBROS_ATIVOS: int = 4
+
+    def __init__(self, membros: Optional[List[Personagem]] = None, nome: str = "Grupo de Heróis"):
+        self.nome = nome
+        self.membros: List[Personagem] = []
+        self.reservas: List[Personagem] = []
+        if membros:
+            for m in membros:
+                self.adicionar_membro(m)
+
+    def adicionar_membro(self, personagem: Personagem) -> bool:
+        """
+        Alista um novo personagem na equipe.
+        Se o grupo ativo tiver menos de 4 membros, entra como ativo.
+        Caso contrário, entra como reserva alistado.
+        """
+        if not isinstance(personagem, Personagem):
+            raise TypeError("O membro da equipe deve ser uma instância de Personagem.")
+
+        # Evita duplicatas pelo nome
+        if any(m.nome.lower() == personagem.nome.lower() for m in self.membros + self.reservas):
+            return False
+
+        if len(self.membros) < self.MAX_MEMBROS_ATIVOS:
+            self.membros.append(personagem)
+            return True
+        else:
+            self.reservas.append(personagem)
+            return False
+
+    def remover_membro(self, identificador: Any) -> Optional[Personagem]:
+        """
+        Remove um personagem da equipe ativa ou reserva.
+        Se houver reservas disponíveis, promove o primeiro para a equipe ativa.
+        """
+        # Procura nos ativos
+        for idx, m in enumerate(self.membros):
+            if m == identificador or m.nome.lower() == str(identificador).lower():
+                removido = self.membros.pop(idx)
+                if self.reservas:
+                    self.membros.append(self.reservas.pop(0))
+                return removido
+
+        # Procura nas reservas
+        for idx, r in enumerate(self.reservas):
+            if r == identificador or r.nome.lower() == str(identificador).lower():
+                return self.reservas.pop(idx)
+
+        return None
+
+    def mover_para_ativo(self, nome_ou_personagem: Any, posicao_alvo: Optional[int] = None) -> bool:
+        """Move um membro das reservas para a equipe ativa (máx 4)."""
+        idx_reserva = -1
+        personagem_alvo = None
+        for idx, r in enumerate(self.reservas):
+            if r == nome_ou_personagem or r.nome.lower() == str(nome_ou_personagem).lower():
+                idx_reserva = idx
+                personagem_alvo = r
+                break
+
+        if personagem_alvo is None:
+            return False
+
+        if len(self.membros) < self.MAX_MEMBROS_ATIVOS:
+            self.reservas.pop(idx_reserva)
+            if posicao_alvo is not None and 0 <= posicao_alvo <= len(self.membros):
+                self.membros.insert(posicao_alvo, personagem_alvo)
+            else:
+                self.membros.append(personagem_alvo)
+            return True
+        elif posicao_alvo is not None and 0 <= posicao_alvo < len(self.membros):
+            # Troca com o membro que está na posição ativa
+            self.reservas.pop(idx_reserva)
+            substituido = self.membros[posicao_alvo]
+            self.membros[posicao_alvo] = personagem_alvo
+            self.reservas.append(substituido)
+            return True
+
+        return False
+
+    def mover_para_reserva(self, nome_ou_personagem: Any) -> bool:
+        """Move um membro da equipe ativa para as reservas."""
+        if len(self.membros) <= 1:
+            # Não permite esvaziar completamente a equipe ativa se for o único
+            return False
+
+        for idx, m in enumerate(self.membros):
+            if m == nome_ou_personagem or m.nome.lower() == str(nome_ou_personagem).lower():
+                removido = self.membros.pop(idx)
+                self.reservas.append(removido)
+                return True
+        return False
+
+    def trocar_posicoes_ativas(self, idx1: int, idx2: int) -> bool:
+        """Troca a ordem de dois membros dentro da equipe ativa."""
+        if 0 <= idx1 < len(self.membros) and 0 <= idx2 < len(self.membros):
+            self.membros[idx1], self.membros[idx2] = self.membros[idx2], self.membros[idx1]
+            return True
+        return False
+
+    def obter_membros_vivos(self) -> List[Personagem]:
+        """Retorna lista dos membros ativos que possuem PV > 0."""
+        return [m for m in self.membros if m.pv_atual and m.pv_atual > 0]
+
+    def esta_viva(self) -> bool:
+        """Retorna True se pelo menos um membro ativo estiver vivo."""
+        return len(self.obter_membros_vivos()) > 0
+
+    def obter_membro(self, idx: int) -> Optional[Personagem]:
+        """Acesso seguro a membro ativo por índice (0 a 3)."""
+        if 0 <= idx < len(self.membros):
+            return self.membros[idx]
+        return None
+
+    def transferir_item(self, de_membro: Personagem, para_membro: Personagem, nome_item: str, quantidade: int = 1) -> bool:
+        """Transfere item entre os inventários individuais de dois membros."""
+        if de_membro.remover_item_inventario(nome_item, quantidade):
+            para_membro.adicionar_item_inventario(nome_item, quantidade)
+            return True
+        return False
+
+    def __len__(self) -> int:
+        return len(self.membros)
+
+    def __iter__(self):
+        return iter(self.membros)
+
+    def __getitem__(self, idx: int) -> Personagem:
+        return self.membros[idx]
+
+
+# Alias em português para compatibilidade
+Equipe = Party

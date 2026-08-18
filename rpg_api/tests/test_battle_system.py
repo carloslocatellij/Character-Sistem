@@ -905,7 +905,8 @@ class TestUsoDeItensEBatalha:
         hp_inicial_inimigo = target_inimigo.pv_atual
 
         # Herói lança magia de veneno no inimigo
-        battle_sys.executar_acao_jogador("magia", alvo_index=0, nome_magia="Infeção Mágica")
+        with patch.object(battle_sys, "_agendar_turno_inimigo"):
+            battle_sys.executar_acao_jogador("magia", alvo_index=0, nome_magia="Infeção Mágica")
 
         # Verifica se o efeito de veneno foi aplicado ao inimigo
         assert len(target_inimigo.efeitos_ativos) == 1

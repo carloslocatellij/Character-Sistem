@@ -924,6 +924,7 @@ class MainScreen(Screen):
             with Vertical(id="main-menu"):
                 yield Label("📖  SIS-CHARLES RPG 📖", id="main-title")
                 yield Button("✨ Criar", id="menu-create", variant="success")
+                yield Button("👥 Gerenciar Equipe / Alistamento", id="menu-equipe", variant="primary")
                 yield Button("🔍 Pesquisar/Editar", id="menu-search")
                 yield Button("🏆  Entrar na Arena", id="menu-arena", variant="warning")
                 yield Button("🗺  Gerenciar Mapas", id="menu-mapas", variant="success")
@@ -931,13 +932,12 @@ class MainScreen(Screen):
                 yield Button("❌ Sair do Sistema", id="menu-quit", variant="error")
         yield Footer()
 
-    
-    
     def on_button_pressed(self, event: Button.Pressed):
-        
-        
         btn_id = event.button.id
         if btn_id == "menu-create": self.app.push_screen(CreationScreen())
+        elif btn_id == "menu-equipe":
+            from app.views.party_management_screen import PartyManagementScreen
+            self.app.push_screen(PartyManagementScreen())
         elif btn_id == "menu-mapas": self.app.push_screen(MapManagerScreen())
         elif btn_id == "menu-arena": self.app.push_screen(ArenaScreen())
         elif btn_id == "menu-search": self.app.push_screen(ManagementMenuScreen())
