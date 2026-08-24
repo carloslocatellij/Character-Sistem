@@ -4,7 +4,7 @@ aiohappyeyeballs==2.7.1
     # via
     #   sischarlesrpg (pyproject.toml)
     #   aiohttp
-aiohttp==3.14.1
+aiohttp==3.14.3
     # via
     #   sischarlesrpg (pyproject.toml)
     #   aiohttp-jinja2
