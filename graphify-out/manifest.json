@@ -1,375 +1,585 @@
 {
-  "__init__.py": {
+  ".specs/modelos_de_parametros_eventos.json": {
+    "mtime": 1784938582.1916094,
+    "ast_hash": "85feb5e5c1d79b253a75cb137c199b50",
+    "semantic_hash": ""
+  },
+  "main.py": {
+    "mtime": 1784938582.1926095,
+    "ast_hash": "4fb916ec4203cb724e2225b09404f3bc",
+    "semantic_hash": ""
+  },
+  "pyproject.toml": {
+    "mtime": 1784938582.1926095,
+    "ast_hash": "84743f9c219b37ee4153e4ff4ada3ff0",
+    "semantic_hash": ""
+  },
+  "rpg_api/__init__.py": {
     "mtime": 1780192856.8216078,
     "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
     "semantic_hash": ""
   },
-  "app/__init__.py": {
+  "rpg_api/app/__init__.py": {
     "mtime": 1780192856.822088,
     "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
     "semantic_hash": ""
   },
-  "app/controllers/__init__.py": {
+  "rpg_api/app/controllers/__init__.py": {
     "mtime": 1780192856.8221712,
     "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
     "semantic_hash": ""
   },
-  "app/controllers/game_controller.py": {
-    "mtime": 1786214295.970576,
-    "ast_hash": "67069285c4ab6f57b5e94a9470e582ea",
+  "rpg_api/app/controllers/game_controller.py": {
+    "mtime": 1787023614.560492,
+    "ast_hash": "686e8f1f3d23766f92f1e57f163d3a8a",
     "semantic_hash": ""
   },
-  "app/core/__init__.py": {
+  "rpg_api/app/core/__init__.py": {
     "mtime": 1780192856.8222084,
     "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
     "semantic_hash": ""
   },
-  "app/core/engine/combat_network_adapter.py": {
+  "rpg_api/app/core/engine/combat_network_adapter.py": {
     "mtime": 1784938582.1936095,
     "ast_hash": "37a1ce54dce8bdb538f4c003fa44743e",
     "semantic_hash": ""
   },
-  "app/core/engine/components.py": {
+  "rpg_api/app/core/engine/components.py": {
     "mtime": 1786214295.970576,
     "ast_hash": "f5f38f80471df62847514d55aa8e1415",
     "semantic_hash": ""
   },
-  "app/core/engine/engine_loader.py": {
+  "rpg_api/app/core/engine/engine_loader.py": {
     "mtime": 1784938582.1936095,
     "ast_hash": "a5d160ea8dfc2a2d2fe0f84fb8f813f3",
     "semantic_hash": ""
   },
-  "app/core/engine/entity_factory.py": {
-    "mtime": 1785975771.2954502,
-    "ast_hash": "60e62a74c295d149ca8a9f5e8f5f7d19",
+  "rpg_api/app/core/engine/entity_factory.py": {
+    "mtime": 1786414095.494175,
+    "ast_hash": "0906d96801a3ccd56f14b28fbfdecec8",
     "semantic_hash": ""
   },
-  "app/core/engine/event_evaluator.py": {
+  "rpg_api/app/core/engine/event_evaluator.py": {
     "mtime": 1785975771.2954502,
     "ast_hash": "b88645dfa341d816144077eccbf1888d",
     "semantic_hash": ""
   },
-  "app/core/engine/game_state.py": {
+  "rpg_api/app/core/engine/game_state.py": {
     "mtime": 1784938582.1946094,
     "ast_hash": "f559761043b01a2c4ca9d295da805357",
     "semantic_hash": ""
   },
-  "app/core/engine/item_system.py": {
+  "rpg_api/app/core/engine/item_system.py": {
     "mtime": 1785975771.2954502,
     "ast_hash": "1a8ea3175cbd7c689c42a20cdc54495e",
     "semantic_hash": ""
   },
-  "app/core/engine/systems.py": {
-    "mtime": 1786328333.4571793,
-    "ast_hash": "2024846167de65b5c7f6ace0057b105f",
+  "rpg_api/app/core/engine/systems.py": {
+    "mtime": 1787021392.200261,
+    "ast_hash": "9f17f0be07ed71a225fee743188ec0fa",
     "semantic_hash": ""
   },
-  "app/core/entities/emojis.py": {
+  "rpg_api/app/core/entities/emojis.py": {
     "mtime": 1784938582.1966095,
     "ast_hash": "259b3c5f96e121d5d401ce8977565c20",
     "semantic_hash": ""
   },
-  "app/core/entities/equipamentos.py": {
+  "rpg_api/app/core/entities/equipamentos.py": {
     "mtime": 1780878903.9579294,
     "ast_hash": "8b5dad43a3874822d0faef30579d0f62",
     "semantic_hash": ""
   },
-  "app/core/entities/habilidades_magias.py": {
+  "rpg_api/app/core/entities/habilidades_magias.py": {
     "mtime": 1786214295.987576,
     "ast_hash": "8c46eeec5db1c280c3e521b656c6bccf",
     "semantic_hash": ""
   },
-  "app/core/entities/mapas.py": {
+  "rpg_api/app/core/entities/mapas.py": {
     "mtime": 1780878903.9579294,
     "ast_hash": "ab77b7edd490300ca45d1919f23a5422",
     "semantic_hash": ""
   },
-  "app/core/entities/personagens.py": {
-    "mtime": 1786327399.5656333,
-    "ast_hash": "d9fc1c78559ac54995d42b7581bf2f14",
+  "rpg_api/app/core/entities/personagens.py": {
+    "mtime": 1787021392.200261,
+    "ast_hash": "ae12062a8990a79c61f49a99adc417fd",
     "semantic_hash": ""
   },
-  "app/db/database.py": {
-    "mtime": 1780878903.9579294,
-    "ast_hash": "c6b214c2a32ac9344cb6c96eeda7c272",
+  "rpg_api/app/db/database.py": {
+    "mtime": 1787021392.200261,
+    "ast_hash": "c507fc777b97409ce44e1cee3e4407a3",
     "semantic_hash": ""
   },
-  "app/fastapi/main.py": {
+  "rpg_api/app/fastapi/main.py": {
     "mtime": 1780878903.9579294,
     "ast_hash": "10018a8da3dbb654fcce2c0779ecd177",
     "semantic_hash": ""
   },
-  "app/fastapi/routers/__init__.py": {
+  "rpg_api/app/fastapi/routers/__init__.py": {
     "mtime": 1780878903.9584427,
     "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
     "semantic_hash": ""
   },
-  "app/fastapi/routers/personagens.py": {
+  "rpg_api/app/fastapi/routers/personagens.py": {
     "mtime": 1780878903.9584866,
     "ast_hash": "a55ae45b782b3b2370dec4a5a9d7da57",
     "semantic_hash": ""
   },
-  "app/models/__init__.py": {
-    "mtime": 1786214296.0025759,
-    "ast_hash": "4f986b624ab5acffdf5725728bdd2c3c",
+  "rpg_api/app/models/__init__.py": {
+    "mtime": 1787021392.2030835,
+    "ast_hash": "80c8c455acbf6adead0161577cdbb31e",
     "semantic_hash": ""
   },
-  "app/models/equipamentos_db.py": {
+  "rpg_api/app/models/equipamentos_db.py": {
     "mtime": 1780192856.8236077,
     "ast_hash": "96e3a7b43faf633831ff2bf8281b27b8",
     "semantic_hash": ""
   },
-  "app/models/eventos_db.py": {
+  "rpg_api/app/models/eventos_db.py": {
     "mtime": 1784938582.2486088,
     "ast_hash": "f47328a60dde55827ce4eb9dd8523e14",
     "semantic_hash": ""
   },
-  "app/models/habilidades_magias_db.py": {
+  "rpg_api/app/models/habilidades_magias_db.py": {
     "mtime": 1786214296.0025759,
     "ast_hash": "766ab6d77509c6d876afc5554d60e6ee",
     "semantic_hash": ""
   },
-  "app/models/mapas_db.py": {
+  "rpg_api/app/models/mapas_db.py": {
     "mtime": 1780878903.9584866,
     "ast_hash": "3dc7a8983291ecf53126b6527637df66",
     "semantic_hash": ""
   },
-  "app/models/personagens_db.py": {
-    "mtime": 1780878903.9584866,
-    "ast_hash": "beb788d3e3da60f551e451f3ce895558",
+  "rpg_api/app/models/personagens_db.py": {
+    "mtime": 1787021392.2032273,
+    "ast_hash": "5aedab6771cd29871ffd50debbe99e0e",
     "semantic_hash": ""
   },
-  "app/models/plataforma_db.py": {
+  "rpg_api/app/models/plataforma_db.py": {
     "mtime": 1780878903.9584866,
     "ast_hash": "8d50db70e62cf6b27630d393d270e9c1",
     "semantic_hash": ""
   },
-  "app/models/schemas/__init__.py": {
+  "rpg_api/app/models/schemas/__init__.py": {
     "mtime": 1780878903.9584866,
     "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
     "semantic_hash": ""
   },
-  "app/models/schemas/rpg_schemas.py": {
+  "rpg_api/app/models/schemas/rpg_schemas.py": {
     "mtime": 1780878903.958929,
     "ast_hash": "a79bf7247e6e996ce2561e91583d4a6d",
     "semantic_hash": ""
   },
-  "app/packages/__init__.py": {
+  "rpg_api/app/packages/__init__.py": {
     "mtime": 1780192856.8236077,
     "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
     "semantic_hash": ""
   },
-  "app/packages/dungeon_gen.py": {
+  "rpg_api/app/packages/dungeon_gen.py": {
     "mtime": 1780192856.8243563,
     "ast_hash": "335fe1acdb5334e9381b46dbdd1c6367",
     "semantic_hash": ""
   },
-  "app/packages/poc_animation.py": {
+  "rpg_api/app/packages/poc_animation.py": {
     "mtime": 1784938582.249609,
     "ast_hash": "97936795ea89864ccab0148a22b386df",
     "semantic_hash": ""
   },
-  "app/packages/resize.py": {
+  "rpg_api/app/packages/resize.py": {
     "mtime": 1780192856.8243563,
     "ast_hash": "0f92d9ebb166259a29afce7b2c84db26",
     "semantic_hash": ""
   },
-  "app/packages/show_img.py": {
+  "rpg_api/app/packages/show_img.py": {
     "mtime": 1780192856.8243563,
     "ast_hash": "9af485785c250861d0e6bf5b64e08fc8",
     "semantic_hash": ""
   },
-  "app/packages/stylewriter.py": {
+  "rpg_api/app/packages/stylewriter.py": {
     "mtime": 1784938582.249609,
     "ast_hash": "79c9851a8fda2cb859b6c82a2860a146",
     "semantic_hash": ""
   },
-  "app/views/battle_screen.py": {
-    "mtime": 1786325868.2166781,
-    "ast_hash": "b055752a0cae203cab5ec7f18f6373fc",
+  "rpg_api/app/views/battle_screen.py": {
+    "mtime": 1787023514.0063002,
+    "ast_hash": "57c59636bbe4f991368a2a4e8def32f6",
     "semantic_hash": ""
   },
-  "app/views/components/choice_box.py": {
+  "rpg_api/app/views/components/choice_box.py": {
     "mtime": 1784938582.250609,
     "ast_hash": "8e25ced4561d088f67c4f3927ed779b8",
     "semantic_hash": ""
   },
-  "app/views/game_play_screen.py": {
-    "mtime": 1786214296.0035758,
-    "ast_hash": "3fec4bbcfc1c3a81a648957af1db6279",
+  "rpg_api/app/views/game_play_screen.py": {
+    "mtime": 1787023626.527396,
+    "ast_hash": "f1fe9a31b02f5c99464a9f43e5a50064",
     "semantic_hash": ""
   },
-  "app/views/inventario_screen.py": {
+  "rpg_api/app/views/inventario_screen.py": {
     "mtime": 1786065525.4970553,
     "ast_hash": "d7d8b3ce08a77a36ed4e5b42343392cf",
     "semantic_hash": ""
   },
-  "app/views/map_manager_screen.py": {
+  "rpg_api/app/views/map_manager_screen.py": {
     "mtime": 1784938582.252609,
     "ast_hash": "d9d4cdcd0ff14fdb525554955512dace",
     "semantic_hash": ""
   },
-  "app/views/simulador.py": {
+  "rpg_api/app/views/party_management_screen.py": {
+    "mtime": 1787021392.2041025,
+    "ast_hash": "cc2e84b957509b3e45034a8b13e9bc90",
+    "semantic_hash": ""
+  },
+  "rpg_api/app/views/simulador.py": {
     "mtime": 1784938582.253609,
     "ast_hash": "f742d464f134c5e34a55d512f9b9ee1d",
     "semantic_hash": ""
   },
-  "app/views/tools/evento_form_screen.py": {
+  "rpg_api/app/views/tools/evento_form_screen.py": {
     "mtime": 1786214296.0125759,
     "ast_hash": "b431efe1147957f383ca689d585cb6bc",
     "semantic_hash": ""
   },
-  "app/views/tools/painting_tools.py": {
+  "rpg_api/app/views/tools/painting_tools.py": {
     "mtime": 1784938582.2556088,
     "ast_hash": "5d046301f856474f5a50ef912ce2e252",
     "semantic_hash": ""
   },
-  "main_cli.py": {
-    "mtime": 1786330300.6908865,
-    "ast_hash": "da62585ece2c4c81084d9e388a248df2",
+  "rpg_api/main_cli.py": {
+    "mtime": 1787023538.2171056,
+    "ast_hash": "3156aa98bbaadf66f709a83766b0e226",
     "semantic_hash": ""
   },
-  "musics/audio_player.py": {
-    "mtime": 1780192857.1076052,
-    "ast_hash": "327901311104e6d338bc96c5990c221b",
+  "rpg_api/musics/audio_player.py": {
+    "mtime": 1787021392.2048516,
+    "ast_hash": "64e24641adb681d634c3b74d439eaf5b",
     "semantic_hash": ""
   },
-  "tests/__init__.py": {
+  "rpg_api/tests/__init__.py": {
     "mtime": 1780192857.1076052,
     "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
     "semantic_hash": ""
   },
-  "tests/conftest.py": {
+  "rpg_api/tests/conftest.py": {
     "mtime": 1780878903.959988,
     "ast_hash": "aee00c9c41eca9b28d9b152f68085321",
     "semantic_hash": ""
   },
-  "tests/test_aprender_magia_evento.py": {
+  "rpg_api/tests/test_aprender_magia_evento.py": {
     "mtime": 1786327427.4181154,
     "ast_hash": "3e2629a59d26108d5cd0cfacda3350c4",
     "semantic_hash": ""
   },
-  "tests/test_battle_system.py": {
-    "mtime": 1786328316.8053253,
-    "ast_hash": "9a19984a77ae643e10c19e1d3243d924",
+  "rpg_api/tests/test_battle_screen_party.py": {
+    "mtime": 1787021392.2048516,
+    "ast_hash": "395c3db4d0c7b8bbb5405c937ef0c824",
     "semantic_hash": ""
   },
-  "tests/test_database.py": {
+  "rpg_api/tests/test_battle_system.py": {
+    "mtime": 1787021392.2048516,
+    "ast_hash": "64162fc4ee5a823e1a4d1e2066990136",
+    "semantic_hash": ""
+  },
+  "rpg_api/tests/test_battle_system_4v4_party.py": {
+    "mtime": 1787021392.2048516,
+    "ast_hash": "1b96539557130663a2d35e1ca0611b79",
+    "semantic_hash": ""
+  },
+  "rpg_api/tests/test_database.py": {
     "mtime": 1785975771.2984502,
     "ast_hash": "c657e151cf141d6787616ba42ea0e7d0",
     "semantic_hash": ""
   },
-  "tests/test_ecs_manager.py": {
+  "rpg_api/tests/test_ecs_manager.py": {
     "mtime": 1786313125.288965,
     "ast_hash": "ff857712d000cfa6df4c6e24e3b80754",
     "semantic_hash": ""
   },
-  "tests/test_editor_eventos.py": {
+  "rpg_api/tests/test_editor_eventos.py": {
     "mtime": 1784938582.257609,
     "ast_hash": "9e1f5435a33d721c6c5ac28d59f6647f",
     "semantic_hash": ""
   },
-  "tests/test_entity_factory.py": {
+  "rpg_api/tests/test_entity_factory.py": {
     "mtime": 1786327424.0181448,
     "ast_hash": "352c7d97ebbec23d4dec7a3ba2fc2b29",
     "semantic_hash": ""
   },
-  "tests/test_equipamentos.py": {
+  "rpg_api/tests/test_equipamentos.py": {
     "mtime": 1780878903.9600608,
     "ast_hash": "4645f65985ff084e9b6ea010991b74c1",
     "semantic_hash": ""
   },
-  "tests/test_esper_integration.py": {
+  "rpg_api/tests/test_esper_integration.py": {
     "mtime": 1784938582.2586088,
     "ast_hash": "b091ec2b8671c7f710a0214994c3a5d0",
     "semantic_hash": ""
   },
-  "tests/test_event_bus.py": {
+  "rpg_api/tests/test_event_bus.py": {
     "mtime": 1784938582.2586088,
     "ast_hash": "a3f154c6f07eb776cee82ab00fbf7fc7",
     "semantic_hash": ""
   },
-  "tests/test_game_controller.py": {
+  "rpg_api/tests/test_game_controller.py": {
     "mtime": 1786214296.0135758,
     "ast_hash": "6a8d7a4c27bffd780fd157e54fcd2713",
     "semantic_hash": ""
   },
-  "tests/test_game_state_and_loader.py": {
+  "rpg_api/tests/test_game_state_and_loader.py": {
     "mtime": 1784938582.2586088,
     "ast_hash": "01388c85508fb1e43875fceeb2f2ff88",
     "semantic_hash": ""
   },
-  "tests/test_habilidades_magias.py": {
+  "rpg_api/tests/test_habilidades_magias.py": {
     "mtime": 1780878903.9730608,
     "ast_hash": "fedb685c76641df2993555e076ba5ef6",
     "semantic_hash": ""
   },
-  "tests/test_interaction_system.py": {
+  "rpg_api/tests/test_interaction_system.py": {
     "mtime": 1784938582.2596087,
     "ast_hash": "0c9d664604a8698a9f2523db14fd377d",
     "semantic_hash": ""
   },
-  "tests/test_item_system.py": {
+  "rpg_api/tests/test_item_system.py": {
     "mtime": 1786327430.6480873,
     "ast_hash": "705e630a5d825f43f82a20eee9387a81",
     "semantic_hash": ""
   },
-  "tests/test_lancar_magia_ambientes.py": {
+  "rpg_api/tests/test_lancar_magia_ambientes.py": {
     "mtime": 1786214296.0145757,
     "ast_hash": "dfd906f44b6cf3436388996b208c10c6",
     "semantic_hash": ""
   },
-  "tests/test_logica_mapas.py": {
+  "rpg_api/tests/test_logica_mapas.py": {
     "mtime": 1784938582.2596087,
     "ast_hash": "078be95cfeb67b10c15119f7b0334bec",
     "semantic_hash": ""
   },
-  "tests/test_magia_efeito_db.py": {
+  "rpg_api/tests/test_magia_efeito_db.py": {
     "mtime": 1786214296.0145757,
     "ast_hash": "eb042738173b88ef8e4a0629f8269c54",
     "semantic_hash": ""
   },
-  "tests/test_mainx_cli.py": {
+  "rpg_api/tests/test_mainx_cli.py": {
     "mtime": 1786330314.7457633,
     "ast_hash": "83b1fd1fa90b2accf9628e77a40496e1",
     "semantic_hash": ""
   },
-  "tests/test_new_engine_multiplayer.py": {
+  "rpg_api/tests/test_new_engine_multiplayer.py": {
     "mtime": 1784938582.2596087,
     "ast_hash": "6dce56439515330a024a70bafaeeaa5b",
     "semantic_hash": ""
   },
-  "tests/test_personagens.py": {
+  "rpg_api/tests/test_party_and_enemies_in_combat.py": {
+    "mtime": 1787023682.7259443,
+    "ast_hash": "472daf1f9a9bb01e460f05dcd281136a",
+    "semantic_hash": ""
+  },
+  "rpg_api/tests/test_party_management_screen.py": {
+    "mtime": 1787021392.2048516,
+    "ast_hash": "0431a813d99ee067db6a7d745591f7ae",
+    "semantic_hash": ""
+  },
+  "rpg_api/tests/test_party_recruitment_system.py": {
+    "mtime": 1787021392.2048516,
+    "ast_hash": "b88d59041e9974315a8f9d831bce5f5c",
+    "semantic_hash": ""
+  },
+  "rpg_api/tests/test_personagens.py": {
     "mtime": 1784938582.260609,
     "ast_hash": "e2a69586888e9ffdbb35ffc794db6b01",
     "semantic_hash": ""
   },
-  "tests/test_personagens_db.py": {
+  "rpg_api/tests/test_personagens_db.py": {
     "mtime": 1780878903.9870605,
     "ast_hash": "912d2a486baf55bb2cb7795f4790222b",
     "semantic_hash": ""
   },
-  "tests/test_renderizador.py": {
+  "rpg_api/tests/test_renderizador.py": {
     "mtime": 1780878903.9870605,
     "ast_hash": "6efddb3a4e046a9bd1c0e521208f1d9e",
     "semantic_hash": ""
   },
-  "tests/test_simulador.py": {
+  "rpg_api/tests/test_simulador.py": {
     "mtime": 1780878903.9870605,
     "ast_hash": "3a258824a2f9617d89b8682195ab812b",
     "semantic_hash": ""
   },
-  "app/packages/the_begin_1.jpg": {
+  "rpg_api/tests/test_ui_behavior_party_flow.py": {
+    "mtime": 1787021392.205261,
+    "ast_hash": "4db4ab3dda5dee20556d156d465a0f32",
+    "semantic_hash": ""
+  },
+  ".agents/AGENTS.md": {
+    "mtime": 1785975771.0194523,
+    "ast_hash": "f7e22f32796b5a4a7aba31c4c2bf6798",
+    "semantic_hash": ""
+  },
+  ".agents/agents/Arquiteto_textual.md": {
+    "mtime": 1784938582.1876094,
+    "ast_hash": "8e8a755d821da1b3d2221e3349291b1f",
+    "semantic_hash": ""
+  },
+  ".agents/agents/Debuger_senior.agent.md": {
+    "mtime": 1784938582.188282,
+    "ast_hash": "0f7fb6c56fd6cbc7b4d6719d2baf1cd4",
+    "semantic_hash": ""
+  },
+  ".agents/agents/GameDev_senior.agent.md": {
+    "mtime": 1784938582.188282,
+    "ast_hash": "bb46d9c3bc0377ce7756fb8ff48744c8",
+    "semantic_hash": ""
+  },
+  ".agents/agents/Tester.md": {
+    "mtime": 1784938582.188282,
+    "ast_hash": "303a006f52ce2f2a75c490f1b6b285c7",
+    "semantic_hash": ""
+  },
+  ".agents/rules/antigravity-rtk-rules.md": {
+    "mtime": 1785975771.0204523,
+    "ast_hash": "837fb66e350c86b910a3b4b8d0172580",
+    "semantic_hash": ""
+  },
+  ".agents/rules/graphify.md": {
+    "mtime": 1785975771.2954502,
+    "ast_hash": "f1e53ecc9194573d3c28fc116c743a2e",
+    "semantic_hash": ""
+  },
+  ".agents/workflows/graphify.md": {
+    "mtime": 1785975771.0274522,
+    "ast_hash": "6d73634a678cf1e1c71930adf80bd1f0",
+    "semantic_hash": ""
+  },
+  ".github/copilot-instructions.md": {
+    "mtime": 1784938582.1886096,
+    "ast_hash": "b3e50706463d1b81c87d56d5b95ffa1e",
+    "semantic_hash": ""
+  },
+  ".github/workflows/basic_action.yaml": {
+    "mtime": 1780192856.8208966,
+    "ast_hash": "0770bc0abcb82bd5355720ed1df55ff1",
+    "semantic_hash": ""
+  },
+  ".rules/1_arquitetura_limpa_ddd.md": {
+    "mtime": 1785975771.0864518,
+    "ast_hash": "0bae306437294e4c06c077c39753a247",
+    "semantic_hash": ""
+  },
+  ".rules/2_ecs_esper.md": {
+    "mtime": 1785975771.0864518,
+    "ast_hash": "1d2a1dde8746eea41508fada83a573c8",
+    "semantic_hash": ""
+  },
+  ".rules/3_textual_tui.md": {
+    "mtime": 1786416802.1806915,
+    "ast_hash": "a013053bffeb9bf068ddca15a305f5e9",
+    "semantic_hash": ""
+  },
+  ".rules/4_banco_dados_persist\u00eancia.md": {
+    "mtime": 1785975771.0874517,
+    "ast_hash": "665776a5687b4c7faa99db95e1b8993d",
+    "semantic_hash": ""
+  },
+  ".rules/5_sistema_combate_formulas.md": {
+    "mtime": 1785975771.0884516,
+    "ast_hash": "c4e7b8145bddac81d2b78b94a551f081",
+    "semantic_hash": ""
+  },
+  ".rules/6_interpretador_eventos.md": {
+    "mtime": 1785975771.0884516,
+    "ast_hash": "d195f4d9f59ba9a24af99fd2d68d1570",
+    "semantic_hash": ""
+  },
+  ".rules/7_testes_tdd.md": {
+    "mtime": 1787021392.200261,
+    "ast_hash": "659f4f7868068442cb53b64f57c422ee",
+    "semantic_hash": ""
+  },
+  ".specs/Data_Flux.md": {
+    "mtime": 1784938582.1896968,
+    "ast_hash": "3a76548ea42c0fc25a99b0bef05c07a3",
+    "semantic_hash": ""
+  },
+  ".specs/Game_Concepts.md": {
+    "mtime": 1785975771.0904517,
+    "ast_hash": "ce6c3ae5fde905180c90a016365e628b",
+    "semantic_hash": ""
+  },
+  ".specs/Game_Screen.md": {
+    "mtime": 1785975771.0904517,
+    "ast_hash": "bd9a38ad43645cc0850e998a65a783a4",
+    "semantic_hash": ""
+  },
+  ".specs/General_Guide.md": {
+    "mtime": 1787021002.5713594,
+    "ast_hash": "fc0fd80633597c90cbe1d848a582eb7e",
+    "semantic_hash": ""
+  },
+  ".specs/Map_Maneger.md": {
+    "mtime": 1785975771.1014516,
+    "ast_hash": "62928f3f56929ab88c8354bb9dac95ef",
+    "semantic_hash": ""
+  },
+  ".specs/SPEC.md": {
+    "mtime": 1786214295.8275774,
+    "ast_hash": "ee60938b24e6bcaa4305ac90702a030b",
+    "semantic_hash": ""
+  },
+  ".specs/tasks.md": {
+    "mtime": 1786214295.8275774,
+    "ast_hash": "ae0d5612aaaa2b08bdd20f907770ca7d",
+    "semantic_hash": ""
+  },
+  "CLAUDE.md": {
+    "mtime": 1785975771.1204515,
+    "ast_hash": "89b639de2940445c4543c7755d790690",
+    "semantic_hash": ""
+  },
+  "MANUAL.md": {
+    "mtime": 1784938582.1926095,
+    "ast_hash": "21b7c51dbfecfa32b404db78acacb610",
+    "semantic_hash": ""
+  },
+  "README.md": {
+    "mtime": 1785975771.1204515,
+    "ast_hash": "682ea97055edb8aed80bb411c83b49df",
+    "semantic_hash": ""
+  },
+  "requirements.txt": {
+    "mtime": 1784938582.1936095,
+    "ast_hash": "c1e7df0d8f72e640b5b8fba798a08244",
+    "semantic_hash": ""
+  },
+  ".specs/imagens/Editor de mapas.png": {
+    "mtime": 1785975771.1104515,
+    "ast_hash": "a30584e272b068d6482ba3c4c1a34dc3",
+    "semantic_hash": ""
+  },
+  ".specs/imagens/Gerador de mapas.png": {
+    "mtime": 1785975771.1114516,
+    "ast_hash": "049034636f82be6a46349f2a919ad0c8",
+    "semantic_hash": ""
+  },
+  ".specs/imagens/sistema de batalha.png": {
+    "mtime": 1785975771.1124516,
+    "ast_hash": "48bc7f750fadc7479c82b5b4fffe6673",
+    "semantic_hash": ""
+  },
+  ".specs/imagens/tela de jogo.png": {
+    "mtime": 1785975771.1134515,
+    "ast_hash": "a1c977cc5c449314cd0a710d80fcdccc",
+    "semantic_hash": ""
+  },
+  "rpg_api/app/packages/the_begin_1.jpg": {
     "mtime": 1780192856.8243563,
     "ast_hash": "26fe7626704010dac4b4e84c4461df69",
     "semantic_hash": ""
   },
-  "app/packages/the_begin_2.png": {
+  "rpg_api/app/packages/the_begin_2.png": {
     "mtime": 1780192856.8646073,
     "ast_hash": "c144266b3c56304d01538d04e07f8971",
     "semantic_hash": ""
   },
-  "musics/Animals_House_Of_The_Rising_Sun1.wav": {
+  "rpg_api/musics/Animals_House_Of_The_Rising_Sun1.wav": {
     "mtime": 1780192857.1046052,
     "ast_hash": "b0cf4c76731b77e1b9077fa6cbd38690",
     "semantic_hash": ""

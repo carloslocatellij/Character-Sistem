@@ -328,13 +328,13 @@ class GameController:
         # Verifica se já está registrado na tabela associativa
         membro = self.db.query(EquipeMembroDB).filter(
             EquipeMembroDB.personagem_id == personagem_id,
-            EquipeMembroDB.usuario_id == usuario_id,
-            EquipeMembroDB.cenario_id == cenario_id
+            (EquipeMembroDB.usuario_id == usuario_id) | (EquipeMembroDB.usuario_id == None),
+            (EquipeMembroDB.cenario_id == cenario_id) | (EquipeMembroDB.cenario_id == None)
         ).first()
 
         ativos = self.db.query(EquipeMembroDB).filter(
-            EquipeMembroDB.usuario_id == usuario_id,
-            EquipeMembroDB.cenario_id == cenario_id,
+            (EquipeMembroDB.usuario_id == usuario_id) | (EquipeMembroDB.usuario_id == None),
+            (EquipeMembroDB.cenario_id == cenario_id) | (EquipeMembroDB.cenario_id == None),
             EquipeMembroDB.ativo == 1
         ).all()
 
@@ -361,6 +361,10 @@ class GameController:
         if membro:
             membro.ativo = is_ativo
             membro.slot_posicao = novo_slot
+            if usuario_id is not None:
+                membro.usuario_id = usuario_id
+            if cenario_id is not None:
+                membro.cenario_id = cenario_id
         else:
             membro = EquipeMembroDB(
                 usuario_id=usuario_id,
@@ -379,8 +383,8 @@ class GameController:
         """Remove um personagem da equipe ativa/alistamento."""
         membro = self.db.query(EquipeMembroDB).filter(
             EquipeMembroDB.personagem_id == personagem_id,
-            EquipeMembroDB.usuario_id == usuario_id,
-            EquipeMembroDB.cenario_id == cenario_id
+            (EquipeMembroDB.usuario_id == usuario_id) | (EquipeMembroDB.usuario_id == None),
+            (EquipeMembroDB.cenario_id == cenario_id) | (EquipeMembroDB.cenario_id == None)
         ).first()
 
         personagem = self.db.get(PersonagemDB, personagem_id)
@@ -400,8 +404,8 @@ class GameController:
         Retorna a instância Party contendo até 4 membros ativos e eventuais reservas.
         """
         query_membros = self.db.query(EquipeMembroDB).filter(
-            EquipeMembroDB.usuario_id == usuario_id,
-            EquipeMembroDB.cenario_id == cenario_id
+            (EquipeMembroDB.usuario_id == usuario_id) | (EquipeMembroDB.usuario_id == None),
+            (EquipeMembroDB.cenario_id == cenario_id) | (EquipeMembroDB.cenario_id == None)
         ).order_by(EquipeMembroDB.slot_posicao.asc()).all()
 
         party = Party()
@@ -413,19 +417,37 @@ class GameController:
                         party.membros.append(p_dom)
                     else:
                         party.reservas.append(p_dom)
-        else:
-            # Fallback: Se não houver tabela de equipe populada, busca os primeiros PersonagemDB
-            chars = self.db.query(PersonagemDB).filter(
-                PersonagemDB.usuario_id == usuario_id,
-                PersonagemDB.cenario_id == cenario_id
-            ).all() if (usuario_id or cenario_id) else self.db.query(PersonagemDB).all()
+            if party.membros:
+                return party
 
-            for char_db in chars[:4]:
+        # Fallback 1: Buscar personagens que tenham slot_equipe > 0
+        chars_ativos = self.db.query(PersonagemDB).filter(
+            PersonagemDB.slot_equipe > 0
+        ).order_by(PersonagemDB.slot_equipe.asc()).all()
+
+        chars_reserva = self.db.query(PersonagemDB).filter(
+            (PersonagemDB.slot_equipe == 0) | (PersonagemDB.slot_equipe == None)
+        ).all()
+
+        if chars_ativos:
+            for char_db in chars_ativos[:4]:
                 party.adicionar_membro(GameController.converter_para_dominio(char_db))
-            for char_db in chars[4:]:
+            for char_db in chars_reserva:
                 party.reservas.append(GameController.converter_para_dominio(char_db))
+            return party
+
+        # Fallback 2: Se não houver tabela de equipe populada, busca os primeiros PersonagemDB
+        chars = self.db.query(PersonagemDB).all()
+        for char_db in chars[:4]:
+            party.adicionar_membro(GameController.converter_para_dominio(char_db))
+        for char_db in chars[4:]:
+            party.reservas.append(GameController.converter_para_dominio(char_db))
 
         return party
+
+    def obter_party_do_jogador(self, usuario_id: Optional[int] = None, cenario_id: Optional[int] = None) -> Party:
+        """Alias para obter_equipe_party."""
+        return self.obter_equipe_party(usuario_id=usuario_id, cenario_id=cenario_id)
 
     def obter_personagens_recrutaveis(self, usuario_id: Optional[int] = None, cenario_id: Optional[int] = None) -> List[PersonagemDB]:
         """Retorna todos os personagens disponíveis para recrutamento/alistamento."""

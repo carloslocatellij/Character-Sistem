@@ -24,10 +24,12 @@ logging.basicConfig(level=logging.INFO, filename='log.log', filemode='a')
 class GamePlayScreen(Screen):
     CSS_PATH = 'styles/game_styles.css'
     
-    def __init__(self, mapa_id: int = 1, personagem_id: int = 1):
+    def __init__(self, mapa_id: int = 1, personagem_id: int = 1, usuario_id: int = 1, cenario_id: int = 1):
         super().__init__()
         self.mapa_id = mapa_id
         self.personagem_id = personagem_id
+        self.usuario_id = usuario_id
+        self.cenario_id = cenario_id
         self.direcao_olhar = 'baixo'
 
         # Inicializa o Barramento e Carregador da Engine
@@ -288,32 +290,42 @@ class GamePlayScreen(Screen):
         self.atualizar_paineis_status()
 
     # ==========================================
-    # COMBATE POR TURNOS — INTEGRAÇÃO
+    # COMBATE POR TURNOS — INTEGRAÇÃO (4v4 Padrão Ouro)
     # ==========================================
 
     def _ao_solicitar_combate(self, dados_inimigo: dict) -> None:
         """
         Handler disparado pelo EventSystem quando o comando 'iniciar_combate'
-        é processado. Mapeia o herói do ECS para o domínio Personagem e
-        empilha a BattleScreen sobre o GamePlayScreen.
-
-        Suporta dois formatos de dados:
-        - Dict único (retrocompatível): {'nome': ..., 'nivel': ...}
-        - Dict com lista: {'inimigos': [{...}, {...}]}  → 1 a 4 inimigos
+        é processado. Obtém a Party completa de aventureiros alistados (até 4 membros)
+        e o grupo de inimigos (1 a 4), empilhando a BattleScreen sobre o GamePlayScreen.
         """
         if not self.is_mounted:
             return
 
-        heroi_dominio = self._obter_heroi_dominio()
-        if heroi_dominio is None:
-            self.log_mensagem('[bold red]❌ Erro: não foi possível carregar o herói para o combate.[/]')
+        party_dominio = self._obter_party_dominio()
+        if party_dominio is None or not getattr(party_dominio, "membros", []):
+            self.log_mensagem('[bold red]❌ Erro: não foi possível carregar a equipe para o combate.[/]')
             return
 
-        # Detecta se é formato de lista ou único inimigo (retrocompatibilidade)
-        if "inimigos" in dados_inimigo:
-            inimigos_dados = dados_inimigo["inimigos"][:4]  # Máximo de 4
+        # 1. Normaliza ou expande inimigos (1 a 4)
+        if "inimigos" in dados_inimigo and isinstance(dados_inimigo["inimigos"], list) and len(dados_inimigo["inimigos"]) > 0:
+            inimigos_dados = dados_inimigo["inimigos"][:4]
         else:
-            inimigos_dados = [dados_inimigo]
+            qtd = int(dados_inimigo.get("qtd_inimigos") or dados_inimigo.get("qtd") or 1)
+            # Se a equipe do jogador tiver mais de 1 membro e o evento permitir combate em grupo
+            if qtd <= 1 and len(party_dominio.membros) > 1 and dados_inimigo.get("escala_grupo", True):
+                # Gera grupo correspondente de inimigos (até o tamanho da equipe, máx 4)
+                qtd = min(4, len(party_dominio.membros))
+
+            if qtd > 1:
+                inimigos_dados = []
+                for idx in range(qtd):
+                    copia = dict(dados_inimigo)
+                    sufixo = f" {chr(65+idx)}" if qtd > 1 else ""
+                    copia["nome"] = f"{dados_inimigo.get('nome', 'Inimigo')}{sufixo}"
+                    inimigos_dados.append(copia)
+            else:
+                inimigos_dados = [dados_inimigo]
 
         def _ao_concluir_combate(resultado: str | None = None):
             res = resultado if (resultado and isinstance(resultado, str)) else "venceu"
@@ -321,11 +333,61 @@ class GamePlayScreen(Screen):
 
         try:
             from app.views.battle_screen import BattleScreen
-            self.app.push_screen(BattleScreen(heroi_dominio, inimigos_dados), _ao_concluir_combate)
+            self.app.push_screen(BattleScreen(party_dominio, inimigos_dados), _ao_concluir_combate)
         except Exception as erro_push:
             self.log_mensagem(f'[bold red]❌ Erro ao abrir a tela de combate: {erro_push}[/]')
             logging.error(f'_ao_solicitar_combate: {erro_push}')
             esper.dispatch_event("combate_finalizado_gui", "venceu")
+
+    def _obter_party_dominio(self) -> Optional[object]:
+        """
+        Obtém a Party completa do jogador com todos os membros ativos alistados.
+        Sincroniza o personagem líder com os componentes do ECS (HP, MP e equipamentos).
+        """
+        try:
+            from app.controllers.game_controller import GameController
+            from app.core.entities.personagens import Party
+
+            with SessionLocal() as db_session:
+                ctrl = GameController(db_session)
+                party = ctrl.obter_party_do_jogador(
+                    usuario_id=self.usuario_id or 1,
+                    cenario_id=self.cenario_id or 1
+                )
+
+                if not party or not party.membros:
+                    heroi = self._obter_heroi_dominio()
+                    return Party(membros=[heroi] if heroi else [])
+
+                # Sincroniza o primeiro membro com o estado do ECS
+                if party.membros:
+                    lider = party.membros[0]
+                    if esper.entity_exists(1) and esper.has_component(1, StatsComponent):
+                        stats = esper.component_for_entity(1, StatsComponent)
+                        lider.pv_atual = min(stats.hp, lider.max_hp)
+                        lider.pm_atual = min(stats.mp, lider.max_mp)
+                    if esper.entity_exists(1) and esper.has_component(1, EquipmentComponent):
+                        eqp = esper.component_for_entity(1, EquipmentComponent)
+                        if eqp:
+                            from app.core.entities.equipamentos import Arma, Armadura, Escudo
+                            if eqp.arma:
+                                lider.mao_direita = Arma(
+                                    nome=eqp.arma.get("nome", "Espada"),
+                                    dano=eqp.arma.get("bonus_atk") or eqp.arma.get("dano", 3),
+                                    tipo=eqp.arma.get("tipo", "corpo")
+                                )
+                            if eqp.armadura:
+                                lider.armadura = Armadura(
+                                    nome=eqp.armadura.get("nome", "Armadura"),
+                                    defesa=eqp.armadura.get("bonus_def") or eqp.armadura.get("defesa", 3)
+                                )
+
+                return party
+        except Exception as erro_party:
+            logging.error(f"_obter_party_dominio: {erro_party}")
+            heroi = self._obter_heroi_dominio()
+            from app.core.entities.personagens import Party
+            return Party(membros=[heroi] if heroi else [])
 
 
     def _obter_heroi_dominio(self) -> Optional[object]:
@@ -349,9 +411,9 @@ class GamePlayScreen(Screen):
                 
                 heroi_dominio = GameController.converter_para_dominio(personagem_db)
                 if heroi_dominio:
-                    stats = esper.component_for_entity(1, StatsComponent)
-                    eqp = esper.component_for_entity(1, EquipmentComponent)
-                    
+                    stats = esper.component_for_entity(1, StatsComponent) if esper.entity_exists(1) and esper.has_component(1, StatsComponent) else None
+                    eqp = esper.component_for_entity(1, EquipmentComponent) if esper.entity_exists(1) and esper.has_component(1, EquipmentComponent) else None
+
                     # Sincroniza Equipamentos do ECS para o Domínio
                     if eqp:
                         from app.core.entities.equipamentos import Arma, Armadura, Escudo
@@ -468,6 +530,14 @@ class GamePlayScreen(Screen):
         # Alimenta o motor de estados com a escolha e retoma o loop assíncrono
         self.event_sys.avancar_ramo_evento(opcao_escolhida)
 
+    def ao_submeter_comando(self, texto_comando: str) -> None:
+        """Executa um comando de texto programaticamente no terminal de jogo."""
+        try:
+            prompt = self.query_one('#terminal-prompt', Input)
+            self.processar_comando_terminal(Input.Submitted(prompt, value=texto_comando))
+        except Exception:
+            pass
+
     # ==========================================
     # INTERPRETADOR DE COMANDOS DO TERMINAL (SUBMIT INPUT)
     # ==========================================
@@ -478,8 +548,11 @@ class GamePlayScreen(Screen):
         else:
             texto = event.value.strip().lower()
             
-        prompt = self.query_one('#terminal-prompt', Input)
-        prompt.value = ''
+        try:
+            prompt = self.query_one('#terminal-prompt', Input)
+            prompt.value = ''
+        except Exception:
+            pass
 
         if not texto: return
 
@@ -521,11 +594,72 @@ class GamePlayScreen(Screen):
 
         elif comando in ['/party', '/equipe', '/recrutar', '/alistamento', '/formacao']:
             from app.views.party_management_screen import PartyManagementScreen
-            self.app.push_screen(PartyManagementScreen(), lambda res: self.atualizar_paineis_status())
+            self.app.push_screen(
+                PartyManagementScreen(usuario_id=self.usuario_id, cenario_id=self.cenario_id),
+                lambda res: self.atualizar_paineis_status()
+            )
             self.atualizar_paineis_status()
 
+        # ⚔️ COMANDO: /combate ou /batalha (para testar combates com múltiplos inimigos)
+        elif comando in ['/combate', '/batalha', '/luta', '/fight']:
+            partes = argumento.split() if argumento else []
+            qtd = 0
+            nome_monstro = "Monstro"
+
+            if len(partes) == 1:
+                if partes[0].isdigit():
+                    qtd = int(partes[0])
+                else:
+                    nome_monstro = partes[0]
+            elif len(partes) >= 2:
+                if partes[-1].isdigit():
+                    qtd = int(partes[-1])
+                    nome_monstro = " ".join(partes[:-1])
+                else:
+                    nome_monstro = " ".join(partes)
+
+            party_dom = self._obter_party_dominio()
+            num_aliados = len(party_dom.membros) if (party_dom and party_dom.membros) else 1
+            if qtd <= 0:
+                qtd = min(4, max(1, num_aliados))
+            qtd = min(4, max(1, qtd))
+
+            dados_combate = {
+                "nome": nome_monstro,
+                "nivel": 1,
+                "qtd_inimigos": qtd,
+                "escala_grupo": False,
+                "forca": 3,
+                "agilidade": 3,
+                "resistencia": 2,
+                "percepcao": 2,
+                "exuberancia": 1,
+                "emoji": "👹"
+            }
+            if qtd > 1:
+                dados_combate["inimigos"] = [
+                    {
+                        "nome": f"{nome_monstro} {chr(65+i)}",
+                        "nivel": 1,
+                        "pv_atual": 30,
+                        "max_hp": 30,
+                        "pm_atual": 10,
+                        "max_mp": 10,
+                        "forca": 3,
+                        "agilidade": 3,
+                        "resistencia": 2,
+                        "percepcao": 2,
+                        "exuberancia": 1,
+                        "emoji": "👹" if i % 2 == 0 else "👺"
+                    }
+                    for i in range(qtd)
+                ]
+
+            self.log_mensagem(f"[bold yellow]⚔️ Iniciando combate de teste com {num_aliados} herói(s) contra {qtd} inimigo(s)...[/]")
+            self._ao_solicitar_combate(dados_combate)
+
         elif comando in ['/h', '/help', ]:
-            self.log_mensagem(f'[yellow] /party -> "Gerencia equipe e alistamento de novos heróis" \n /usar <item consumível> -> "utiliza o item aplicando seus efeitos" \n /equipar <equipamento> -> "coloca o equipamento no personagem" \n /sair /q /quit -> "Sai do jogo"[/]')
+            self.log_mensagem(f'[yellow] /party -> "Gerencia equipe e alistamento de novos heróis" \n /combate [qtd] -> "Inicia batalha de teste com 1 a 4 monstros" \n /usar <item consumível> -> "utiliza o item aplicando seus efeitos" \n /equipar <equipamento> -> "coloca o equipamento no personagem" \n /sair /q /quit -> "Sai do jogo"[/]')
 
         elif comando == "/>":
             codigo = argumento.strip()

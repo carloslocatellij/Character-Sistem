@@ -134,9 +134,9 @@ class PartyManagementScreen(ModalScreen[Optional[str]]):
 
             todos_chars = db.query(PersonagemDB).all()
             membros_equipe = db.query(EquipeMembroDB).filter(
-                EquipeMembroDB.usuario_id == self.usuario_id,
-                EquipeMembroDB.cenario_id == self.cenario_id
-            ).all()
+                (EquipeMembroDB.usuario_id == self.usuario_id) | (EquipeMembroDB.usuario_id == None),
+                (EquipeMembroDB.cenario_id == self.cenario_id) | (EquipeMembroDB.cenario_id == None)
+            ).order_by(EquipeMembroDB.slot_posicao.asc()).all()
 
             mapa_membros = {m.personagem_id: m for m in membros_equipe}
 
@@ -292,8 +292,8 @@ class PartyManagementScreen(ModalScreen[Optional[str]]):
         db = SessionLocal()
         try:
             ativos_count = db.query(EquipeMembroDB).filter(
-                EquipeMembroDB.usuario_id == self.usuario_id,
-                EquipeMembroDB.cenario_id == self.cenario_id,
+                (EquipeMembroDB.usuario_id == self.usuario_id) | (EquipeMembroDB.usuario_id == None),
+                (EquipeMembroDB.cenario_id == self.cenario_id) | (EquipeMembroDB.cenario_id == None),
                 EquipeMembroDB.ativo == 1
             ).count()
 
@@ -304,8 +304,8 @@ class PartyManagementScreen(ModalScreen[Optional[str]]):
             ctrl = GameController(db)
             membro = db.query(EquipeMembroDB).filter(
                 EquipeMembroDB.personagem_id == self.personagem_selecionado_id,
-                EquipeMembroDB.usuario_id == self.usuario_id,
-                EquipeMembroDB.cenario_id == self.cenario_id
+                (EquipeMembroDB.usuario_id == self.usuario_id) | (EquipeMembroDB.usuario_id == None),
+                (EquipeMembroDB.cenario_id == self.cenario_id) | (EquipeMembroDB.cenario_id == None)
             ).first()
 
             if membro:
@@ -329,8 +329,8 @@ class PartyManagementScreen(ModalScreen[Optional[str]]):
         db = SessionLocal()
         try:
             ativos_count = db.query(EquipeMembroDB).filter(
-                EquipeMembroDB.usuario_id == self.usuario_id,
-                EquipeMembroDB.cenario_id == self.cenario_id,
+                (EquipeMembroDB.usuario_id == self.usuario_id) | (EquipeMembroDB.usuario_id == None),
+                (EquipeMembroDB.cenario_id == self.cenario_id) | (EquipeMembroDB.cenario_id == None),
                 EquipeMembroDB.ativo == 1
             ).count()
 
@@ -367,13 +367,15 @@ class PartyManagementScreen(ModalScreen[Optional[str]]):
 
     @on(Select.Changed, "#select-doador")
     def on_doador_changed(self, event: Select.Changed):
-        self.origem_transfer_id = event.value
+        # Select.BLANK é do tipo NoSelection — não é um ID válido
+        self.origem_transfer_id = event.value if event.value != Select.BLANK else None
         self._carregar_itens_doador()
         self._verificar_botoes_transfer()
 
     @on(Select.Changed, "#select-receptor")
     def on_receptor_changed(self, event: Select.Changed):
-        self.destino_transfer_id = event.value
+        # Select.BLANK é do tipo NoSelection — não é um ID válido
+        self.destino_transfer_id = event.value if event.value != Select.BLANK else None
         self._carregar_itens_receptor()
         self._verificar_botoes_transfer()
 

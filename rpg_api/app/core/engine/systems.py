@@ -1120,7 +1120,10 @@ class BattleSystem(esper.Processor):
         if alvo_tipo == "aliado":
             alvo = self.aliados[min(alvo_index, len(self.aliados) - 1)] if self.aliados else atacante
         else:
-            alvo = inimigos_vivos[min(alvo_index, len(inimigos_vivos) - 1)]
+            if 0 <= alvo_index < len(self.inimigos) and self.inimigos[alvo_index].pv_atual > 0:
+                alvo = self.inimigos[alvo_index]
+            else:
+                alvo = inimigos_vivos[min(alvo_index, len(inimigos_vivos) - 1)]
 
         # 1. Processa efeitos ativos no início do turno do personagem
         efeitos_relatorio = atacante.finalizar_turno() if hasattr(atacante, "finalizar_turno") else []

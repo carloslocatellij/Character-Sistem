@@ -7,8 +7,12 @@ from app.controllers.game_controller import GameController
 from app.models.personagens_db import PersonagemDB, EquipeMembroDB
 from app.views.party_management_screen import PartyManagementScreen
 
+from pathlib import Path
+
+DIR_STYLES = Path(__file__).parent.parent / "app" / "views" / "styles"
+
 class DummyPartyApp(App):
-    CSS_PATH = os.path.abspath("rpg_api/app/views/styles/party_styles.css")
+    CSS_PATH = str(DIR_STYLES / "party_styles.css")
     def __init__(self, screen_to_test):
         super().__init__()
         self.screen_to_test = screen_to_test
@@ -35,7 +39,6 @@ def setup_db():
         pass
     finally:
         db.close()
-    Base.metadata.drop_all(bind=engine)
 
 
 @pytest.mark.anyio

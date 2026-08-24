@@ -83,8 +83,11 @@ async def test_ui_behavior_movimentacao_membros_party_screen():
     """
     screen = PartyManagementScreen()
 
+    from pathlib import Path
+    dir_styles = Path(__file__).parent.parent / "app" / "views" / "styles"
+
     class TestApp(App):
-        CSS_PATH = os.path.abspath("rpg_api/app/views/styles/party_styles.css")
+        CSS_PATH = str(dir_styles / "party_styles.css")
         def on_mount(self):
             self.push_screen(screen)
 
@@ -133,11 +136,13 @@ async def test_ui_behavior_comando_party_em_gameplay():
     Assert: Verifica que o modal PartyManagementScreen foi aberto sobre a tela de jogo sem erros de SQL.
     """
     screen = GamePlayScreen()
+    from pathlib import Path
+    dir_styles = Path(__file__).parent.parent / "app" / "views" / "styles"
 
     class GameplayTestApp(App):
         CSS_PATH = [
-            os.path.abspath("rpg_api/app/views/styles/styles.css"),
-            os.path.abspath("rpg_api/app/views/styles/party_styles.css"),
+            str(dir_styles / "styles.css"),
+            str(dir_styles / "party_styles.css"),
         ]
         def on_mount(self):
             self.push_screen(screen)

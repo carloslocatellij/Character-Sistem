@@ -8,9 +8,13 @@ from app.core.entities.habilidades_magias import Magia
 from app.core.engine.systems import BattleSystem
 from app.views.battle_screen import BattleScreen, BarraStatusCombate, CombatenteSprite, UsarMagiaBatalhaModal, UsarItemBatalhaModal
 
+from pathlib import Path
+
+DIR_STYLES = Path(__file__).parent.parent / "app" / "views" / "styles"
+
 class DummyBattleApp(App):
     """App de teste Textual para rodar BattleScreen com pilot."""
-    CSS_PATH = os.path.abspath("rpg_api/app/views/styles/battle_styles.css")
+    CSS_PATH = str(DIR_STYLES / "battle_styles.css")
     def __init__(self, screen_to_test):
         super().__init__()
         self.screen_to_test = screen_to_test

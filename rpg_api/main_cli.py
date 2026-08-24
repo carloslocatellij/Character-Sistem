@@ -695,7 +695,8 @@ class ArenaScreen(Screen):
                 yield Input(placeholder="IDs Oponentes (Ex: 3, 4)", id="inp-oponentes")
                 yield Input(placeholder="Quantidade de Batalhas", value="1", id="inp-qtd")
                 yield Horizontal(
-                    Button("Simular", variant="warning", id="btn-simular"),
+                    Button("Simular (Log)", variant="warning", id="btn-simular"),
+                    Button("🎮 Batalha Visual (4v4)", variant="success", id="btn-batalha-visual"),
                 )
                 yield Button("🔙 Voltar", variant="error", id="btn-cancel")
             with Vertical(id="arena-log-container"):
@@ -714,17 +715,36 @@ class ArenaScreen(Screen):
         if event.button.id == "btn-cancel":
             self.app.pop_screen()
             return
-            
+
         aliados_str = self.query_one("#inp-aliados").value
         oponentes_str = self.query_one("#inp-oponentes").value
-        qtd = int(self.query_one("#inp-qtd").value)
-        
+
         if not aliados_str or not oponentes_str:
             self.notify("Preencha os IDs dos lutadores!", severity="error")
             return
 
-        aliados = [int(x.strip()) for x in aliados_str.split(",")]
-        oponentes = [int(x.strip()) for x in oponentes_str.split(",")]
+        aliados = [int(x.strip()) for x in aliados_str.split(",")][:4]
+        oponentes = [int(x.strip()) for x in oponentes_str.split(",")][:4]
+
+        if event.button.id == "btn-batalha-visual":
+            db = SessionLocal()
+            try:
+                aliados_objs = [GameController.converter_para_dominio(db.get(PersonagemDB, i)) for i in aliados if db.get(PersonagemDB, i)]
+                oponentes_objs = [GameController.converter_para_dominio(db.get(PersonagemDB, i)) for i in oponentes if db.get(PersonagemDB, i)]
+            finally:
+                db.close()
+
+            if not aliados_objs or not oponentes_objs:
+                self.notify("Personagens não encontrados!", severity="error")
+                return
+
+            from app.core.entities.personagens import Party
+            from app.views.battle_screen import BattleScreen
+            party = Party(membros=aliados_objs)
+            self.app.push_screen(BattleScreen(party, oponentes_objs))
+            return
+
+        qtd = int(self.query_one("#inp-qtd").value)
         
         db = SessionLocal()
         ctrl = GameController(db)
@@ -937,7 +957,7 @@ class MainScreen(Screen):
         if btn_id == "menu-create": self.app.push_screen(CreationScreen())
         elif btn_id == "menu-equipe":
             from app.views.party_management_screen import PartyManagementScreen
-            self.app.push_screen(PartyManagementScreen())
+            self.app.push_screen(PartyManagementScreen(usuario_id=1, cenario_id=1))
         elif btn_id == "menu-mapas": self.app.push_screen(MapManagerScreen())
         elif btn_id == "menu-arena": self.app.push_screen(ArenaScreen())
         elif btn_id == "menu-search": self.app.push_screen(ManagementMenuScreen())

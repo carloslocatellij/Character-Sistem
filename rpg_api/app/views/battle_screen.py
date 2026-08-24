@@ -11,7 +11,7 @@ e redesenha a si mesma de forma reativa. Nunca calcula dano ou lógica de jogo.
 import esper
 import logging
 import asyncio
-from typing import Optional, Any, List, Dict
+from typing import Optional, Any, List, Dict, Tuple
 
 from textual.screen import Screen, ModalScreen
 from textual.widgets import Static, RichLog, Label, ProgressBar, RadioSet, RadioButton, Button, ListView, ListItem
@@ -30,7 +30,7 @@ logging.basicConfig(level=logging.INFO, filename="log.log", filemode="a")
 
 class CombatenteSprite(Static):
     """
-    Widget de sprite do combatente com posição X animável via reactive.
+    Widget de sprite do combatente com posições X e Y animáveis via reactive.
     """
     x_pos: reactive[float] = reactive(0.0)
     y_pos: reactive[float] = reactive(3.0)
@@ -194,7 +194,37 @@ class BattleScreen(Screen):
         self.battle_sys: Optional[Any] = None
 
     # ==========================================
-    # COMPOSIÇÃO DA INTERFACE — Layout Padrão Ouro
+    # POSICIONAMENTO EM ESCALÃO ESTILO FINAL FANTASY
+    # ==========================================
+
+    def _calcular_posicoes_aliados(self, n: int) -> List[Tuple[float, float]]:
+        """
+        Retorna coordenadas (x, y) balanceadas para até 4 aliados no lado esquerdo.
+        Formação clássica em escalão vertical (echelon).
+        """
+        mapa = {
+            1: [(10.0, 6.0)],
+            2: [(8.0, 4.0), (14.0, 8.0)],
+            3: [(8.0, 3.0), (14.0, 6.0), (8.0, 9.0)],
+            4: [(8.0, 2.0), (15.0, 5.0), (8.0, 8.0), (15.0, 11.0)],
+        }
+        return mapa.get(n, [(8.0, 2.0 + i * 3.0) for i in range(n)])
+
+    def _calcular_posicoes_inimigos(self, n: int) -> List[Tuple[float, float]]:
+        """
+        Retorna coordenadas (x, y) balanceadas para até 4 inimigos no lado direito.
+        Formação clássica em escalão vertical espelhada.
+        """
+        mapa = {
+            1: [(50.0, 6.0)],
+            2: [(50.0, 4.0), (44.0, 8.0)],
+            3: [(52.0, 3.0), (46.0, 6.0), (52.0, 9.0)],
+            4: [(54.0, 2.0), (47.0, 5.0), (54.0, 8.0), (47.0, 11.0)],
+        }
+        return mapa.get(n, [(52.0, 2.0 + i * 3.0) for i in range(n)])
+
+    # ==========================================
+    # COMPOSIÇÃO DA INTERFACE
     # ==========================================
 
     def compose(self):
@@ -225,7 +255,7 @@ class BattleScreen(Screen):
 
                 # Arena de Sprites
                 with Container(id="arena"):
-                    yield Label("⚔️ VS ⚔️", id="lbl-vs")
+                    yield Label("⚔ VS ⚔", id="lbl-vs")
 
                     # Sprites dos Aliados
                     for i, aliado in enumerate(self.aliados_dados):
@@ -255,13 +285,13 @@ class BattleScreen(Screen):
 
                         # Coluna de Comandos
                         with Vertical(id="acao-coluna"):
-                            yield Label("⚔️ Comando:", id="action-label")
+                            yield Label("⚔ Comando:", id="action-label")
                             with RadioSet(id="action-radioset"):
-                                yield RadioButton("⚔️  Atacar", value=True, id="act-atacar")
-                                yield RadioButton("✨  Magias / Habilidades", id="act-magia")
-                                yield RadioButton("🧪  Usar Item", id="act-item")
-                                yield RadioButton("🛡️  Defender", id="act-defender")
-                                yield RadioButton("🏃  Fugir do Combate", id="act-fugir")
+                                yield RadioButton("⚔ Atacar", value=True, id="act-atacar")
+                                yield RadioButton("✨ Magias / Habilidades", id="act-magia")
+                                yield RadioButton("🧪 Usar Item", id="act-item")
+                                yield RadioButton("🛡 Defender", id="act-defender")
+                                yield RadioButton("🏃 Fugir do Combate", id="act-fugir")
 
                         # Coluna de Seleção de Alvo Contextual
                         with Vertical(id="alvo-coluna"):
@@ -277,7 +307,7 @@ class BattleScreen(Screen):
                                     )
 
                     yield Button(
-                        "✅  Confirmar Ação",
+                        "✅ Confirmar Ação",
                         variant="success",
                         id="btn-confirmar-acao",
                     )
@@ -315,7 +345,6 @@ class BattleScreen(Screen):
         self.battle_sys = esper.get_processor(BattleSystem)
 
         if self.battle_sys:
-            # Prepara objetos Personagem de domínio para inimigos
             inimigos_obj = []
             for d in self.inimigos_dados:
                 if isinstance(d, dict):
@@ -419,7 +448,6 @@ class BattleScreen(Screen):
             except Exception:
                 pass
 
-        # Atualiza label do turno no painel de ações
         nome_ativo = getattr(self.combatente_ativo_obj, "nome", "Combatente")
         classe_ativo = getattr(getattr(self.combatente_ativo_obj, "classe", None), "nome", "")
         desc_classe = f" ({classe_ativo})" if classe_ativo else ""
@@ -447,7 +475,6 @@ class BattleScreen(Screen):
             self.turno_liberado = True
             return
 
-        # Atualiza todas as barras de aliados
         lista_aliados = dados.get("aliados", [])
         for info in lista_aliados:
             idx = info.get("index", 0)
@@ -463,7 +490,6 @@ class BattleScreen(Screen):
             except Exception:
                 pass
 
-        # Atualiza todas as barras de inimigos
         lista_inimigos = dados.get("inimigos", [])
         for info in lista_inimigos:
             idx = info.get("index", 0)
@@ -480,8 +506,6 @@ class BattleScreen(Screen):
                 pass
 
         self._escrever_log_turno(resultado, fase)
-
-        # Dispara animações
         self.call_next(lambda: self._animar_ataque(fase, resultado))
 
     def _ao_combate_encerrado(self, dados: dict) -> None:
@@ -534,7 +558,7 @@ class BattleScreen(Screen):
                 elif ativo:
                     badges.append(f"[bold yellow]▶ [{nome} ({iniciativa})][/]")
                 elif tipo == "aliado":
-                    badges.append(f"[cyan]🛡️ {nome}[/]")
+                    badges.append(f"[cyan]🛡 {nome}[/]")
                 else:
                     badges.append(f"[red]👹 {nome}[/]")
 
@@ -547,52 +571,36 @@ class BattleScreen(Screen):
     # POSICIONAMENTO E ANIMAÇÕES
     # ==========================================
 
-    def _obter_largura_arena(self) -> float:
-        try:
-            arena = self.query_one("#arena")
-            w = arena.content_size.width or arena.size.width
-            if w > 10:
-                return float(w)
-        except Exception:
-            pass
-        return 80.0
-
-    def _calcular_posicoes_aliados(self, n: int) -> list:
-        center_x = self._obter_largura_arena() / 2.0
-        base_x = max(4.0, center_x - 30.0)
-        offsets = {1: [0.0], 2: [-4.0, 6.0], 3: [-8.0, 0.0, 8.0], 4: [-10.0, -3.0, 4.0, 11.0]}
-        return [base_x + off for off in offsets.get(n, [0.0] * n)]
-
-    def _calcular_posicoes_inimigos(self, n: int) -> list:
-        center_x = self._obter_largura_arena() / 2.0
-        base_x = center_x + 14.0
-        offsets = {1: [0.0], 2: [-3.0, 7.0], 3: [-6.0, 2.0, 10.0], 4: [-7.0, 0.0, 7.0, 14.0]}
-        return [base_x + off for off in offsets.get(n, [0.0] * n)]
-
     def _posicionar_sprites_iniciais(self) -> None:
+        """Posiciona sprites em suas coordenadas de formação antes da animação."""
         try:
             pos_aliados = self._calcular_posicoes_aliados(len(self.aliados_dados))
-            for i, pos_x in enumerate(pos_aliados):
+            for i, (pos_x, pos_y) in enumerate(pos_aliados):
                 sprite = self.query_one(f"#sprite-aliado-{i}", CombatenteSprite)
-                sprite.x_pos = pos_x - 25.0
+                sprite.y_pos = pos_y
+                sprite.x_pos = pos_x - 18.0
 
             pos_inimigos = self._calcular_posicoes_inimigos(len(self.inimigos_dados))
-            for i, pos_x in enumerate(pos_inimigos):
+            for i, (pos_x, pos_y) in enumerate(pos_inimigos):
                 sprite = self.query_one(f"#sprite-inimigo-{i}", CombatenteSprite)
-                sprite.x_pos = pos_x + 25.0
+                sprite.y_pos = pos_y
+                sprite.x_pos = pos_x + 18.0
         except Exception as erro_pos:
             logging.info(f"_posicionar_sprites_iniciais: {erro_pos}")
 
     def _animar_entrada_sprites(self) -> None:
+        """Faz os sprites deslizarem suavemente para a formação de combate."""
         try:
             pos_aliados = self._calcular_posicoes_aliados(len(self.aliados_dados))
-            for i, pos_x in enumerate(pos_aliados):
+            for i, (pos_x, pos_y) in enumerate(pos_aliados):
                 sprite = self.query_one(f"#sprite-aliado-{i}", CombatenteSprite)
+                sprite.y_pos = pos_y
                 sprite.animate("x_pos", value=float(pos_x), duration=0.6)
 
             pos_inimigos = self._calcular_posicoes_inimigos(len(self.inimigos_dados))
-            for i, pos_x in enumerate(pos_inimigos):
+            for i, (pos_x, pos_y) in enumerate(pos_inimigos):
                 sprite = self.query_one(f"#sprite-inimigo-{i}", CombatenteSprite)
+                sprite.y_pos = pos_y
                 sprite.animate("x_pos", value=float(pos_x), duration=0.6)
         except Exception as erro_anim:
             logging.info(f"_animar_entrada_sprites: {erro_anim}")
@@ -604,13 +612,15 @@ class BattleScreen(Screen):
             idx_time = self.indice_aliado_ativo
 
             if fase == "jogador":
-                sprite = self.query_one(f"#sprite-aliado-{idx_time}", CombatenteSprite)
-                pos_orig = self._calcular_posicoes_aliados(len(self.aliados_dados))[min(idx_time, len(self.aliados_dados)-1)]
-                pos_alvo = pos_orig + 20.0
+                idx = min(idx_time, len(self.aliados_dados) - 1)
+                sprite = self.query_one(f"#sprite-aliado-{idx}", CombatenteSprite)
+                pos_orig_x, pos_orig_y = self._calcular_posicoes_aliados(len(self.aliados_dados))[idx]
+                pos_alvo_x = 36.0
             else:
-                sprite = self.query_one(f"#sprite-inimigo-{idx_time}", CombatenteSprite)
-                pos_orig = self._calcular_posicoes_inimigos(len(self.inimigos_dados))[min(idx_time, len(self.inimigos_dados)-1)]
-                pos_alvo = pos_orig - 20.0
+                idx = min(idx_time, len(self.inimigos_dados) - 1)
+                sprite = self.query_one(f"#sprite-inimigo-{idx}", CombatenteSprite)
+                pos_orig_x, pos_orig_y = self._calcular_posicoes_inimigos(len(self.inimigos_dados))[idx]
+                pos_alvo_x = 24.0
 
             if acao == "magia":
                 magia_nome = resultado.get("magia", "").lower()
@@ -618,22 +628,22 @@ class BattleScreen(Screen):
 
                 arena = self.query_one("#arena")
                 proj = EfeitoAtaque(emoji_magico, classes="efeito-ataque")
-                proj.x_pos = pos_orig
-                proj.y_pos = 2.0
+                proj.x_pos = pos_orig_x + (3.0 if fase == "jogador" else -3.0)
+                proj.y_pos = pos_orig_y
                 proj.styles.offset = (int(proj.x_pos), int(proj.y_pos))
                 arena.mount(proj)
                 proj.animate(
                     "x_pos",
-                    value=pos_alvo,
-                    duration=0.65,
-                    on_complete=lambda: self._completar_magia_hit(proj, fase, resultado, sprite, pos_orig)
+                    value=pos_alvo_x,
+                    duration=0.55,
+                    on_complete=lambda: self._completar_magia_hit(proj, fase, resultado, sprite, pos_orig_x)
                 )
             else:
                 sprite.animate(
                     "x_pos",
-                    value=pos_alvo,
+                    value=pos_alvo_x,
                     duration=0.18,
-                    on_complete=lambda: self._flash_impacto(fase, resultado, sprite, pos_orig)
+                    on_complete=lambda: self._flash_impacto(fase, resultado, sprite, pos_orig_x)
                 )
         except Exception as erro_atk:
             logging.info(f"_animar_ataque: {erro_atk}")
@@ -669,9 +679,9 @@ class BattleScreen(Screen):
     def _mostrar_efeito_impacto(self, emoji: str, fase: str) -> None:
         try:
             arena = self.query_one("#arena")
-            pos_x = self._obter_largura_arena() / 2.0 + (10.0 if fase == "jogador" else -10.0)
+            pos_x = 44.0 if fase == "jogador" else 18.0
             efeito = EfeitoAtaque(emoji, classes="efeito-ataque")
-            efeito.styles.offset = (int(pos_x), 2)
+            efeito.styles.offset = (int(pos_x), 6)
             arena.mount(efeito)
             self.set_timer(0.45, lambda: self._remover_efeito(efeito))
         except Exception as erro_efeito:
@@ -714,7 +724,6 @@ class BattleScreen(Screen):
         except Exception:
             alvo_index = 0
 
-        # Identifica o combatente ativo
         aliado_ativo = self.combatente_ativo_obj or self.heroi_personagem
 
         if acao == "fugir":
@@ -743,7 +752,6 @@ class BattleScreen(Screen):
             return
 
         if acao == "item":
-            # Coleta itens do inventário individual do personagem ativo
             itens_individuais = aliado_ativo.obter_itens_inventario() if hasattr(aliado_ativo, "obter_itens_inventario") else []
             from app.core.engine.components import InventoryComponent
             from app.core.engine.item_system import obter_itens_usaveis
@@ -769,7 +777,6 @@ class BattleScreen(Screen):
             self.app.push_screen(UsarItemBatalhaModal(itens_consolidados), ao_escolher_item)
             return
 
-        # Ação de Ataque padrão
         self.turno_liberado = False
         self.battle_sys.executar_acao_jogador("ataque", alvo_index=alvo_index)
 
@@ -804,7 +811,7 @@ class BattleScreen(Screen):
                         self._escrever_log(f"💊 [bold green]Regeneração {nome_ef}: {alvo_ef} recuperou +{val_ef} HP![/]")
 
             if acao == "defender":
-                self._escrever_log(f"🛡️ [bold cyan]{resultado.get('descricao')}[/]")
+                self._escrever_log(f"🛡 [bold cyan]{resultado.get('descricao')}[/]")
                 return
 
             if acao == "fugir":
@@ -865,7 +872,7 @@ class BattleScreen(Screen):
                     eqp.arma = {
                         "nome": heroi.mao_direita.nome,
                         "bonus_atk": getattr(heroi.mao_direita, "dano", 0),
-                        "emoji": getattr(heroi.mao_direita, "emoji", "🗡️")
+                        "emoji": getattr(heroi.mao_direita, "emoji", "🗡")
                     }
                 else:
                     eqp.arma = None
@@ -874,7 +881,7 @@ class BattleScreen(Screen):
                     eqp.armadura = {
                         "nome": heroi.armadura.nome,
                         "bonus_def": getattr(heroi.armadura, "defesa", 0),
-                        "emoji": getattr(heroi.armadura, "emoji", "🛡️")
+                        "emoji": getattr(heroi.armadura, "emoji", "🛡")
                     }
                 else:
                     eqp.armadura = None
