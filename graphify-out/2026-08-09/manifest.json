@@ -1,0 +1,377 @@
+{
+  "__init__.py": {
+    "mtime": 1780192856.8216078,
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
+    "semantic_hash": ""
+  },
+  "app/__init__.py": {
+    "mtime": 1780192856.822088,
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
+    "semantic_hash": ""
+  },
+  "app/controllers/__init__.py": {
+    "mtime": 1780192856.8221712,
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
+    "semantic_hash": ""
+  },
+  "app/controllers/game_controller.py": {
+    "mtime": 1786214295.970576,
+    "ast_hash": "67069285c4ab6f57b5e94a9470e582ea",
+    "semantic_hash": ""
+  },
+  "app/core/__init__.py": {
+    "mtime": 1780192856.8222084,
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
+    "semantic_hash": ""
+  },
+  "app/core/engine/combat_network_adapter.py": {
+    "mtime": 1784938582.1936095,
+    "ast_hash": "37a1ce54dce8bdb538f4c003fa44743e",
+    "semantic_hash": ""
+  },
+  "app/core/engine/components.py": {
+    "mtime": 1786214295.970576,
+    "ast_hash": "f5f38f80471df62847514d55aa8e1415",
+    "semantic_hash": ""
+  },
+  "app/core/engine/engine_loader.py": {
+    "mtime": 1784938582.1936095,
+    "ast_hash": "a5d160ea8dfc2a2d2fe0f84fb8f813f3",
+    "semantic_hash": ""
+  },
+  "app/core/engine/entity_factory.py": {
+    "mtime": 1785975771.2954502,
+    "ast_hash": "60e62a74c295d149ca8a9f5e8f5f7d19",
+    "semantic_hash": ""
+  },
+  "app/core/engine/event_evaluator.py": {
+    "mtime": 1785975771.2954502,
+    "ast_hash": "b88645dfa341d816144077eccbf1888d",
+    "semantic_hash": ""
+  },
+  "app/core/engine/game_state.py": {
+    "mtime": 1784938582.1946094,
+    "ast_hash": "f559761043b01a2c4ca9d295da805357",
+    "semantic_hash": ""
+  },
+  "app/core/engine/item_system.py": {
+    "mtime": 1785975771.2954502,
+    "ast_hash": "1a8ea3175cbd7c689c42a20cdc54495e",
+    "semantic_hash": ""
+  },
+  "app/core/engine/systems.py": {
+    "mtime": 1786328333.4571793,
+    "ast_hash": "2024846167de65b5c7f6ace0057b105f",
+    "semantic_hash": ""
+  },
+  "app/core/entities/emojis.py": {
+    "mtime": 1784938582.1966095,
+    "ast_hash": "259b3c5f96e121d5d401ce8977565c20",
+    "semantic_hash": ""
+  },
+  "app/core/entities/equipamentos.py": {
+    "mtime": 1780878903.9579294,
+    "ast_hash": "8b5dad43a3874822d0faef30579d0f62",
+    "semantic_hash": ""
+  },
+  "app/core/entities/habilidades_magias.py": {
+    "mtime": 1786214295.987576,
+    "ast_hash": "8c46eeec5db1c280c3e521b656c6bccf",
+    "semantic_hash": ""
+  },
+  "app/core/entities/mapas.py": {
+    "mtime": 1780878903.9579294,
+    "ast_hash": "ab77b7edd490300ca45d1919f23a5422",
+    "semantic_hash": ""
+  },
+  "app/core/entities/personagens.py": {
+    "mtime": 1786327399.5656333,
+    "ast_hash": "d9fc1c78559ac54995d42b7581bf2f14",
+    "semantic_hash": ""
+  },
+  "app/db/database.py": {
+    "mtime": 1780878903.9579294,
+    "ast_hash": "c6b214c2a32ac9344cb6c96eeda7c272",
+    "semantic_hash": ""
+  },
+  "app/fastapi/main.py": {
+    "mtime": 1780878903.9579294,
+    "ast_hash": "10018a8da3dbb654fcce2c0779ecd177",
+    "semantic_hash": ""
+  },
+  "app/fastapi/routers/__init__.py": {
+    "mtime": 1780878903.9584427,
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
+    "semantic_hash": ""
+  },
+  "app/fastapi/routers/personagens.py": {
+    "mtime": 1780878903.9584866,
+    "ast_hash": "a55ae45b782b3b2370dec4a5a9d7da57",
+    "semantic_hash": ""
+  },
+  "app/models/__init__.py": {
+    "mtime": 1786214296.0025759,
+    "ast_hash": "4f986b624ab5acffdf5725728bdd2c3c",
+    "semantic_hash": ""
+  },
+  "app/models/equipamentos_db.py": {
+    "mtime": 1780192856.8236077,
+    "ast_hash": "96e3a7b43faf633831ff2bf8281b27b8",
+    "semantic_hash": ""
+  },
+  "app/models/eventos_db.py": {
+    "mtime": 1784938582.2486088,
+    "ast_hash": "f47328a60dde55827ce4eb9dd8523e14",
+    "semantic_hash": ""
+  },
+  "app/models/habilidades_magias_db.py": {
+    "mtime": 1786214296.0025759,
+    "ast_hash": "766ab6d77509c6d876afc5554d60e6ee",
+    "semantic_hash": ""
+  },
+  "app/models/mapas_db.py": {
+    "mtime": 1780878903.9584866,
+    "ast_hash": "3dc7a8983291ecf53126b6527637df66",
+    "semantic_hash": ""
+  },
+  "app/models/personagens_db.py": {
+    "mtime": 1780878903.9584866,
+    "ast_hash": "beb788d3e3da60f551e451f3ce895558",
+    "semantic_hash": ""
+  },
+  "app/models/plataforma_db.py": {
+    "mtime": 1780878903.9584866,
+    "ast_hash": "8d50db70e62cf6b27630d393d270e9c1",
+    "semantic_hash": ""
+  },
+  "app/models/schemas/__init__.py": {
+    "mtime": 1780878903.9584866,
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
+    "semantic_hash": ""
+  },
+  "app/models/schemas/rpg_schemas.py": {
+    "mtime": 1780878903.958929,
+    "ast_hash": "a79bf7247e6e996ce2561e91583d4a6d",
+    "semantic_hash": ""
+  },
+  "app/packages/__init__.py": {
+    "mtime": 1780192856.8236077,
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
+    "semantic_hash": ""
+  },
+  "app/packages/dungeon_gen.py": {
+    "mtime": 1780192856.8243563,
+    "ast_hash": "335fe1acdb5334e9381b46dbdd1c6367",
+    "semantic_hash": ""
+  },
+  "app/packages/poc_animation.py": {
+    "mtime": 1784938582.249609,
+    "ast_hash": "97936795ea89864ccab0148a22b386df",
+    "semantic_hash": ""
+  },
+  "app/packages/resize.py": {
+    "mtime": 1780192856.8243563,
+    "ast_hash": "0f92d9ebb166259a29afce7b2c84db26",
+    "semantic_hash": ""
+  },
+  "app/packages/show_img.py": {
+    "mtime": 1780192856.8243563,
+    "ast_hash": "9af485785c250861d0e6bf5b64e08fc8",
+    "semantic_hash": ""
+  },
+  "app/packages/stylewriter.py": {
+    "mtime": 1784938582.249609,
+    "ast_hash": "79c9851a8fda2cb859b6c82a2860a146",
+    "semantic_hash": ""
+  },
+  "app/views/battle_screen.py": {
+    "mtime": 1786325868.2166781,
+    "ast_hash": "b055752a0cae203cab5ec7f18f6373fc",
+    "semantic_hash": ""
+  },
+  "app/views/components/choice_box.py": {
+    "mtime": 1784938582.250609,
+    "ast_hash": "8e25ced4561d088f67c4f3927ed779b8",
+    "semantic_hash": ""
+  },
+  "app/views/game_play_screen.py": {
+    "mtime": 1786214296.0035758,
+    "ast_hash": "3fec4bbcfc1c3a81a648957af1db6279",
+    "semantic_hash": ""
+  },
+  "app/views/inventario_screen.py": {
+    "mtime": 1786065525.4970553,
+    "ast_hash": "d7d8b3ce08a77a36ed4e5b42343392cf",
+    "semantic_hash": ""
+  },
+  "app/views/map_manager_screen.py": {
+    "mtime": 1784938582.252609,
+    "ast_hash": "d9d4cdcd0ff14fdb525554955512dace",
+    "semantic_hash": ""
+  },
+  "app/views/simulador.py": {
+    "mtime": 1784938582.253609,
+    "ast_hash": "f742d464f134c5e34a55d512f9b9ee1d",
+    "semantic_hash": ""
+  },
+  "app/views/tools/evento_form_screen.py": {
+    "mtime": 1786214296.0125759,
+    "ast_hash": "b431efe1147957f383ca689d585cb6bc",
+    "semantic_hash": ""
+  },
+  "app/views/tools/painting_tools.py": {
+    "mtime": 1784938582.2556088,
+    "ast_hash": "5d046301f856474f5a50ef912ce2e252",
+    "semantic_hash": ""
+  },
+  "main_cli.py": {
+    "mtime": 1786214296.0135758,
+    "ast_hash": "da68a22e6f4dd322380ef08c41826b67",
+    "semantic_hash": ""
+  },
+  "musics/audio_player.py": {
+    "mtime": 1780192857.1076052,
+    "ast_hash": "327901311104e6d338bc96c5990c221b",
+    "semantic_hash": ""
+  },
+  "tests/__init__.py": {
+    "mtime": 1780192857.1076052,
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
+    "semantic_hash": ""
+  },
+  "tests/conftest.py": {
+    "mtime": 1780878903.959988,
+    "ast_hash": "aee00c9c41eca9b28d9b152f68085321",
+    "semantic_hash": ""
+  },
+  "tests/test_aprender_magia_evento.py": {
+    "mtime": 1786327427.4181154,
+    "ast_hash": "3e2629a59d26108d5cd0cfacda3350c4",
+    "semantic_hash": ""
+  },
+  "tests/test_battle_system.py": {
+    "mtime": 1786328316.8053253,
+    "ast_hash": "9a19984a77ae643e10c19e1d3243d924",
+    "semantic_hash": ""
+  },
+  "tests/test_database.py": {
+    "mtime": 1785975771.2984502,
+    "ast_hash": "c657e151cf141d6787616ba42ea0e7d0",
+    "semantic_hash": ""
+  },
+  "tests/test_ecs_manager.py": {
+    "mtime": 1786313125.288965,
+    "ast_hash": "ff857712d000cfa6df4c6e24e3b80754",
+    "semantic_hash": ""
+  },
+  "tests/test_editor_eventos.py": {
+    "mtime": 1784938582.257609,
+    "ast_hash": "9e1f5435a33d721c6c5ac28d59f6647f",
+    "semantic_hash": ""
+  },
+  "tests/test_entity_factory.py": {
+    "mtime": 1786327424.0181448,
+    "ast_hash": "352c7d97ebbec23d4dec7a3ba2fc2b29",
+    "semantic_hash": ""
+  },
+  "tests/test_equipamentos.py": {
+    "mtime": 1780878903.9600608,
+    "ast_hash": "4645f65985ff084e9b6ea010991b74c1",
+    "semantic_hash": ""
+  },
+  "tests/test_esper_integration.py": {
+    "mtime": 1784938582.2586088,
+    "ast_hash": "b091ec2b8671c7f710a0214994c3a5d0",
+    "semantic_hash": ""
+  },
+  "tests/test_event_bus.py": {
+    "mtime": 1784938582.2586088,
+    "ast_hash": "a3f154c6f07eb776cee82ab00fbf7fc7",
+    "semantic_hash": ""
+  },
+  "tests/test_game_controller.py": {
+    "mtime": 1786214296.0135758,
+    "ast_hash": "6a8d7a4c27bffd780fd157e54fcd2713",
+    "semantic_hash": ""
+  },
+  "tests/test_game_state_and_loader.py": {
+    "mtime": 1784938582.2586088,
+    "ast_hash": "01388c85508fb1e43875fceeb2f2ff88",
+    "semantic_hash": ""
+  },
+  "tests/test_habilidades_magias.py": {
+    "mtime": 1780878903.9730608,
+    "ast_hash": "fedb685c76641df2993555e076ba5ef6",
+    "semantic_hash": ""
+  },
+  "tests/test_interaction_system.py": {
+    "mtime": 1784938582.2596087,
+    "ast_hash": "0c9d664604a8698a9f2523db14fd377d",
+    "semantic_hash": ""
+  },
+  "tests/test_item_system.py": {
+    "mtime": 1786327430.6480873,
+    "ast_hash": "705e630a5d825f43f82a20eee9387a81",
+    "semantic_hash": ""
+  },
+  "tests/test_lancar_magia_ambientes.py": {
+    "mtime": 1786214296.0145757,
+    "ast_hash": "dfd906f44b6cf3436388996b208c10c6",
+    "semantic_hash": ""
+  },
+  "tests/test_logica_mapas.py": {
+    "mtime": 1784938582.2596087,
+    "ast_hash": "078be95cfeb67b10c15119f7b0334bec",
+    "semantic_hash": ""
+  },
+  "tests/test_magia_efeito_db.py": {
+    "mtime": 1786214296.0145757,
+    "ast_hash": "eb042738173b88ef8e4a0629f8269c54",
+    "semantic_hash": ""
+  },
+  "tests/test_mainx_cli.py": {
+    "mtime": 1780878903.9870605,
+    "ast_hash": "18c3cfa77de9f77ab3115c4c2fcc2b7a",
+    "semantic_hash": ""
+  },
+  "tests/test_new_engine_multiplayer.py": {
+    "mtime": 1784938582.2596087,
+    "ast_hash": "6dce56439515330a024a70bafaeeaa5b",
+    "semantic_hash": ""
+  },
+  "tests/test_personagens.py": {
+    "mtime": 1784938582.260609,
+    "ast_hash": "e2a69586888e9ffdbb35ffc794db6b01",
+    "semantic_hash": ""
+  },
+  "tests/test_personagens_db.py": {
+    "mtime": 1780878903.9870605,
+    "ast_hash": "912d2a486baf55bb2cb7795f4790222b",
+    "semantic_hash": ""
+  },
+  "tests/test_renderizador.py": {
+    "mtime": 1780878903.9870605,
+    "ast_hash": "6efddb3a4e046a9bd1c0e521208f1d9e",
+    "semantic_hash": ""
+  },
+  "tests/test_simulador.py": {
+    "mtime": 1780878903.9870605,
+    "ast_hash": "3a258824a2f9617d89b8682195ab812b",
+    "semantic_hash": ""
+  },
+  "app/packages/the_begin_1.jpg": {
+    "mtime": 1780192856.8243563,
+    "ast_hash": "26fe7626704010dac4b4e84c4461df69",
+    "semantic_hash": ""
+  },
+  "app/packages/the_begin_2.png": {
+    "mtime": 1780192856.8646073,
+    "ast_hash": "c144266b3c56304d01538d04e07f8971",
+    "semantic_hash": ""
+  },
+  "musics/Animals_House_Of_The_Rising_Sun1.wav": {
+    "mtime": 1780192857.1046052,
+    "ast_hash": "b0cf4c76731b77e1b9077fa6cbd38690",
+    "semantic_hash": ""
+  }
+}

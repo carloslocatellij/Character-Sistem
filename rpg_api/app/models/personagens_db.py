@@ -76,4 +76,25 @@ class PersonagemDB(Base):
     mao_esquerda = relationship("ItemDB", foreign_keys=[mao_esquerda_id])
     armadura_equipada = relationship("ItemDB", foreign_keys=[armadura_id])
 
+    # INVENTÁRIO PRÓPRIO E STATUS DE EQUIPE
+    inventario = Column(JSON, default=list)  # Lista de itens próprios: [{"nome": "Poção", "quantidade": 2}]
+    slot_equipe = Column(Integer, default=0)  # 0: Reserva/Disponível, 1-4: Posição na Equipe Ativa
+
     # Nota: Não salvamos "pv_atual", "modificador_ataque" ou "caminhos_magia" junto do personagem mas sim na tabela save.
+
+
+class EquipeMembroDB(Base):
+    """
+    Tabela associativa que gerencia a formação da equipe/party ativa (até 4 membros)
+    e seus personagens recrutados/alistados.
+    """
+    __tablename__ = "equipe_membros"
+
+    id = Column(Integer, primary_key=True, index=True)
+    usuario_id = Column(Integer, ForeignKey("usuarios.id", ondelete="CASCADE"), nullable=True)
+    cenario_id = Column(Integer, ForeignKey("cenarios.id", ondelete="CASCADE"), nullable=True)
+    personagem_id = Column(Integer, ForeignKey("personagens.id", ondelete="CASCADE"), nullable=False)
+    slot_posicao = Column(Integer, default=1)  # 1, 2, 3 ou 4
+    ativo = Column(Integer, default=1)  # 1 = Ativo no grupo (máx 4), 0 = Reserva/Alistado
+
+    personagem = relationship("PersonagemDB")

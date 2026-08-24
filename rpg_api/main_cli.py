@@ -12,6 +12,7 @@ from textual import on
 from app.db.database import SessionLocal, engine, Base
 from app.models.personagens_db import PersonagemDB, RacaDB, ClasseRPGDB
 from app.models.equipamentos_db import ItemDB
+from app.models.habilidades_magias_db import EfeitoDB, MagiaDB
 from app.controllers.game_controller import GameController, simular_arena
 from musics.audio_player import music
 from app.models.mapas_db import MapaDB
@@ -32,7 +33,7 @@ def action_start_stop_music():
 # Funções de edição e salvamento
 # ==========================================
 
-map_entidades = {"Personagem": PersonagemDB, "Raça": RacaDB, "Classe": ClasseRPGDB, "Item": ItemDB}
+map_entidades = {"Personagem": PersonagemDB, "Raça": RacaDB, "Classe": ClasseRPGDB, "Item": ItemDB, "Magia": MagiaDB}
 
 def salvar_edicao(id_entity: int, dados: dict, modelo: dict):
     modelo = map_entidades.get(modelo)
@@ -53,6 +54,8 @@ def salvar_novo(dados: dict, modelo):
 # ECRÃ 1: CRIAR PERSONAGEM
 # ==========================================
 
+from app.models.habilidades_magias_db import EfeitoDB, MagiaDB
+
 class CreationScreen(Screen):
     def compose(self):
         yield Header()
@@ -61,6 +64,7 @@ class CreationScreen(Screen):
                 yield Label("🛡️ Escolha o que Criar 🛡️", id="main-title")
                 yield Button("🧝 Criar Raça", id="menu-create-raca", variant="success")
                 yield Button("🤺 Criar Classe", id="menu-create-classe", variant="primary")
+                yield Button("✨ Criar Magia / Habilidade", id="menu-create-magia", variant="warning")
                 yield Button("👤 Criar Personagem", id="menu-create-person", variant="success")
                 yield Button("💍 Criar Item", id="menu-create-item", variant="primary")
                 yield Button("🗡️ Equipar Personagem", id="menu-equip", variant="success")
@@ -78,18 +82,210 @@ class CreationScreen(Screen):
             self.app.push_screen(RacaFormScreen())
         elif event.button.id == "menu-create-classe":
             self.app.push_screen(ClasseFormScreen())
+        elif event.button.id == "menu-create-magia":
+            self.app.push_screen(MagiaFormScreen())
         elif event.button.id == "menu-create-person":
             self.app.push_screen(CharacterFormScreen())
         elif event.button.id == "menu-equip":
             self.app.push_screen(EquipScreen())
         elif event.button.id == "menu-create-item":
             self.app.push_screen(ItemFormScreen())
-            
-            
+
+
+class MagiaFormScreen(Screen):
+    def __init__(self, magia_id: int = None):
+        super().__init__()
+        self.magia_id = magia_id
+        self.req_caminhos = {}
+
+    def compose(self) -> ComposeResult:
+        yield Header()
+        with Center(), Middle():
+            with Vertical(id="create-dialog"):
+                yield Label("✨ Forjar Nova Magia / Habilidade", id="title")
+                yield Input(placeholder="Nome da Magia/Habilidade", id="inp-nome")
+                yield Input(placeholder="Descrição (ex: 'Lança chama arcana')", id="inp-desc")
+                yield Input(placeholder="Custo PM (ex: 2)", id="inp-custo-pm", value="2")
+                yield Label("Escopo de Execução:")
+                yield Select([("Combate", "combate"), ("Fora de Combate", "fora_combate"), ("Ambos (Combate e Fora)", "ambos")], value="combate", id="sel-tipo-execucao")
+                
+                yield Label("✨ Requisitos de Caminhos Elementais:")
+                with Horizontal():
+                    yield Select([(c, c) for c in ["fogo", "água", "terra", "ar", "luz", "trevas"]], prompt="Caminho", id="sel-caminho-req")
+                    yield Input(placeholder="Pontos ex: 2", id="inp-pontos-caminho-req")
+                yield Button("Adicionar Requisito", variant="primary", id="btn-add-caminho-req")
+                yield Label(f"Requisitos Atuais: {self.req_caminhos}", id="lbl-caminhos-req")
+                
+                yield Input(placeholder="Requisito Exuberância (mínimo 1)", id="inp-exuberancia", value="1")
+                yield Input(placeholder="Dano Base (ex: 6)", id="inp-dano-base", value="0")
+                yield Input(placeholder="Cura Base (ex: 5)", id="inp-cura-base", value="0")
+                
+                yield Select([("Alvo Único", "unico"), ("Dano em Área (Múltiplos)", "area")], value="unico", id="sel-dano-area")
+                
+                yield Label("Efeito Temporário Associado:")
+                yield Select([
+                    ("Nenhum", "nenhum"),
+                    ("Veneno (Dano Contínuo)", "veneno"),
+                    ("Queimadura (Dano Contínuo)", "queimadura"),
+                    ("Regeneração (Cura Contínua)", "regeneracao"),
+                    ("Sono (Pula Turno)", "sono"),
+                    ("Atordoado (Pula Turno)", "atordoado"),
+                    ("Fúria (Buff Força)", "furia"),
+                    ("Fraqueza (Debuff Força)", "fraqueza")
+                ], value="nenhum", id="sel-efeito")
+                with Horizontal():
+                    yield Input(placeholder="Duração Turnos (ex: 2)", id="inp-efeito-duracao", value="2")
+                    yield Input(placeholder="Valor do Efeito (ex: 3)", id="inp-efeito-valor", value="2")
+
+                yield Horizontal(
+                    Button("Salvar", variant="success", id="btn-save"),
+                    Button("Cancelar", variant="error", id="btn-cancel")
+                )
+        yield Footer()
+
+    def on_mount(self):
+        if self.magia_id:
+            with SessionLocal() as db:
+                magia = db.query(MagiaDB).get(self.magia_id)
+                if magia:
+                    self.query_one("#title").update("✨ Editar Magia / Habilidade")
+                    self.query_one("#inp-nome").value = magia.nome or ""
+                    self.query_one("#inp-desc").value = magia.descricao or ""
+                    self.query_one("#inp-custo-pm").value = str(magia.custo_pm)
+                    self.query_one("#sel-tipo-execucao").value = magia.tipo_execucao or "combate"
+                    self.req_caminhos = dict(magia.requisito_caminhos or {})
+                    self.query_one("#lbl-caminhos-req").update(f"Requisitos Atuais: {self.req_caminhos}")
+                    self.query_one("#inp-exuberancia").value = str(magia.requisito_exuberancia or 1)
+                    self.query_one("#inp-dano-base").value = str(magia.dano_base or 0)
+                    self.query_one("#inp-cura-base").value = str(magia.cura_base or 0)
+                    self.query_one("#sel-dano-area").value = "area" if magia.dano_area else "unico"
+                    if magia.efeito:
+                        self.query_one("#inp-efeito-duracao").value = str(magia.efeito.duracao_turnos or 2)
+                        self.query_one("#inp-efeito-valor").value = str(magia.efeito.valor or 2)
+                        tipo_ef = magia.efeito.tipo
+                        if tipo_ef == "dano_continuo":
+                            self.query_one("#sel-efeito").value = "queimadura" if "queimadura" in (magia.efeito.nome or "").lower() else "veneno"
+                        elif tipo_ef == "cura_continua":
+                            self.query_one("#sel-efeito").value = "regeneracao"
+                        elif tipo_ef == "sono":
+                            self.query_one("#sel-efeito").value = "sono"
+                        elif tipo_ef == "atordoado":
+                            self.query_one("#sel-efeito").value = "atordoado"
+                        elif tipo_ef == "buff_atributo":
+                            self.query_one("#sel-efeito").value = "furia"
+                        elif tipo_ef == "debuff_atributo":
+                            self.query_one("#sel-efeito").value = "fraqueza"
+
+    def on_button_pressed(self, event: Button.Pressed):
+        if event.button.id == "btn-cancel":
+            self.dismiss(False)
+        elif event.button.id == "btn-add-caminho-req":
+            caminho = self.query_one("#sel-caminho-req").value
+            pontos = self.query_one("#inp-pontos-caminho-req").value
+            if caminho and pontos and pontos.isdigit():
+                self.req_caminhos[caminho.lower()] = int(pontos)
+                self.query_one("#lbl-caminhos-req").update(f"Requisitos Atuais: {self.req_caminhos}")
+                self.query_one("#inp-pontos-caminho-req").value = ""
+        elif event.button.id == "btn-save":
+            nome = self.query_one("#inp-nome").value.strip()
+            desc = self.query_one("#inp-desc").value.strip()
+            custo_pm = self.query_one("#inp-custo-pm").value.strip()
+            tipo_exec = self.query_one("#sel-tipo-execucao").value or "combate"
+            exub = self.query_one("#inp-exuberancia").value.strip()
+            dano_base = self.query_one("#inp-dano-base").value.strip()
+            cura_base = self.query_one("#inp-cura-base").value.strip()
+            dano_area = self.query_one("#sel-dano-area").value == "area"
+
+            efeito_tipo_sel = self.query_one("#sel-efeito").value
+            efeito_id = None
+
+            if nome:
+                with SessionLocal() as db:
+                    if self.magia_id:
+                        magia_existente = db.query(MagiaDB).get(self.magia_id)
+                        if magia_existente and magia_existente.efeito_id:
+                            efeito_id = magia_existente.efeito_id
+
+                    if efeito_tipo_sel != "nenhum":
+                        dur = int(self.query_one("#inp-efeito-duracao").value or 2)
+                        val = int(self.query_one("#inp-efeito-valor").value or 2)
+                        
+                        m_tipo = "dano_continuo"
+                        atrq = None
+                        if efeito_tipo_sel in ["veneno", "queimadura"]:
+                            m_tipo = "dano_continuo"
+                        elif efeito_tipo_sel == "regeneracao":
+                            m_tipo = "cura_continua"
+                        elif efeito_tipo_sel == "sono":
+                            m_tipo = "sono"
+                        elif efeito_tipo_sel == "atordoado":
+                            m_tipo = "atordoado"
+                        elif efeito_tipo_sel == "furia":
+                            m_tipo = "buff_atributo"
+                            atrq = "forca"
+                        elif efeito_tipo_sel == "fraqueza":
+                            m_tipo = "debuff_atributo"
+                            atrq = "forca"
+
+                        if efeito_id:
+                            ef_db = db.query(EfeitoDB).get(efeito_id)
+                            if ef_db:
+                                ef_db.duracao_turnos = dur
+                                ef_db.tipo = m_tipo
+                                ef_db.valor = val
+                                ef_db.atributo_alvo = atrq
+                                db.commit()
+                        else:
+                            novo_ef = EfeitoDB(
+                                nome=f"Efeito {nome}",
+                                duracao_turnos=dur,
+                                tipo=m_tipo,
+                                valor=val,
+                                atributo_alvo=atrq
+                            )
+                            db.add(novo_ef)
+                            db.commit()
+                            db.refresh(novo_ef)
+                            efeito_id = novo_ef.id
+
+                    if self.magia_id:
+                        dados = {
+                            "nome": nome,
+                            "descricao": desc,
+                            "custo_pm": int(custo_pm) if custo_pm.isdigit() else 2,
+                            "requisito_caminhos": self.req_caminhos,
+                            "requisito_exuberancia": int(exub) if exub.isdigit() else 1,
+                            "dano_base": int(dano_base) if dano_base.isdigit() else 0,
+                            "cura_base": int(cura_base) if cura_base.isdigit() else 0,
+                            "dano_area": dano_area,
+                            "tipo_execucao": tipo_exec,
+                            "efeito_id": efeito_id
+                        }
+                        salvar_edicao(self.magia_id, dados, "Magia")
+                        self.notify(f"✅ Magia '{nome}' atualizada com sucesso!", title="Sucesso")
+                    else:
+                        msg = GameController.criar_magia(
+                            db=db,
+                            nome=nome,
+                            custo_pm=int(custo_pm) if custo_pm.isdigit() else 2,
+                            requisito_caminhos=self.req_caminhos,
+                            requisito_exuberancia=int(exub) if exub.isdigit() else 1,
+                            dano_base=int(dano_base) if dano_base.isdigit() else 0,
+                            cura_base=int(cura_base) if cura_base.isdigit() else 0,
+                            dano_area=dano_area,
+                            tipo_execucao=tipo_exec,
+                            descricao=desc,
+                            efeito_id=efeito_id
+                        )
+                        self.notify(msg, title="Sucesso" if "sucesso" in msg else "Aviso")
+                self.dismiss(True)
+
+
 class ClasseFormScreen(Screen):
     def __init__(self, classe_id: int = None):
         super().__init__()
         self.caminhos_definidos = {}
+        self.habilidades_selecionadas = []
         self.classe_id = classe_id 
 
     def compose(self) -> ComposeResult:
@@ -98,18 +294,23 @@ class ClasseFormScreen(Screen):
             with Vertical(id="create-dialog"):
                 yield Label("✨ Forjar Nova Classe", id="title")
                 yield Input(placeholder="Nome da Classe", id="inp-nome")
-                yield Label("✨ Bônus de Caminhos (Ex: 'Fogo': 2, 'Água': 1):")
+                yield Label("✨ Bônus de Caminhos (Ex: 'fogo': 2, 'água': 1):")
                 with Horizontal():
                     yield Select([], prompt="Selecione um Caminho", id="sel-caminho")
                     yield Input(placeholder="Pontos no Caminho", id="inp-caminho")
                 yield Vertical(
-                        Button("Adicionar", variant="success", id="btn-add-caminho"),
+                        Button("Adicionar Caminho", variant="success", id="btn-add-caminho"),
                         Label(f"Caminhos definidos: {self.caminhos_definidos}", id="caminhos-definidos"),
                         id="caminhos-add",
                     )
+                yield Label("✨ Selecionar Magia / Habilidade Inicial:")
+                with Horizontal():
+                    yield Select([], prompt="Selecione uma Magia Cadastrada", id="sel-magia-add")
+                    yield Button("Atribuir Magia", variant="primary", id="btn-add-magia-cadastrada")
                 yield Vertical(
-                    Label("Habilidades (Ex: 'Ataque Furtivo, Magia Arcana'):"),
-                    Input(placeholder="Habilidades (Ex: 'Ataque Furtivo, Magia Arcana')", id="inp-habilidades")
+                    Label("Habilidades Adicionais (separadas por vírgula):"),
+                    Input(placeholder="Habilidades extras (ex: 'Ataque Furtivo')", id="inp-habilidades"),
+                    Label(f"Habilidades Atribuidas: {self.habilidades_selecionadas}", id="lbl-habilidades-lista")
                 )
                 yield Horizontal(
                     Button("Salvar", variant="success", id="btn-save"),
@@ -120,19 +321,23 @@ class ClasseFormScreen(Screen):
         
     def on_mount(self):
         with SessionLocal() as db:
+            caminhos = ["fogo", "água", "terra", "ar", "luz", "trevas"]
+            self.query_one("#sel-caminho").set_options([(c, c) for c in caminhos])
+
+            # Carrega magias cadastradas no banco para seleção
+            magias_db = db.query(MagiaDB).all()
+            options_magia = [(m.nome, m.nome) for m in magias_db]
+            if options_magia:
+                self.query_one("#sel-magia-add").set_options(options_magia)
+
             if self.classe_id:
                 classe = db.query(ClasseRPGDB).get(self.classe_id)
                 if classe:
                     self.query_one("#inp-nome").value = classe.nome
-                    self.caminhos_definidos = classe.bonus_caminhos
+                    self.caminhos_definidos = classe.bonus_caminhos or {}
+                    self.habilidades_selecionadas = list(classe.habilidades or [])
                     self.query_one("#caminhos-definidos").update(f"Caminhos definidos: {self.caminhos_definidos}")
-                    self.query_one("#inp-habilidades").value = ", ".join(classe.habilidades)
-                    caminhos = ["Fogo", "Água", "Terra", "Ar", "Luz", "Trevas"]
-                    self.query_one("#sel-caminho").set_options([(c, c) for c in caminhos])
-            else:
-                caminhos = ["Fogo", "Água", "Terra", "Ar", "Luz", "Trevas"]
-                self.query_one("#sel-caminho").set_options([(c, c) for c in caminhos])
-                self.caminhos_definidos = {}
+                    self.query_one("#lbl-habilidades-lista").update(f"Habilidades Atribuidas: {self.habilidades_selecionadas}")
         
     def on_button_pressed(self, event: Button.Pressed):
         if event.button.id == "btn-cancel":
@@ -140,28 +345,38 @@ class ClasseFormScreen(Screen):
         elif event.button.id == "btn-add-caminho":
             caminho = self.query_one("#sel-caminho").value
             pontos = self.query_one("#inp-caminho").value
-            if caminho and pontos:
-                self.caminhos_definidos[caminho] = int(pontos)
+            if caminho and pontos and pontos.isdigit():
+                self.caminhos_definidos[caminho.lower()] = int(pontos)
                 self.query_one("#caminhos-definidos").update(f"Caminhos definidos: {self.caminhos_definidos}")
                 self.query_one("#inp-caminho").value = ""
+        elif event.button.id == "btn-add-magia-cadastrada":
+            magia_nome = self.query_one("#sel-magia-add").value
+            if magia_nome and magia_nome not in self.habilidades_selecionadas:
+                self.habilidades_selecionadas.append(magia_nome)
+                self.query_one("#lbl-habilidades-lista").update(f"Habilidades Atribuidas: {self.habilidades_selecionadas}")
         elif event.button.id == "btn-save":
-            dados = dict(nome=self.query_one("#inp-nome").value,
-                        bonus_caminhos=self.caminhos_definidos,
-                        habilidades=[h.strip() for h in self.query_one("#inp-habilidades").value.split(",") if h.strip()])
+            extras = [h.strip() for h in self.query_one("#inp-habilidades").value.split(",") if h.strip()]
+            habs_finais = list(set(self.habilidades_selecionadas + extras))
+            dados = dict(
+                nome=self.query_one("#inp-nome").value.strip(),
+                bonus_caminhos=self.caminhos_definidos,
+                habilidades=habs_finais
+            )
             if self.classe_id:
                 try:
                     salvar_edicao(self.classe_id, dados, "Classe")
-                    self.notify("Classe reforjada e guardada no banco de dados com sucesso!", title="Sucesso", severity="information")
+                    self.notify("Classe reforjada com sucesso!", title="Sucesso", severity="information")
                 except Exception as e:
-                    self.notify(f"Erro ao criar/atualizar! {e}", severity="error")
+                    self.notify(f"Erro ao atualizar! {e}", severity="error")
                 self.dismiss(True)
             else:
                 try:
-                    self.notify("Classe forjada e salva no banco de dados com sucesso!", title="Sucesso", severity="information")
                     salvar_novo(dados, "Classe")
+                    self.notify("Classe forjada com sucesso!", title="Sucesso", severity="information")
                 except Exception as e:
-                    self.notify(f"Erro ao criar/atualizar! {e}", severity="error")
+                    self.notify(f"Erro ao criar! {e}", severity="error")
                 self.dismiss(False)
+
                 
 
 class RacaFormScreen(Screen):
@@ -480,7 +695,8 @@ class ArenaScreen(Screen):
                 yield Input(placeholder="IDs Oponentes (Ex: 3, 4)", id="inp-oponentes")
                 yield Input(placeholder="Quantidade de Batalhas", value="1", id="inp-qtd")
                 yield Horizontal(
-                    Button("Simular", variant="warning", id="btn-simular"),
+                    Button("Simular (Log)", variant="warning", id="btn-simular"),
+                    Button("🎮 Batalha Visual (4v4)", variant="success", id="btn-batalha-visual"),
                 )
                 yield Button("🔙 Voltar", variant="error", id="btn-cancel")
             with Vertical(id="arena-log-container"):
@@ -499,17 +715,36 @@ class ArenaScreen(Screen):
         if event.button.id == "btn-cancel":
             self.app.pop_screen()
             return
-            
+
         aliados_str = self.query_one("#inp-aliados").value
         oponentes_str = self.query_one("#inp-oponentes").value
-        qtd = int(self.query_one("#inp-qtd").value)
-        
+
         if not aliados_str or not oponentes_str:
             self.notify("Preencha os IDs dos lutadores!", severity="error")
             return
 
-        aliados = [int(x.strip()) for x in aliados_str.split(",")]
-        oponentes = [int(x.strip()) for x in oponentes_str.split(",")]
+        aliados = [int(x.strip()) for x in aliados_str.split(",")][:4]
+        oponentes = [int(x.strip()) for x in oponentes_str.split(",")][:4]
+
+        if event.button.id == "btn-batalha-visual":
+            db = SessionLocal()
+            try:
+                aliados_objs = [GameController.converter_para_dominio(db.get(PersonagemDB, i)) for i in aliados if db.get(PersonagemDB, i)]
+                oponentes_objs = [GameController.converter_para_dominio(db.get(PersonagemDB, i)) for i in oponentes if db.get(PersonagemDB, i)]
+            finally:
+                db.close()
+
+            if not aliados_objs or not oponentes_objs:
+                self.notify("Personagens não encontrados!", severity="error")
+                return
+
+            from app.core.entities.personagens import Party
+            from app.views.battle_screen import BattleScreen
+            party = Party(membros=aliados_objs)
+            self.app.push_screen(BattleScreen(party, oponentes_objs))
+            return
+
+        qtd = int(self.query_one("#inp-qtd").value)
         
         db = SessionLocal()
         ctrl = GameController(db)
@@ -546,6 +781,7 @@ class ManagementMenuScreen(Screen):
         "racas": {"model": RacaDB, "label": "Raças"},
         "classes": {"model": ClasseRPGDB, "label": "Classes"},
         "itens": {"model": ItemDB, "label": "Itens/Equipamentos"},
+        "magias": {"model": MagiaDB, "label": "Magias/Habilidades"},
     }
 
     def compose(self):
@@ -600,7 +836,7 @@ class ManagementMenuScreen(Screen):
                 query = db.query(PersonagemDB)
                 if filter_text: query = query.filter(PersonagemDB.nome.contains(filter_text))
                 for p in query.all():
-                    data_table.add_row(str(p.id), p.nome, str(p.nivel), p.raca.nome, key=str(p.id))
+                    data_table.add_row(str(p.id), p.nome, str(p.nivel), p.raca.nome if p.raca else "Sem Raça", key=str(p.id))
             
             elif model == RacaDB:
                 data_table.add_columns("ID", "Nome", "Bónus")
@@ -632,6 +868,14 @@ class ManagementMenuScreen(Screen):
                 for c in query.all():
                     data_table.add_row(str(c.id), c.nome, str(c.bonus_caminhos), key=str(c.id))
 
+            elif model == MagiaDB:
+                data_table.add_columns("ID", "Nome", "Custo PM", "Dano/Cura", "Tipo Execução")
+                query = db.query(MagiaDB)
+                if filter_text: query = query.filter(MagiaDB.nome.contains(filter_text))
+                for m in query.all():
+                    dano_cura = f"Dano: {m.dano_base}" if m.dano_base else (f"Cura: {m.cura_base}" if m.cura_base else "Nenhum")
+                    data_table.add_row(str(m.id), m.nome, str(m.custo_pm), dano_cura, m.tipo_execucao or "combate", key=str(m.id))
+
     async def on_data_table_row_selected(self, event: DataTable.RowSelected):
         """Redireciona para o formulário correto baseado na tabela atual."""
         table_id = self.query_one("#table-selector").value
@@ -645,13 +889,14 @@ class ManagementMenuScreen(Screen):
         # Lógica de roteamento para o formulário reutilizável correto
         if table_id == "personagens":
             await self.app.push_screen(CharacterFormScreen(char_id=item_id), callback= lambda _: self.refresh_table_data())
-        # Adicione elif para os outros formulários aqui...
         elif table_id == "racas":
             await self.app.push_screen(RacaFormScreen(raca_id=item_id), callback= self.refresh_table_data())
         elif table_id == "classes":
             await self.app.push_screen(ClasseFormScreen(classe_id=item_id), callback=lambda _: self.refresh_table_data())
         elif table_id == "itens":
             await self.app.push_screen(ItemFormScreen(item_id=item_id), callback=lambda _: self.refresh_table_data())
+        elif table_id == "magias":
+            await self.app.push_screen(MagiaFormScreen(magia_id=item_id), callback=lambda _: self.refresh_table_data())
 
     def on_button_pressed(self, event: Button.Pressed):
         if event.button.id == "btn-back":
@@ -699,6 +944,7 @@ class MainScreen(Screen):
             with Vertical(id="main-menu"):
                 yield Label("📖  SIS-CHARLES RPG 📖", id="main-title")
                 yield Button("✨ Criar", id="menu-create", variant="success")
+                yield Button("👥 Gerenciar Equipe / Alistamento", id="menu-equipe", variant="primary")
                 yield Button("🔍 Pesquisar/Editar", id="menu-search")
                 yield Button("🏆  Entrar na Arena", id="menu-arena", variant="warning")
                 yield Button("🗺  Gerenciar Mapas", id="menu-mapas", variant="success")
@@ -706,13 +952,12 @@ class MainScreen(Screen):
                 yield Button("❌ Sair do Sistema", id="menu-quit", variant="error")
         yield Footer()
 
-    
-    
     def on_button_pressed(self, event: Button.Pressed):
-        
-        
         btn_id = event.button.id
         if btn_id == "menu-create": self.app.push_screen(CreationScreen())
+        elif btn_id == "menu-equipe":
+            from app.views.party_management_screen import PartyManagementScreen
+            self.app.push_screen(PartyManagementScreen(usuario_id=1, cenario_id=1))
         elif btn_id == "menu-mapas": self.app.push_screen(MapManagerScreen())
         elif btn_id == "menu-arena": self.app.push_screen(ArenaScreen())
         elif btn_id == "menu-search": self.app.push_screen(ManagementMenuScreen())

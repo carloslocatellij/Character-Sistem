@@ -1,5 +1,5 @@
 /* =====================================================
-   ESTILOS DA TELA DE COMBATE — BattleScreen
+   ESTILOS DA TELA DE COMBATE — BattleScreen (Padrão Ouro)
    Layout: 3 colunas (aliados | arena central | inimigos)
    ===================================================== */
 
@@ -11,12 +11,17 @@ BattleScreen {
 
 /* --- Flash de impacto: ataque do herói (pisca vermelho) --- */
 BattleScreen.flash-red {
-    background: #3a0000;
+    background: #660000;
 }
 
 /* --- Flash de impacto: ataque do inimigo (pisca azul) --- */
 BattleScreen.flash-blue {
-    background: #00003a;
+    background: #001166;
+}
+
+/* --- Flash de impacto: magia (pisca roxo/mágico) --- */
+BattleScreen.flash-magic {
+    background: #440066;
 }
 
 /* --- Animação de vitória --- */
@@ -30,12 +35,35 @@ BattleScreen.derrota {
 }
 
 /* =====================================================
+   PAINEL DA TIMELINE / LINHA DO TEMPO SUPERIOR
+   ===================================================== */
+
+#painel-timeline {
+    width: 100%;
+    height: 3;
+    background: #080c14;
+    border-bottom: solid #3a5a8a;
+    padding: 0 1;
+    content-align: center middle;
+}
+
+#lbl-timeline-turnos {
+    width: 100%;
+    height: 1;
+    content-align: center middle;
+    color: #e0e6ed;
+    text-style: bold;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* =====================================================
    LAYOUT PRINCIPAL — 3 COLUNAS HORIZONTAIS
    ===================================================== */
 
 #battle-layout {
     width: 100%;
-    height: 100%;
+    height: 1fr;
     layout: horizontal;
 }
 
@@ -44,12 +72,13 @@ BattleScreen.derrota {
    ===================================================== */
 
 #painel-aliados {
-    width: 22;
+    width: 28;
     height: 100%;
     background: #091520;
-    border: solid #3a5a8a;
+    border-right: solid #3a5a8a;
     padding: 0 1;
     layout: vertical;
+    overflow-y: auto;
 }
 
 /* =====================================================
@@ -68,12 +97,13 @@ BattleScreen.derrota {
    ===================================================== */
 
 #painel-inimigos {
-    width: 22;
+    width: 28;
     height: 100%;
     background: #200910;
-    border: solid #8a3a3a;
+    border-left: solid #8a3a3a;
     padding: 0 1;
     layout: vertical;
+    overflow-y: auto;
 }
 
 /* =====================================================
@@ -85,47 +115,51 @@ BattleScreen.derrota {
     height: 1;
     text-align: center;
     text-style: bold;
-    color: $accent;
+    color: #f1c40f;
     margin-bottom: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 /* =====================================================
    BARRAS DE STATUS — VERSÃO COMPACTA (COLUNAS LATERAIS)
    ===================================================== */
 
-/* Barra do herói / aliados */
 .barra-aliado {
     height: auto;
     width: 100%;
     background: #0f1a2e;
-    border: solid #3a5a8a;
+    border: solid #2a4060;
     margin-bottom: 1;
     padding: 0 1;
     layout: vertical;
 }
 
-/* Barra de inimigo */
+.barra-aliado.combatente-ativo {
+    background: #1a3055;
+    border: double #f1c40f;
+    text-style: bold;
+}
+
 .barra-inimigo {
     height: auto;
     width: 100%;
     background: #2e0f0f;
-    border: solid #8a3a3a;
+    border: solid #602a2a;
     margin-bottom: 1;
     padding: 0 1;
     layout: vertical;
 }
 
-/* Inimigo derrotado — opacidade reduzida + borda tracejada */
+.barra-inimigo.combatente-ativo {
+    background: #551a1a;
+    border: double #ff6b6b;
+    text-style: bold;
+}
+
 .combatente-derrotado {
     opacity: 0.35;
     border: dashed #555555;
-}
-
-/* Conteúdo interno das barras (layout vertical compacto) */
-.barra-status-interna {
-    width: 100%;
-    height: auto;
-    layout: vertical;
 }
 
 .combatente-nome {
@@ -133,16 +167,11 @@ BattleScreen.derrota {
     height: 1;
     color: $text;
     text-style: bold;
-    overflow: auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-.barras-verticais {
-    width: 100%;
-    height: auto;
-    layout: vertical;
-}
-
-/* Barra de HP (vermelho vibrante) */
+/* Barra de HP */
 .hp-bar {
     width: 100%;
     height: 1;
@@ -160,7 +189,7 @@ BattleScreen.derrota {
     margin-bottom: 0;
 }
 
-/* Barra de MP (azul profundo) */
+/* Barra de MP */
 .mp-bar {
     width: 100%;
     height: 1;
@@ -183,7 +212,7 @@ BattleScreen.derrota {
    ===================================================== */
 
 #arena {
-    height: 21;
+    height: 16;
     width: 100%;
     border: double #6a4f7b;
     background: #1a1030;
@@ -194,18 +223,18 @@ BattleScreen.derrota {
 /* Label "VS" no centro da arena */
 #lbl-vs {
     position: absolute;
-    content-align: center top;
+    content-align: center middle;
     text-style: bold;
-    color: #ff6b6b;
-    width: 5;
-    height: 3;
-    offset: 28 3;
+    color: #f1c40f;
+    width: 9;
+    height: 1;
+    offset: 31 6;
 }
 
 /* Sprites dos combatentes */
 .combatente {
     width: 5;
-    height: 3;
+    height: 1;
     content-align: center middle;
     text-style: bold;
     position: absolute;
@@ -221,7 +250,6 @@ BattleScreen.derrota {
     color: #ff6b6b;
 }
 
-/* Sprite de inimigo derrotado */
 .sprite-derrotado {
     text-opacity: 0.2;
     color: #555555;
@@ -234,7 +262,7 @@ BattleScreen.derrota {
 EfeitoAtaque {
     position: absolute;
     width: 5;
-    height: 3;
+    height: 1;
     content-align: center middle;
     text-style: bold;
     color: #ffdd00;
@@ -251,7 +279,7 @@ EfeitoAtaque {
    ===================================================== */
 
 #battle-log {
-    height: 12;
+    height: 11;
     border: solid #2a4a2a;
     background: #091209;
     padding: 0 1;
@@ -292,12 +320,6 @@ EfeitoAtaque {
     layout: vertical;
 }
 
-/* Painel de alvo oculto (apenas 1 inimigo) */
-/*#alvo-coluna.oculto {
- display: none;
-}
-*/
-
 #action-label, #target-label {
     color: $accent;
     text-style: bold;
@@ -305,7 +327,6 @@ EfeitoAtaque {
     margin-bottom: 1;
 }
 
-/* RadioSet de escolha de ações */
 #action-radioset, #target-radioset {
     height: auto;
     background: transparent;
@@ -313,14 +334,12 @@ EfeitoAtaque {
     padding: 0;
 }
 
-/* RadioButtons compactos */
 #action-radioset RadioButton, #target-radioset RadioButton {
     height: 1;
     margin: 0;
     padding: 0 1;
 }
 
-/* Botão de confirmação */
 #btn-confirmar-acao {
     margin-top: 0;
     width: 100%;
@@ -330,4 +349,43 @@ EfeitoAtaque {
 #btn-confirmar-acao:disabled {
     opacity: 0.5;
     color: $text-disabled;
+}
+
+/* =====================================================
+   MODAIS DE ITEM E MAGIA NA BATALHA
+   ===================================================== */
+
+UsarItemBatalhaModal, UsarMagiaBatalhaModal {
+    align: center middle;
+    background: $background 70%;
+}
+
+#batalha-item-dialog, #batalha-magia-dialog {
+    width: 65;
+    height: 75%;
+    padding: 1 2;
+    background: #10101c;
+    border: double #74b9ff;
+}
+
+#list-itens-batalha, #list-magias-batalha {
+    height: 1fr;
+    border: solid #2a4a2a;
+    background: #091209;
+    margin: 1 0;
+}
+
+#lbl-batalha-item-desc, #lbl-batalha-magia-desc {
+    height: auto;
+    color: #f1c40f;
+    margin-bottom: 1;
+}
+
+#batalha-item-botoes, #batalha-magia-botoes {
+    height: auto;
+    align-horizontal: right;
+}
+
+#batalha-item-botoes Button, #batalha-magia-botoes Button {
+    margin-left: 1;
 }

@@ -283,3 +283,40 @@ class TestCasosDeErroMainx:
         
         # Ambos terão o mesmo item (comportamento atual)
         assert personagem_default.mao_esquerda_id == item_arma.id
+
+
+class TestMagiasManagementMainx:
+    """Testes de gerenciamento e edição de Magias no main_cli."""
+
+    def test_edicao_magia_e_tabela_management(self, test_db):
+        """Testa a edição de magia via salvar_edicao e presença no map_entidades."""
+        from main_cli import map_entidades, salvar_edicao
+        from app.models.habilidades_magias_db import MagiaDB
+        from unittest.mock import MagicMock
+
+        assert "Magia" in map_entidades
+        assert map_entidades["Magia"] == MagiaDB
+
+        # Cria uma magia
+        magia_db = MagiaDB(nome="Lança Arcana", custo_pm=3, dano_base=15, tipo_execucao="combate")
+        test_db.add(magia_db)
+        test_db.commit()
+        magia_id = magia_db.id
+
+        # Atualiza via salvar_edicao
+        dados_atualizados = {
+            "nome": "Super Lança Arcana",
+            "custo_pm": 5,
+            "dano_base": 30,
+            "tipo_execucao": "ambos"
+        }
+        mock_ctx = MagicMock()
+        mock_ctx.__enter__.return_value = test_db
+        with patch("main_cli.SessionLocal", return_value=mock_ctx):
+            salvar_edicao(magia_id, dados_atualizados, "Magia")
+
+        magia_atualizada = test_db.query(MagiaDB).get(magia_id)
+        assert magia_atualizada.nome == "Super Lança Arcana"
+        assert magia_atualizada.custo_pm == 5
+        assert magia_atualizada.dano_base == 30
+        assert magia_atualizada.tipo_execucao == "ambos"

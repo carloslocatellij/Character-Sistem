@@ -56,12 +56,13 @@ class Personagem:
         self.armadura: Optional[Armadura] = None
         self.itens_corpo: List[Item] = [] 
         self.equipamentos: List[Item] = [] 
+        self.inventario: List[Dict[str, Any]] = []
         self.efeitos_ativos: List[Dict] = []
         
         self.max_hp = 0
-        self.pv_atual = 0
+        self.pv_atual = None
         self.max_mp = 0
-        self.pm_atual = 0
+        self.pm_atual = None
         self.mod_atq_corpo = 0
         self.mod_atq_distancia = 0
         
@@ -117,18 +118,20 @@ class Personagem:
         forca = self.atributos_totais["forca"]
         agi = self.atributos_totais["agilidade"]
 
-        self.max_hp =  int(7+ (ceil(self.nivel * ceil((res+2) / 2) + ceil((self.nivel + res) *3)))) #int((((self.nivel + 4) / 4) * (res + 1.5)) ** 2)
-        self.max_mp =  int((ceil((self.nivel + 5) / 4) * ceil((perc + exub + 1) / 2)) * 3) #int((((self.nivel + 5) / 5) * ((perc + exub + 0.5) / 1.5)) ** 2)
-        self.mod_atq_corpo = int(self.nivel * ceil(forca + (agi / 2))) #int((((self.nivel + 5) / 5) * (forca + (agi / 2))) ** 2)
-        self.mod_atq_distancia = int(self.nivel * ceil(agi + (forca / 2))) #int((((self.nivel + 5) / 5) * (agi + (forca / 2))) ** 2)
-        
-        # self.max_hp =  int((((self.nivel + 4) / 4) * (res + 1.5)) ** 2)
-        # self.max_mp =  int((((self.nivel + 5) / 5) * ((perc + exub + 0.5) / 1.5)) ** 2)
-        # self.mod_atq_corpo = int((((self.nivel + 5) / 5) * (forca + (agi / 2))) ** 2)
-        # self.mod_atq_distancia = int((((self.nivel + 5) / 5) * (agi + (forca / 2))) ** 2)
-        
-        
-        self.reset_status()
+        self.max_hp = int(7 + (ceil(self.nivel * ceil((res + 2) / 2) + ceil((self.nivel + res) * 3))))
+        self.max_mp = int((ceil((self.nivel + 5) / 4) * ceil((perc + exub + 1) / 2)) * 3)
+        self.mod_atq_corpo = int(self.nivel * ceil(forca + (agi / 2)))
+        self.mod_atq_distancia = int(self.nivel * ceil(agi + (forca / 2)))
+
+        if not hasattr(self, "pv_atual") or self.pv_atual is None:
+            self.pv_atual = self.max_hp
+        else:
+            self.pv_atual = min(self.pv_atual, self.max_hp)
+
+        if not hasattr(self, "pm_atual") or self.pm_atual is None:
+            self.pm_atual = self.max_mp
+        else:
+            self.pm_atual = min(self.pm_atual, self.max_mp)
 
     def reset_status(self):
         self.pv_atual = self.max_hp
@@ -146,7 +149,10 @@ class Personagem:
     def calcular_defesa_esquiva(self) -> int:
         """1d6 + Agilidade + Defesa do Escudo (se houver)."""
         agi = self.atributos_totais["agilidade"]
-        rolagem = self._rolar_d6(2 + int(agi // 2)) # Mais agilidade dá direito a rolar mais dados
+        # Se atordoado, dormindo ou com lentidao:
+        if any(ef.tipo in ["sono", "atordoado", "lentidao"] for ef in self.efeitos_ativos):
+            agi = max(0, agi - 2) if any(ef.tipo == "lentidao" for ef in self.efeitos_ativos) else 0
+        rolagem = self._rolar_d6(3 + int(agi // 3)) 
         bonus_escudo = self.mao_esquerda.defesa_extra if isinstance(self.mao_esquerda, Escudo) else 0
         return rolagem + (agi * (bonus_escudo+1))
 
@@ -226,8 +232,9 @@ class Personagem:
         # Se for um buff de atributo, aplicamos imediatamente
         if efeito.tipo in ["buff_atributo", "debuff_atributo"] and efeito.atributo_alvo:
             modificador = efeito.valor if efeito.tipo == "buff_atributo" else -efeito.valor
-            self.atributos_totais[efeito.atributo_alvo] += modificador
-            self._calcular_status_derivados() # Recalcula vida/ataque se o atributo mudar
+            if efeito.atributo_alvo in self.atributos_totais:
+                self.atributos_totais[efeito.atributo_alvo] += modificador
+                self._calcular_status_derivados() # Recalcula vida/ataque se o atributo mudar
             
         # Guarda na lista para controle de tempo
         from copy import deepcopy
@@ -240,17 +247,27 @@ class Personagem:
         efeitos_restantes = []
 
         for efeito in self.efeitos_ativos:
-            resultado = efeito.processar_efeito(self)
-            relatorio_efeitos.append(resultado)
+            try:
+                resultado = efeito.processar_efeito(self)
+            except Exception as e:
+                logging.error(f"Erro ao processar efeito {efeito}: {e}")
+                resultado = {"nome": getattr(efeito, "nome", "Efeito"), "tipo": getattr(efeito, "tipo", "desconhecido"), "valor": 0, "turnos_restantes": 0}
             
+            resultado["personagem"] = self.nome
+
             if efeito.duracao_turnos > 0:
                 efeitos_restantes.append(efeito)
             else:
-                # Se o efeito acabou e era um buff, removemos o modificador
+                # Se o efeito acabou e era um buff/debuff, removemos o modificador
                 if efeito.tipo in ["buff_atributo", "debuff_atributo"] and efeito.atributo_alvo:
                     modificador = -efeito.valor if efeito.tipo == "buff_atributo" else efeito.valor
-                    self.atributos_totais[efeito.atributo_alvo] += modificador
-                    self._calcular_status_derivados()
+                    if efeito.atributo_alvo in self.atributos_totais:
+                        self.atributos_totais[efeito.atributo_alvo] += modificador
+                        self._calcular_status_derivados()
+                resultado["finalizado"] = True
+                resultado["mensagem_fim"] = f"O efeito '{efeito.nome}' em {self.nome} expirou!"
+
+            relatorio_efeitos.append(resultado)
 
         self.efeitos_ativos = efeitos_restantes
         return relatorio_efeitos
@@ -288,37 +305,272 @@ class Personagem:
         
     def lancar_magia(self, magia: Magia, alvo: 'Personagem') -> Dict:
         """Executa a magia conforme MANUAL.md (Teste Resistido)."""
+        if magia.tipo_execucao == "fora_combate":
+            return {"atacante": self.nome, "sucesso": False, "motivo": f"A magia '{magia.nome}' só pode ser usada fora de combate"}
+
         if self.pm_atual < magia.custo_pm:
             return {"atacante": self.nome, "sucesso": False, "motivo": "Mana insuficiente"}
             
         if not self.validar_requisitos_magia(magia):
-             return {"atacante": self.nome, "sucesso": False, "motivo": "Exuberância insuficiente"}
+             return {"atacante": self.nome, "sucesso": False, "motivo": "Exuberância ou Caminhos insuficientes"}
 
         self.pm_atual -= magia.custo_pm
         
-        # Teste de Ataque Mágico (Exuberância do Atacante vs Dificuldade Base 4)
-        # Assumindo que a força do caminho dá bônus. Para simplificar, usamos Exuberância + Rolar d6
+        # Teste de Ataque Mágico
         ataque_magico = self._rolar_d6(3) + self.atributos_totais["exuberancia"]
-        
-        # Alvo tenta esquivar com agilidade ou resistir
         defesa_alvo = alvo.calcular_defesa_esquiva()
         
-        acertou = ataque_magico > defesa_alvo
+        # Propriedades de combate (ignorar defesa, etc.)
+        props = magia.propriedades_combate or {}
+        if props.get("ignorar_defesa"):
+            defesa_alvo = 0
+
+        acertou = ataque_magico > defesa_alvo or magia.cura_base > 0 or alvo == self
         evento = {
             "atacante": self.nome, "alvo": alvo.nome, "magia": magia.nome,
-            "sucesso": acertou, "pm_restante": self.pm_atual, "dano_causado": 0
+            "sucesso": acertou, "pm_restante": self.pm_atual, "dano_causado": 0, "cura_realizada": 0
         }
 
         if acertou:
-            # Magias ignoram armadura convencional, dão dano direto ou aplicam efeito
             if magia.dano_base > 0:
-                dano_final = self._rolar_d6(1) + magia.dano_base # Dano = 1d6 + Base
+                dano_final = self._rolar_d6(1) + magia.dano_base
                 evento_dano = alvo.receber_dano_de_efeito(dano_final)
                 evento["dano_causado"] = evento_dano["dano_recebido"]
                 evento["alvo_morreu"] = evento_dano["morreu"]
-                
+
+            if magia.cura_base > 0:
+                pv_antes = alvo.pv_atual
+                alvo.pv_atual = min(alvo.max_hp, alvo.pv_atual + magia.cura_base)
+                evento["cura_realizada"] = alvo.pv_atual - pv_antes
+
             if magia.efeito_aplicado:
                 alvo.aplicar_efeito(magia.efeito_aplicado)
                 evento["efeito_aplicado"] = magia.efeito_aplicado.nome
 
         return evento
+
+    def lancar_magia_fora_combate(self, magia: Magia, alvo: Optional['Personagem'] = None) -> Dict[str, Any]:
+        """Lança uma magia ou habilidade de suporte/cura fora de combate."""
+        if alvo is None:
+            alvo = self
+
+        if magia.tipo_execucao not in ["fora_combate", "ambos"]:
+            return {"conjurador": self.nome, "sucesso": False, "motivo": f"A magia '{magia.nome}' só pode ser lançada em combate."}
+
+        if self.pm_atual < magia.custo_pm:
+            return {"conjurador": self.nome, "sucesso": False, "motivo": "Pontos de Mana insuficientes"}
+
+        if not self.validar_requisitos_magia(magia):
+            return {"conjurador": self.nome, "sucesso": False, "motivo": "Requisitos mágicos não atendidos"}
+
+        self.pm_atual -= magia.custo_pm
+
+        resultado = {
+            "conjurador": self.nome,
+            "alvo": alvo.nome,
+            "magia": magia.nome,
+            "sucesso": True,
+            "pm_restante": self.pm_atual,
+            "cura_realizada": 0,
+            "efeito_aplicado": None
+        }
+
+        if magia.cura_base > 0:
+            pv_antes = alvo.pv_atual
+            alvo.pv_atual = min(alvo.max_hp, alvo.pv_atual + magia.cura_base)
+            resultado["cura_realizada"] = alvo.pv_atual - pv_antes
+
+        if magia.efeito_aplicado:
+            alvo.aplicar_efeito(magia.efeito_aplicado)
+            resultado["efeito_aplicado"] = magia.efeito_aplicado.nome
+
+        return resultado
+
+    # ==========================================
+    # GESTÃO DE INVENTÁRIO INDIVIDUAL
+    # ==========================================
+
+    def adicionar_item_inventario(self, nome: str, quantidade: int = 1, categoria: str = "consumivel") -> bool:
+        """Adiciona uma quantidade de item ao inventário individual do personagem."""
+        if quantidade <= 0:
+            return False
+        for item in self.inventario:
+            if item.get("nome", "").lower() == nome.lower():
+                item["quantidade"] = item.get("quantidade", 1) + quantidade
+                return True
+        self.inventario.append({"nome": nome, "quantidade": quantidade, "categoria": categoria})
+        return True
+
+    def remover_item_inventario(self, nome: str, quantidade: int = 1) -> bool:
+        """Remove uma quantidade de item do inventário individual do personagem."""
+        if quantidade <= 0:
+            return False
+        for idx, item in enumerate(self.inventario):
+            if item.get("nome", "").lower() == nome.lower():
+                qtd_atual = item.get("quantidade", 1)
+                if qtd_atual >= quantidade:
+                    item["quantidade"] = qtd_atual - quantidade
+                    if item["quantidade"] <= 0:
+                        self.inventario.pop(idx)
+                    return True
+                return False
+        return False
+
+    def obter_itens_inventario(self) -> List[Dict[str, Any]]:
+        """Retorna os itens presentes no inventário próprio com quantidade > 0."""
+        return [dict(i) for i in self.inventario if i.get("quantidade", 0) > 0]
+
+    def obter_quantidade_item(self, nome: str) -> int:
+        """Verifica a quantidade de um item específico no inventário próprio."""
+        for item in self.inventario:
+            if item.get("nome", "").lower() == nome.lower():
+                return item.get("quantidade", 0)
+        return 0
+
+    def esta_vivo(self) -> bool:
+        """Retorna True se o personagem tem pontos de vida maiores que zero."""
+        return self.pv_atual is not None and self.pv_atual > 0
+
+
+# ==========================================
+# DOMÍNIO: SISTEMA DE EQUIPE (PARTY / ALISTAMENTO)
+# ==========================================
+
+class Party:
+    """
+    Entidade de Domínio: Representa o grupo/equipe de até 4 personagens aliados.
+    Gerencia membros ativos, reservas alistados, inventários e ordem de formação.
+    """
+    MAX_MEMBROS_ATIVOS: int = 4
+
+    def __init__(self, membros: Optional[List[Personagem]] = None, nome: str = "Grupo de Heróis"):
+        self.nome = nome
+        self.membros: List[Personagem] = []
+        self.reservas: List[Personagem] = []
+        if membros:
+            for m in membros:
+                self.adicionar_membro(m)
+
+    def adicionar_membro(self, personagem: Personagem) -> bool:
+        """
+        Alista um novo personagem na equipe.
+        Se o grupo ativo tiver menos de 4 membros, entra como ativo.
+        Caso contrário, entra como reserva alistado.
+        """
+        if not isinstance(personagem, Personagem):
+            raise TypeError("O membro da equipe deve ser uma instância de Personagem.")
+
+        # Evita duplicatas pelo nome
+        if any(m.nome.lower() == personagem.nome.lower() for m in self.membros + self.reservas):
+            return False
+
+        if len(self.membros) < self.MAX_MEMBROS_ATIVOS:
+            self.membros.append(personagem)
+            return True
+        else:
+            self.reservas.append(personagem)
+            return False
+
+    def remover_membro(self, identificador: Any) -> Optional[Personagem]:
+        """
+        Remove um personagem da equipe ativa ou reserva.
+        Se houver reservas disponíveis, promove o primeiro para a equipe ativa.
+        """
+        # Procura nos ativos
+        for idx, m in enumerate(self.membros):
+            if m == identificador or m.nome.lower() == str(identificador).lower():
+                removido = self.membros.pop(idx)
+                if self.reservas:
+                    self.membros.append(self.reservas.pop(0))
+                return removido
+
+        # Procura nas reservas
+        for idx, r in enumerate(self.reservas):
+            if r == identificador or r.nome.lower() == str(identificador).lower():
+                return self.reservas.pop(idx)
+
+        return None
+
+    def mover_para_ativo(self, nome_ou_personagem: Any, posicao_alvo: Optional[int] = None) -> bool:
+        """Move um membro das reservas para a equipe ativa (máx 4)."""
+        idx_reserva = -1
+        personagem_alvo = None
+        for idx, r in enumerate(self.reservas):
+            if r == nome_ou_personagem or r.nome.lower() == str(nome_ou_personagem).lower():
+                idx_reserva = idx
+                personagem_alvo = r
+                break
+
+        if personagem_alvo is None:
+            return False
+
+        if len(self.membros) < self.MAX_MEMBROS_ATIVOS:
+            self.reservas.pop(idx_reserva)
+            if posicao_alvo is not None and 0 <= posicao_alvo <= len(self.membros):
+                self.membros.insert(posicao_alvo, personagem_alvo)
+            else:
+                self.membros.append(personagem_alvo)
+            return True
+        elif posicao_alvo is not None and 0 <= posicao_alvo < len(self.membros):
+            # Troca com o membro que está na posição ativa
+            self.reservas.pop(idx_reserva)
+            substituido = self.membros[posicao_alvo]
+            self.membros[posicao_alvo] = personagem_alvo
+            self.reservas.append(substituido)
+            return True
+
+        return False
+
+    def mover_para_reserva(self, nome_ou_personagem: Any) -> bool:
+        """Move um membro da equipe ativa para as reservas."""
+        if len(self.membros) <= 1:
+            # Não permite esvaziar completamente a equipe ativa se for o único
+            return False
+
+        for idx, m in enumerate(self.membros):
+            if m == nome_ou_personagem or m.nome.lower() == str(nome_ou_personagem).lower():
+                removido = self.membros.pop(idx)
+                self.reservas.append(removido)
+                return True
+        return False
+
+    def trocar_posicoes_ativas(self, idx1: int, idx2: int) -> bool:
+        """Troca a ordem de dois membros dentro da equipe ativa."""
+        if 0 <= idx1 < len(self.membros) and 0 <= idx2 < len(self.membros):
+            self.membros[idx1], self.membros[idx2] = self.membros[idx2], self.membros[idx1]
+            return True
+        return False
+
+    def obter_membros_vivos(self) -> List[Personagem]:
+        """Retorna lista dos membros ativos que possuem PV > 0."""
+        return [m for m in self.membros if m.pv_atual and m.pv_atual > 0]
+
+    def esta_viva(self) -> bool:
+        """Retorna True se pelo menos um membro ativo estiver vivo."""
+        return len(self.obter_membros_vivos()) > 0
+
+    def obter_membro(self, idx: int) -> Optional[Personagem]:
+        """Acesso seguro a membro ativo por índice (0 a 3)."""
+        if 0 <= idx < len(self.membros):
+            return self.membros[idx]
+        return None
+
+    def transferir_item(self, de_membro: Personagem, para_membro: Personagem, nome_item: str, quantidade: int = 1) -> bool:
+        """Transfere item entre os inventários individuais de dois membros."""
+        if de_membro.remover_item_inventario(nome_item, quantidade):
+            para_membro.adicionar_item_inventario(nome_item, quantidade)
+            return True
+        return False
+
+    def __len__(self) -> int:
+        return len(self.membros)
+
+    def __iter__(self):
+        return iter(self.membros)
+
+    def __getitem__(self, idx: int) -> Personagem:
+        return self.membros[idx]
+
+
+# Alias em português para compatibilidade
+Equipe = Party

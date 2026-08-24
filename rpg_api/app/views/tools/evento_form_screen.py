@@ -14,6 +14,8 @@ from rich.text import Text
 from app.db.database import SessionLocal
 from app.models.mapas_db import MapaDB
 from app.models.equipamentos_db import ItemDB
+from app.models.habilidades_magias_db import MagiaDB
+
 from app.core.entities.emojis import CatalogoTiles, dict_item_emoji, dict_emoji_efeito, dict_emoji_racas
 from app.views.tools.painting_tools import  MapaInterativo
 import logging
@@ -711,7 +713,9 @@ class AdicionarComandoScreen(ModalScreen[dict]):
                 ('Switch (Liga/Desliga)', 'controle_switch'),
                 ('Self Switch (Local)', 'controle_self_switch'),
                 ('⚔️ Iniciar Combate (Batalha)', 'iniciar_combate'),
+                ('✨ Ensinar Magia / Habilidade', 'aprender_magia'),
             ], id='cmd-tipo')
+
             yield Container(id='cmd-form-container')
             with Horizontal(id='evt-botoes'):
                 yield Button('Cancelar', id='btn-cancel', variant='error')
@@ -830,11 +834,17 @@ class AdicionarComandoScreen(ModalScreen[dict]):
             container.mount(Select(
                 [(' = ', '='), (' + ', '+'), (' - ', '-'), (' * ', '*'), (' / ', '//')],
                 value=dados.get('operador', '='), id='cmd-variavel-operador'))
-            container.mount(Input(
-                placeholder='Valor atribuido',
-                id='cmd-variavel-valor', value=dados.get('valor', '')))
+        elif tipo == 'aprender_magia':
+            container.mount(Label('✨ Selecione a Magia / Habilidade para Ensinar:', classes='campo-rotulo'))
+            with SessionLocal() as db:
+                magias = db.query(MagiaDB).all()
+                opcoes = [(f"✨ {m.nome} (PM: {m.custo_pm})", m.nome) for m in magias]
+                if not opcoes:
+                    opcoes = [("Nenhuma magia cadastrada no banco", "")]
+            container.mount(Select(opcoes, id='cmd-magia-nome', value=dados.get('magia_nome', '')))
 
         elif tipo == 'iniciar_combate':
+
             # --- Campos de Configuração do Inimigo ---
             container.mount(Label('👹  Inimigo:', classes='campo-rotulo'))
             container.mount(Input(
@@ -976,8 +986,11 @@ class AdicionarComandoScreen(ModalScreen[dict]):
                     comando['dados']['nome'] = self.query_one('#cmd-variavel-nome').value
                     comando['dados']['operador'] = self.query_one('#cmd-variavel-operador').value
                     comando['dados']['valor'] = self.query_one('#cmd-variavel-valor').value
+                elif tipo == 'aprender_magia':
+                    comando['dados']['magia_nome'] = self.query_one('#cmd-magia-nome').value
 
                 elif tipo == 'iniciar_combate':
+
                     # Captura todos os campos de configuração do inimigo
                     def _safe_int(widget_id: str, default: int) -> int:
                         try:

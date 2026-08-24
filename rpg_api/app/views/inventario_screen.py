@@ -48,14 +48,14 @@ class InventarioMenuScreen(ModalScreen[str]):
                         with Vertical(id="painel-equipados-atuais"):
                             yield Label("🛡️ Equipados Atualmente:", classes="subtitulo")
                             with Horizontal(classes="linha-slot-eqp"):
-                                yield Static("🗡️ Arma: (Nenhuma)", id="lbl-slot-arma")
-                                yield Button("Desequipar", id="btn-deseqp-arma", variant="warning", classes="btn-compacto")
+                                yield Static("🪓 Arma: (Nenhuma)", id="lbl-slot-arma")
+                                yield Button("Desequipar", id="btn-deseqp-arma", variant="warning", classes="btn-compacto-b")
                             with Horizontal(classes="linha-slot-eqp"):
                                 yield Static("🦺 Armadura: (Nenhuma)", id="lbl-slot-armadura")
-                                yield Button("Desequipar", id="btn-deseqp-armadura", variant="warning", classes="btn-compacto")
+                                yield Button("Desequipar", id="btn-deseqp-armadura", variant="warning", classes="btn-compacto-b")
                             with Horizontal(classes="linha-slot-eqp"):
-                                yield Static("🛡️ Escudo: (Nenhum)", id="lbl-slot-escudo")
-                                yield Button("Desequipar", id="btn-deseqp-escudo", variant="warning", classes="btn-compacto")
+                                yield Static("🎯 Escudo: (Nenhum)", id="lbl-slot-escudo")
+                                yield Button("Desequipar", id="btn-deseqp-escudo", variant="warning", classes="btn-compacto-b")
 
                         with Horizontal(classes="inv-eqp-lista-layout"):
                             with Vertical(classes="inv-lista-container"):
@@ -64,7 +64,7 @@ class InventarioMenuScreen(ModalScreen[str]):
                             with Vertical(classes="inv-detalhes-container"):
                                 yield Label("Ação:", classes="subtitulo")
                                 yield Static("Selecione um equipamento do inventário.", id="lbl-eqp-detalhe")
-                                yield Button("⚔️ Equipar Item", id="btn-equipar-item", variant="primary", disabled=True)
+                                yield Button("Equipar Item", id="btn-equipar-item", variant="primary", disabled=True)
 
             with Horizontal(id="inv-rodape-botoes"):
                 yield Button("Voltar / Fechar (ESC)", id="btn-fechar-inv", variant="error")
@@ -133,10 +133,11 @@ class InventarioMenuScreen(ModalScreen[str]):
         lbl_arma = self.query_one("#lbl-slot-arma", Static)
         btn_arma = self.query_one("#btn-deseqp-arma", Button)
         if eqp and eqp.arma:
-            lbl_arma.update(f"🗡️ Arma: {eqp.arma.get('nome')} (+{eqp.arma.get('bonus_atk', 0)} ATK)")
+            lbl_arma.update(
+                f"🪓 Arma: {eqp.arma.get('nome')} (+{eqp.arma.get('bonus_atk', 0)} ATK)")
             btn_arma.disabled = False
         else:
-            lbl_arma.update("🗡️ Arma: (Nenhuma)")
+            lbl_arma.update("🪓 Arma: (Nenhuma)")
             btn_arma.disabled = True
 
         lbl_armadura = self.query_one("#lbl-slot-armadura", Static)
@@ -151,10 +152,11 @@ class InventarioMenuScreen(ModalScreen[str]):
         lbl_escudo = self.query_one("#lbl-slot-escudo", Static)
         btn_escudo = self.query_one("#btn-deseqp-escudo", Button)
         if eqp and hasattr(eqp, "escudo") and eqp.escudo:
-            lbl_escudo.update(f"🛡️ Escudo: {eqp.escudo.get('nome')} (+{eqp.escudo.get('bonus_def', 0)} DEF)")
+            lbl_escudo.update(
+                f"🎯 Escudo: {eqp.escudo.get('nome')} (+{eqp.escudo.get('bonus_def', 0)} DEF)")
             btn_escudo.disabled = False
         else:
-            lbl_escudo.update("🛡️ Escudo: (Nenhum)")
+            lbl_escudo.update("🎯 Escudo: (Nenhum)")
             btn_escudo.disabled = True
 
         # 3. Atualiza lista de equipamentos do inventário

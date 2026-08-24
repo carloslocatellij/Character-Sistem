@@ -15,13 +15,13 @@ if not getattr(esper, "_safe_patched", False):
 import random
 import asyncio
 from copy import deepcopy
-from typing import Optional
+from typing import Optional, List, Dict, Any, Tuple
 from rich.text import Text
 from app.core.engine.components import (
     PositionComponent, InteractableComponent, RenderComponent,
     StatsComponent, MovimentComponent, InventoryComponent,
     CollisionComponent, NetworkPlayerComponent,
-    CombatStateComponent, BattleParticipantComponent
+    CombatStateComponent, BattleParticipantComponent, HeroComponent
 )
 from app.core.entities.emojis import CatalogoTiles
 from app.views.simulador import SimuladorCombate
@@ -425,6 +425,7 @@ class EventSystem(esper.Processor):
 
     def _processar_comandos_sequenciais(self, comandos: list, entidade_id: int):
         try:
+            self.entidade_atual_id = entidade_id
             self.pilha_de_comandos = [list(comandos)]
             self.aguardando_escolha = False
             self.aguardando_combate = False
@@ -478,10 +479,13 @@ class EventSystem(esper.Processor):
     def _processar_comando_individual(self, comando):
         """Interpretador genérico e atômico de comandos estruturados do JSON."""
         world = self.world if (hasattr(self, "world") and self.world is not None) else esper
+        entidade_id = getattr(self, "entidade_atual_id", None)
         tipo = comando.get("tipo")
         dados = comando.get("dados", {})
-        entidade_id = self.entidade_atual_id
-        emoji = self.parms.get('paginas')[0].get('configuracao_visual', {}).get('emoji', '💬') if self.parms.get('paginas') else '💬'
+        parms = getattr(self, "parms", {}) or {}
+        paginas = parms.get("paginas", [])
+        emoji = paginas[0].get("configuracao_visual", {}).get("emoji", "💬") if paginas and isinstance(paginas, list) and isinstance(paginas[0], dict) else "💬"
+
 
         logging.info(f"comando: {comando}")
 
@@ -578,6 +582,53 @@ class EventSystem(esper.Processor):
             except Exception as e:
                 self.log_callback(f"[red] ERRO_: {e}[/]")
             return
+
+        elif tipo in ["aprender_magia", "ensinar_magia"]:
+            nome_magia = dados.get("magia_nome") or dados.get("magia") or dados.get("nome")
+            custo_pm = dados.get("custo_pm", 2)
+            req_caminhos = dados.get("requisito_caminhos", {})
+            req_exub = dados.get("requisito_exuberancia", 1)
+
+            from app.db.database import SessionLocal
+            from app.models.habilidades_magias_db import MagiaDB
+            from app.controllers.game_controller import GameController
+            from app.core.entities.habilidades_magias import Magia
+
+            magia_obj = None
+            if nome_magia:
+                try:
+                    with SessionLocal() as db:
+                        m_db = db.query(MagiaDB).filter(MagiaDB.nome.ilike(nome_magia)).first()
+                        if m_db:
+                            magia_obj = GameController.converter_magia_db_para_dominio(m_db)
+                except Exception as e:
+                    logging.info(f"Erro ao buscar magia {nome_magia}: {e}")
+
+            if not magia_obj and nome_magia:
+                magia_obj = Magia(
+                    nome=nome_magia,
+                    custo_pm=custo_pm,
+                    requisito_caminhos=req_caminhos,
+                    requisito_exuberancia=req_exub
+                )
+
+            hero = None
+            if world.entity_exists(1):
+                if world.has_component(1, HeroComponent):
+                    hero = world.component_for_entity(1, HeroComponent).personagem
+                elif world.has_component(1, StatsComponent):
+                    stats = world.component_for_entity(1, StatsComponent)
+                    hero = getattr(stats, "personagem", None)
+
+            if hero and magia_obj:
+                try:
+                    hero.aprender_magia(magia_obj)
+                    self.log_callback(f"[bold green]✨ {hero.nome} aprendeu a magia '{magia_obj.nome}'![/]")
+                except ValueError as err:
+                    self.log_callback(f"[bold red]❌ Requisitos insuficientes para aprender '{magia_obj.nome}': {err}[/]")
+            elif magia_obj:
+                self.log_callback(f"[bold green]✨ Magia '{magia_obj.nome}' aprendida com sucesso![/]")
+
 
         elif tipo == "teleporte":
             try:
@@ -764,8 +815,10 @@ esper.clear_dead_entities()
 
 class BattleSystem(esper.Processor):
     """
-    Motor lógico puro de combate por turnos.
-    Opera exclusivamente sobre objetos Personagem em RAM (sem dependência de UI).
+    Motor lógico puro de combate por turnos multi-personagens (estilo Final Fantasy).
+    Opera exclusivamente sobre objetos Personagem do Domínio (RAM, sem dependência de UI).
+    Suporta equipes de 1 a 4 aliados contra grupos de 1 a 4 inimigos.
+    Cada combatente possui seu próprio turno baseado em iniciativa individual (Regra 5).
     Emite eventos via esper.dispatch_event para a BattleScreen consumir.
     Regra 5: Utiliza deepcopy obrigatório em todos os combatentes antes de iniciar.
     """
@@ -773,191 +826,482 @@ class BattleSystem(esper.Processor):
     def __init__(self):
         super().__init__()
         self.combate_ativo: bool = False
-        self.heroi: Optional[object] = None        # Objeto Personagem (domínio)
-        self.inimigos: list = []                   # Lista de 1-4 inimigos (domínio)
+        self.aliados: List[Any] = []              # Lista de 1 a 4 aliados (domínio)
+        self.inimigos: List[Any] = []             # Lista de 1 a 4 inimigos (domínio)
+        self.rodada: int = 1
         self.turno: int = 0
+        self.fila_turnos: List[Dict[str, Any]] = []  # Ordem de iniciativa da rodada
+        self.indice_turno_atual: int = 0
         self.heroi_vai_primeiro: bool = True
 
     @property
-    def inimigo(self) -> Optional[object]:
+    def heroi(self) -> Optional[Any]:
+        """Alias de retrocompatibilidade: retorna o primeiro aliado (líder da equipe)."""
+        return self.aliados[0] if self.aliados else None
+
+    @heroi.setter
+    def heroi(self, valor: Any) -> None:
+        if valor is not None:
+            if not self.aliados:
+                self.aliados = [valor]
+            else:
+                self.aliados[0] = valor
+
+    @property
+    def inimigo(self) -> Optional[Any]:
         """Alias de retrocompatibilidade: retorna o primeiro inimigo da lista."""
         return self.inimigos[0] if self.inimigos else None
 
-    def iniciar_combate(self, heroi: object, inimigos) -> None:
-        """
-        Configura os combatentes com deepcopy e dispara o evento de início.
-        O deepcopy garante que cada batalha inicie com o estado original dos personagens (Regra 5).
+    @property
+    def combatente_ativo(self) -> Optional[Any]:
+        """Retorna o combatente cujo turno está ativo no momento."""
+        if self.fila_turnos and 0 <= self.indice_turno_atual < len(self.fila_turnos):
+            return self.fila_turnos[self.indice_turno_atual]["combatente"]
+        return self.heroi
 
-        Args:
-            heroi: Objeto Personagem do domínio (jogador).
-            inimigos: Lista de objetos Personagem (1 a 4 inimigos). Aceita também
-                      um único objeto para retrocompatibilidade.
+    def iniciar_combate(self, heroi_ou_aliados: Any, inimigos: Any) -> None:
         """
-        self.heroi = deepcopy(heroi)
-        # Suporta um único inimigo (retrocompatibilidade) ou lista de 1-4
-        if not isinstance(inimigos, list):
-            inimigos = [inimigos]
-        self.inimigos = [deepcopy(i) for i in inimigos]
+        Configura os combatentes com deepcopy e inicia a primeira rodada.
+        Suporta:
+        - heroi_ou_aliados: Objeto Personagem único, Lista de Personagem (1 a 4), ou instância de Party.
+        - inimigos: Objeto Personagem único ou Lista de Personagem (1 a 4).
+        """
+        # 1. Normaliza lista de aliados
+        if hasattr(heroi_ou_aliados, "membros"):
+            # Objeto Party / Equipe
+            aliados_lista = [m for m in heroi_ou_aliados.membros if getattr(m, "pv_atual", 1) > 0]
+            if not aliados_lista and heroi_ou_aliados.membros:
+                aliados_lista = list(heroi_ou_aliados.membros)
+        elif isinstance(heroi_ou_aliados, list):
+            aliados_lista = list(heroi_ou_aliados)
+        else:
+            aliados_lista = [heroi_ou_aliados]
+
+        # 2. Normaliza lista de inimigos
+        if isinstance(inimigos, list):
+            inimigos_lista = list(inimigos)
+        else:
+            inimigos_lista = [inimigos]
+
+        # Deepcopy obrigatório (Regra 5)
+        self.aliados = [deepcopy(a) for a in aliados_lista[:4]]
+        self.inimigos = [deepcopy(i) for i in inimigos_lista[:4]]
         self.combate_ativo = True
+        self.rodada = 1
         self.turno = 0
 
-        # Rola iniciativa: 1d6 + Agilidade (Regra 5)
-        # Para grupo de inimigos: usa a maior agilidade do grupo como referência
-        iniciativa_jogador = random.randint(1, 6) + heroi.atributos_totais.get("agilidade", 0)
-        max_agi_inimigos = max(
-            (i.atributos_totais.get("agilidade", 0) for i in self.inimigos), default=0
-        )
-        iniciativa_inimigos = random.randint(1, 6) + max_agi_inimigos
-        self.heroi_vai_primeiro = iniciativa_jogador >= iniciativa_inimigos
+        # Monta a fila de iniciativa da Rodada 1
+        self._montar_fila_turnos()
 
-        nomes_inimigos = ", ".join(i.nome for i in self.inimigos)
-        logging.info(
-            f"Combate iniciado: {heroi.nome} vs [{nomes_inimigos}] | "
-            f"Iniciativa jogador={iniciativa_jogador}, inimigos={iniciativa_inimigos}"
-        )
+        primeiro_tipo = self.fila_turnos[0]["tipo"] if self.fila_turnos else "aliado"
+        self.heroi_vai_primeiro = (primeiro_tipo == "aliado")
+
+        nomes_aliados = ", ".join(getattr(a, 'nome', '?') for a in self.aliados)
+        nomes_inimigos = ", ".join(getattr(i, 'nome', '?') for i in self.inimigos)
+        logging.info(f"Combate iniciado: [{nomes_aliados}] vs [{nomes_inimigos}] (Rodada 1)")
+
+        iniciativa_jogador = self.fila_turnos[0]["iniciativa"] if self.fila_turnos else 0
+        iniciativa_inimigo = next((e["iniciativa"] for e in self.fila_turnos if e["tipo"] == "inimigo"), 0)
 
         esper.dispatch_event("combate_iniciado", {
             "heroi": self.heroi,
+            "aliados": self.aliados,
             "inimigos": self.inimigos,
-            # Mantém alias singular para compatibilidade com handlers antigos
-            "inimigo": self.inimigos[0] if self.inimigos else None,
+            "inimigo": self.inimigo,
             "iniciativa_jogador": iniciativa_jogador,
-            "iniciativa_inimigo": iniciativa_inimigos,
+            "iniciativa_inimigo": iniciativa_inimigo,
             "heroi_vai_primeiro": self.heroi_vai_primeiro,
+            "fila_turnos": self._snapshot_fila_turnos(),
+            "rodada": self.rodada,
         })
 
-    def _snapshot_inimigos(self) -> list:
-        """Retorna a lista de dicts com o estado atual de cada inimigo (para eventos)."""
+        # Dispara o processamento do primeiro turno da fila
+        self._processar_proximo_turno()
+
+    def _montar_fila_turnos(self) -> None:
+        """
+        Rola iniciativa individual (1d6 + Agilidade) para todos os combatentes vivos (Regra 5).
+        Ordena a fila de ações da rodada em ordem decrescente.
+        """
+        self.fila_turnos = []
+        for idx, a in enumerate(self.aliados):
+            if a.pv_atual > 0:
+                rolagem = random.randint(1, 6)
+                agi = a.atributos_totais.get("agilidade", 0)
+                self.fila_turnos.append({
+                    "combatente": a,
+                    "tipo": "aliado",
+                    "iniciativa": rolagem + agi,
+                    "agilidade": agi,
+                    "indice_time": idx,
+                    "nome": a.nome
+                })
+
+        for idx, i in enumerate(self.inimigos):
+            if i.pv_atual > 0:
+                rolagem = random.randint(1, 6)
+                agi = i.atributos_totais.get("agilidade", 0)
+                self.fila_turnos.append({
+                    "combatente": i,
+                    "tipo": "inimigo",
+                    "iniciativa": rolagem + agi,
+                    "agilidade": agi,
+                    "indice_time": idx,
+                    "nome": i.nome
+                })
+
+        # Ordena por Iniciativa -> Agilidade -> Desempate aleatório estável
+        self.fila_turnos.sort(key=lambda x: (x["iniciativa"], x["agilidade"], random.random()), reverse=True)
+        self.indice_turno_atual = 0
+
+    def _snapshot_aliados(self) -> List[Dict[str, Any]]:
+        """Retorna o estado serializado de todos os aliados para renderização na UI."""
+        idx_ativo = -1
+        if self.fila_turnos and 0 <= self.indice_turno_atual < len(self.fila_turnos):
+            entry = self.fila_turnos[self.indice_turno_atual]
+            if entry["tipo"] == "aliado":
+                idx_ativo = entry["indice_time"]
+
+        return [
+            {
+                "nome": a.nome,
+                "hp": a.pv_atual,
+                "hp_max": a.max_hp,
+                "mp": a.pm_atual,
+                "mp_max": a.max_mp,
+                "vivo": a.pv_atual > 0,
+                "index": idx,
+                "ativo": (idx == idx_ativo),
+                "classe": a.classe.nome if hasattr(a, "classe") else "Aventureiro",
+                "emoji": str(getattr(a, "raca", "🧙")),
+                "efeitos": [ef.nome for ef in getattr(a, "efeitos_ativos", [])]
+            }
+            for idx, a in enumerate(self.aliados)
+        ]
+
+    def _snapshot_inimigos(self) -> List[Dict[str, Any]]:
+        """Retorna o estado serializado de todos os inimigos para renderização na UI."""
+        idx_ativo = -1
+        if self.fila_turnos and 0 <= self.indice_turno_atual < len(self.fila_turnos):
+            entry = self.fila_turnos[self.indice_turno_atual]
+            if entry["tipo"] == "inimigo":
+                idx_ativo = entry["indice_time"]
+
         return [
             {
                 "nome": i.nome,
                 "hp": i.pv_atual,
                 "hp_max": i.max_hp,
+                "mp": i.pm_atual,
+                "mp_max": i.max_mp,
                 "vivo": i.pv_atual > 0,
                 "index": idx,
+                "ativo": (idx == idx_ativo),
+                "emoji": getattr(i, "emoji", "👹"),
+                "efeitos": [ef.nome for ef in getattr(i, "efeitos_ativos", [])]
             }
             for idx, i in enumerate(self.inimigos)
         ]
 
-    def executar_acao_jogador(self, acao: str, alvo_index: int = 0, nome_item: Optional[str] = None) -> None:
-        """
-        Processa a ação escolhida pelo jogador e depois agenda o turno da IA de forma assíncrona.
-        Este método é invocado diretamente pela BattleScreen após a confirmação no RadioSet.
+    def _snapshot_fila_turnos(self) -> List[Dict[str, Any]]:
+        """Retorna a visão ordenada da linha do tempo/fila de turnos."""
+        return [
+            {
+                "nome": e["combatente"].nome,
+                "tipo": e["tipo"],
+                "iniciativa": e["iniciativa"],
+                "vivo": e["combatente"].pv_atual > 0,
+                "ativo": (idx == self.indice_turno_atual)
+            }
+            for idx, e in enumerate(self.fila_turnos)
+        ]
 
-        Args:
-            acao: Ação escolhida ("ataque", "magia", "item", "fugir").
-            alvo_index: Índice do inimigo alvo na lista self.inimigos (padrão: 0).
-            nome_item: Nome opcional do item a ser usado.
+    def _processar_proximo_turno(self) -> None:
+        """
+        Avança o ponteiro da fila de turnos para o próximo combatente vivo.
+        Se todos agiram na rodada, recalcula a fila e inicia nova rodada.
         """
         if not self.combate_ativo:
-            logging.info("Tentativa de executar acao sem combate ativo.")
             return
 
-        # Filtra inimigos vivos e escolhe o alvo válido
+        # Verifica vitória ou derrota
+        if all(i.pv_atual <= 0 for i in self.inimigos):
+            self._encerrar_combate(vencedor="jogador")
+            return
+        if all(a.pv_atual <= 0 for a in self.aliados):
+            self._encerrar_combate(vencedor="inimigo")
+            return
+
+        # Se ultrapassou o fim da fila da rodada atual, inicia uma nova rodada
+        if self.indice_turno_atual >= len(self.fila_turnos):
+            self.rodada += 1
+            self._montar_fila_turnos()
+            if not self.fila_turnos:
+                return
+
+        # Pega o combatente da vez
+        entry = self.fila_turnos[self.indice_turno_atual]
+        combatente = entry["combatente"]
+
+        # Se o combatente foi derrotado antes de agir, pula
+        if combatente.pv_atual <= 0:
+            self.indice_turno_atual += 1
+            self._processar_proximo_turno()
+            return
+
+        self.turno += 1
+
+        esper.dispatch_event("turno_iniciado", {
+            "turno": self.turno,
+            "rodada": self.rodada,
+            "combatente_ativo": combatente,
+            "tipo": entry["tipo"],
+            "indice_time": entry["indice_time"],
+            "e_aliado": (entry["tipo"] == "aliado"),
+            "aliados": self._snapshot_aliados(),
+            "inimigos": self._snapshot_inimigos(),
+            "fila_turnos": self._snapshot_fila_turnos(),
+            "heroi_hp": self.heroi.pv_atual if self.heroi else 0,
+            "heroi_mp": self.heroi.pm_atual if self.heroi else 0,
+            "inimigo_hp": self.inimigo.pv_atual if self.inimigo else 0,
+        })
+
+        if entry["tipo"] == "aliado":
+            # Aguarda input do jogador para este aliado ativo
+            logging.info(f"Turno {self.turno} (Rodada {self.rodada}): Aguardando ação de {combatente.nome}")
+            return
+        else:
+            # Turno de inimigo: executa IA assincronamente se houver loop ativo rodando (Textual GUI)
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    loop.call_soon(self._agendar_turno_inimigo)
+            except RuntimeError:
+                pass
+
+    def executar_acao_jogador(
+        self,
+        acao: str,
+        alvo_index: int = 0,
+        nome_item: Optional[str] = None,
+        nome_magia: Optional[str] = None,
+        alvo_tipo: str = "inimigo"
+    ) -> None:
+        """
+        Executa a ação escolhida pelo jogador para o aliado cujo turno está ativo.
+        """
+        if not self.combate_ativo:
+            logging.info("Tentativa de executar ação sem combate ativo.")
+            return
+
+        # Obtém o aliado ativo atual
+        if self.fila_turnos and 0 <= self.indice_turno_atual < len(self.fila_turnos):
+            entry = self.fila_turnos[self.indice_turno_atual]
+            if entry["tipo"] == "aliado":
+                atacante = entry["combatente"]
+            else:
+                atacante = self.heroi
+        else:
+            atacante = self.heroi
+
+        if not atacante or atacante.pv_atual <= 0:
+            self.indice_turno_atual += 1
+            self._processar_proximo_turno()
+            return
+
         inimigos_vivos = [i for i in self.inimigos if i.pv_atual > 0]
+        aliados_vivos = [a for a in self.aliados if a.pv_atual > 0]
+
         if not inimigos_vivos:
             self._encerrar_combate(vencedor="jogador")
             return
 
-        alvo = inimigos_vivos[min(alvo_index, len(inimigos_vivos) - 1)]
+        # Determina o alvo
+        if alvo_tipo == "aliado":
+            alvo = self.aliados[min(alvo_index, len(self.aliados) - 1)] if self.aliados else atacante
+        else:
+            if 0 <= alvo_index < len(self.inimigos) and self.inimigos[alvo_index].pv_atual > 0:
+                alvo = self.inimigos[alvo_index]
+            else:
+                alvo = inimigos_vivos[min(alvo_index, len(inimigos_vivos) - 1)]
 
-        # Caso especial: Ação de usar Item
+        # 1. Processa efeitos ativos no início do turno do personagem
+        efeitos_relatorio = atacante.finalizar_turno() if hasattr(atacante, "finalizar_turno") else []
+        pula_turno = any(ef.get("pula_turno") for ef in efeitos_relatorio)
+
+        if atacante.pv_atual <= 0:
+            resultado = {
+                "atacante": atacante.nome,
+                "alvo": atacante.nome,
+                "acertou": False,
+                "acao": "efeito",
+                "descricao": f"☠ {atacante.nome} sucumbiu a efeitos contínuos!",
+                "efeitos_processados": efeitos_relatorio,
+                "alvo_morreu": True
+            }
+            self._emitir_resultado_turno(atacante, alvo, "efeito", resultado)
+            self.indice_turno_atual += 1
+            self._processar_proximo_turno()
+            return
+
+        if pula_turno:
+            msg_pula = next((ef.get("mensagem") for ef in efeitos_relatorio if ef.get("pula_turno")), f"{atacante.nome} perdeu o turno!")
+            resultado = {
+                "atacante": atacante.nome,
+                "alvo": atacante.nome,
+                "acertou": False,
+                "acao": "efeito",
+                "descricao": msg_pula,
+                "efeitos_processados": efeitos_relatorio
+            }
+            self._emitir_resultado_turno(atacante, alvo, "efeito", resultado)
+            self.indice_turno_atual += 1
+            self._processar_proximo_turno()
+            return
+
+        # 2. Executa a ação
         if acao == "item":
+            # Verifica o inventário individual do personagem ativo ou inventário do ECS
+            item_disponivel = None
+            if hasattr(atacante, "obter_itens_inventario"):
+                itens_p = atacante.obter_itens_inventario()
+                if nome_item:
+                    item_disponivel = next((it for it in itens_p if it["nome"].lower() == nome_item.lower()), None)
+                elif itens_p:
+                    item_disponivel = itens_p[0]
+                    nome_item = item_disponivel["nome"]
+
+            # Fallback para ECS InventoryComponent se não estiver no inventário individual
             world = self.world if (hasattr(self, "world") and self.world is not None) else esper
-            from app.core.engine.components import InventoryComponent
-            inv = world.component_for_entity(1, InventoryComponent) if world.entity_exists(1) and world.has_component(1, InventoryComponent) else None
+            inv_ecs = world.component_for_entity(1, InventoryComponent) if world.entity_exists(1) and world.has_component(1, InventoryComponent) else None
 
             from app.core.engine.item_system import aplicar_usar_item, obter_itens_usaveis
-
-            # Se o nome do item não foi especificado, busca o primeiro usável do inventário
-            if not nome_item and inv:
-                usaveis = obter_itens_usaveis(inv)
+            if not item_disponivel and not nome_item and inv_ecs:
+                usaveis = obter_itens_usaveis(inv_ecs)
                 if usaveis:
                     nome_item = usaveis[0]["nome"]
 
-            if not nome_item or not inv:
+            if not nome_item:
                 resultado = {
-                    "atacante": self.heroi.nome,
-                    "alvo": self.heroi.nome,
+                    "atacante": atacante.nome,
+                    "alvo": atacante.nome,
                     "acertou": False,
                     "acao": "item",
                     "erro_item": "Você não possui item usável no inventário!",
                     "dano_causado": 0
                 }
-                # Emite o evento informando o erro, para que a View libere o controle
-                esper.dispatch_event("turno_calculado", {
-                    "turno": self.turno,
-                    "fase": "jogador",
-                    "acao": acao,
-                    "resultado": resultado,
-                    "heroi_hp": self.heroi.pv_atual,
-                    "heroi_mp": self.heroi.pm_atual,
-                    "inimigos": self._snapshot_inimigos(),
-                    "inimigo_hp": alvo.pv_atual,
-                })
-                return  # Interrompe o fluxo e não passa o turno
-            else:
-                sucesso, msg_uso = aplicar_usar_item(self.heroi, inv, nome_item)
-                if sucesso:
-                    resultado = {
-                        "atacante": self.heroi.nome,
-                        "alvo": self.heroi.nome,
-                        "acertou": True,
-                        "acao": "cura",
-                        "dano_causado": 0,
-                        "descricao": f"{self.heroi.nome} usou {nome_item}! ({msg_uso})"
-                    }
+                self._emitir_resultado_turno(atacante, atacante, acao, resultado, fase="jogador")
+                return  # Não gasta turno se não tiver item
+
+            alvo_item = alvo if alvo_tipo == "aliado" else atacante
+            if item_disponivel:
+                atacante.remover_item_inventario(nome_item, 1)
+                # Aplica efeito do item
+                if "mana" in nome_item.lower() or "mp" in nome_item.lower():
+                    recup = min(alvo_item.max_mp - alvo_item.pm_atual, 15)
+                    alvo_item.pm_atual += recup
+                    msg_uso = f"Recuperou {recup} MP"
                 else:
-                    resultado = {
-                        "atacante": self.heroi.nome,
-                        "alvo": self.heroi.nome,
-                        "acertou": False,
-                        "acao": "item",
-                        "erro_item": msg_uso,
-                        "dano_causado": 0
-                    }
-                    esper.dispatch_event("turno_calculado", {
-                        "turno": self.turno,
-                        "fase": "jogador",
-                        "acao": acao,
-                        "resultado": resultado,
-                        "heroi_hp": self.heroi.pv_atual,
-                        "heroi_mp": self.heroi.pm_atual,
-                        "inimigos": self._snapshot_inimigos(),
-                        "inimigo_hp": alvo.pv_atual,
-                    })
-                    return
+                    recup = min(alvo_item.max_hp - alvo_item.pv_atual, 20)
+                    alvo_item.pv_atual += recup
+                    msg_uso = f"Recuperou {recup} HP"
+                sucesso = True
+            elif inv_ecs:
+                sucesso, msg_uso = aplicar_usar_item(alvo_item, inv_ecs, nome_item)
+            else:
+                sucesso = False
+                msg_uso = f"Você não possui '{nome_item}' no inventário."
+
+            if sucesso:
+                resultado = {
+                    "atacante": atacante.nome,
+                    "alvo": alvo_item.nome,
+                    "acertou": True,
+                    "acao": "cura",
+                    "dano_causado": 0,
+                    "descricao": f"🧪 {atacante.nome} usou {nome_item} em {alvo_item.nome}! ({msg_uso})"
+                }
+            else:
+                resultado = {
+                    "atacante": atacante.nome,
+                    "alvo": atacante.nome,
+                    "acertou": False,
+                    "acao": "item",
+                    "erro_item": msg_uso,
+                    "dano_causado": 0
+                }
+                self._emitir_resultado_turno(atacante, atacante, acao, resultado, fase="jogador")
+                return
+
+        elif acao == "defender":
+            resultado = {
+                "atacante": atacante.nome,
+                "alvo": atacante.nome,
+                "acertou": True,
+                "acao": "defender",
+                "descricao": f"🛡️ {atacante.nome} assumiu postura defensiva (+Defesa)!"
+            }
+        elif acao == "fugir":
+            # Teste de fuga baseado em agilidade
+            chance = 0.5 + (atacante.atributos_totais.get("agilidade", 1) * 0.05)
+            if random.random() < chance:
+                resultado = {
+                    "atacante": atacante.nome,
+                    "alvo": atacante.nome,
+                    "acertou": True,
+                    "acao": "fugir",
+                    "descricao": f"🏃 {atacante.nome} conseguiu abrir caminho e a equipe fugiu com sucesso!"
+                }
+                self._emitir_resultado_turno(atacante, alvo, acao, resultado, fase="jogador")
+                self._encerrar_combate(vencedor="fuga")
+                return
+            else:
+                resultado = {
+                    "atacante": atacante.nome,
+                    "alvo": atacante.nome,
+                    "acertou": False,
+                    "acao": "fugir",
+                    "descricao": f"❌ A tentativa de fuga de {atacante.nome} falhou!"
+                }
         else:
-            resultado = self._resolver_acao_personagem(acao, atacante=self.heroi, alvo=alvo)
+            # Ataque ou Magia
+            resultado = self._resolver_acao_personagem(acao, atacante=atacante, alvo=alvo, nome_magia=nome_magia)
 
-        logging.info(f"Turno {self.turno} - Jogador: {acao} alvo={alvo.nome} | Resultado: {resultado}")
+        if efeitos_relatorio and isinstance(resultado, dict):
+            resultado["efeitos_processados"] = efeitos_relatorio
 
-        esper.dispatch_event("turno_calculado", {
-            "turno": self.turno,
-            "fase": "jogador",
-            "acao": acao,
-            "resultado": resultado,
-            "heroi_hp": self.heroi.pv_atual,
-            "heroi_mp": self.heroi.pm_atual,
-            # Lista completa de estados dos inimigos para a UI atualizar as barras
-            "inimigos": self._snapshot_inimigos(),
-            # Alias singular de retrocompatibilidade
-            "inimigo_hp": alvo.pv_atual,
-        })
+        self._emitir_resultado_turno(atacante, alvo, acao, resultado, fase="jogador")
 
-        # Verifica se todos os inimigos foram derrotados
+        # Verifica se combate terminou
         if all(i.pv_atual <= 0 for i in self.inimigos):
             self._encerrar_combate(vencedor="jogador")
             return
 
-        # Agenda o turno da IA de forma assíncrona no loop do asyncio do Textual
-        # Isso garante que a UI não congele (Regra 3: nunca bloqueie a thread principal)
-        try:
-            loop = asyncio.get_event_loop()
-            loop.call_soon(self._agendar_turno_inimigo)
-        except RuntimeError:
-            # Fallback se não houver loop asyncio ativo (ex: testes unitários)
-            self._executar_turno_inimigo_sincrono()
+        # Avança para o próximo turno da fila
+        self.indice_turno_atual += 1
+        self._processar_proximo_turno()
+
+    def _emitir_resultado_turno(self, atacante: Any, alvo: Any, acao: str, resultado: Dict[str, Any], fase: Optional[str] = None) -> None:
+        """Dispara o evento turno_calculado com estado consolidado para a UI."""
+        if fase is None:
+            fase = "jogador" if any(a.nome == getattr(atacante, "nome", "") for a in self.aliados) else "inimigo"
+
+        esper.dispatch_event("turno_calculado", {
+            "turno": self.turno,
+            "rodada": self.rodada,
+            "fase": fase,
+            "acao": acao,
+            "atacante": atacante,
+            "alvo": alvo,
+            "resultado": resultado,
+            "aliados": self._snapshot_aliados(),
+            "inimigos": self._snapshot_inimigos(),
+            "fila_turnos": self._snapshot_fila_turnos(),
+            # Aliases de compatibilidade
+            "heroi_hp": self.heroi.pv_atual if self.heroi else 0,
+            "heroi_mp": self.heroi.pm_atual if self.heroi else 0,
+            "inimigo_hp": alvo.pv_atual if alvo else (self.inimigo.pv_atual if self.inimigo else 0),
+        })
 
     def _agendar_turno_inimigo(self) -> None:
         """Cria a corrotina do turno do inimigo no event loop ativo."""
@@ -969,122 +1313,212 @@ class BattleSystem(esper.Processor):
             self._executar_turno_inimigo_sincrono()
 
     async def _turno_inimigo_assincrono(self) -> None:
-        """
-        Calcula o turno da IA do inimigo sem bloquear o event loop do Textual.
-        O delay de 0.9s cria a pausa dramática para o jogador ler o log (Regra 3).
-        """
-        await asyncio.sleep(0.9)
+        """Pausa dramática de 0.8s para leitura do turno anterior antes do inimigo agir."""
+        await asyncio.sleep(0.8)
         self._executar_turno_inimigo_sincrono()
 
     def _executar_turno_inimigo_sincrono(self) -> None:
-        """Núcleo de execução do turno de todos os inimigos vivos (IA simples)."""
+        """Processa a ação de IA para o inimigo ativo da fila de turnos."""
         if not self.combate_ativo:
             return
 
-        # Cada inimigo vivo ataca o herói em sequência
-        for inimigo_ativo in self.inimigos:
-            if inimigo_ativo.pv_atual <= 0:
-                continue  # Inimigo derrotado não age
-            if not self.combate_ativo:
-                break
+        # Identifica o inimigo ativo
+        inimigo_ativo = None
+        if self.fila_turnos and 0 <= self.indice_turno_atual < len(self.fila_turnos):
+            entry = self.fila_turnos[self.indice_turno_atual]
+            if entry["tipo"] == "inimigo" and entry["combatente"].pv_atual > 0:
+                inimigo_ativo = entry["combatente"]
 
-            acao_ia = self._decidir_acao_ia_por(inimigo_ativo)
-            resultado = self._resolver_acao_personagem(acao_ia, atacante=inimigo_ativo, alvo=self.heroi)
-            self.turno += 1
-            logging.info(
-                f"Turno {self.turno} - IA [{inimigo_ativo.nome}]: {acao_ia} | Resultado: {resultado}"
-            )
+        # Se chamado diretamente em teste ou fora da fila, pega o primeiro inimigo vivo
+        if not inimigo_ativo:
+            inimigos_vivos = [i for i in self.inimigos if i.pv_atual > 0]
+            if inimigos_vivos:
+                inimigo_ativo = inimigos_vivos[0]
+            elif self.inimigos:
+                inimigo_ativo = self.inimigos[0]
 
-            esper.dispatch_event("turno_calculado", {
-                "turno": self.turno,
-                "fase": "inimigo",
-                "acao": acao_ia,
-                "resultado": resultado,
-                "heroi_hp": self.heroi.pv_atual,
-                "heroi_mp": self.heroi.pm_atual,
-                # Lista completa de estados para a UI
-                "inimigos": self._snapshot_inimigos(),
-                "inimigo_hp": inimigo_ativo.pv_atual,
-            })
+        if not inimigo_ativo:
+            return
 
-            if self.heroi.pv_atual <= 0:
-                self._encerrar_combate(vencedor="inimigo")
+        # 1. Processa efeitos ativos no início do turno do inimigo
+        efeitos_relatorio = inimigo_ativo.finalizar_turno() if hasattr(inimigo_ativo, "finalizar_turno") else []
+        pula_turno = any(ef.get("pula_turno") for ef in efeitos_relatorio)
+
+        if inimigo_ativo.pv_atual <= 0:
+            resultado = {
+                "atacante": inimigo_ativo.nome,
+                "alvo": inimigo_ativo.nome,
+                "acertou": False,
+                "acao": "efeito",
+                "descricao": f"☠ {inimigo_ativo.nome} foi derrotado por efeitos contínuos!",
+                "efeitos_processados": efeitos_relatorio,
+                "alvo_morreu": True
+            }
+            self._emitir_resultado_turno(inimigo_ativo, inimigo_ativo, "efeito", resultado, fase="inimigo")
+            if all(i.pv_atual <= 0 for i in self.inimigos):
+                self._encerrar_combate(vencedor="jogador")
                 return
+            self.indice_turno_atual += 1
+            self._processar_proximo_turno()
+            return
+
+        if pula_turno:
+            msg_pula = next((ef.get("mensagem") for ef in efeitos_relatorio if ef.get("pula_turno")), f"{inimigo_ativo.nome} perdeu o turno!")
+            resultado = {
+                "atacante": inimigo_ativo.nome,
+                "alvo": inimigo_ativo.nome,
+                "acertou": False,
+                "acao": "efeito",
+                "descricao": msg_pula,
+                "efeitos_processados": efeitos_relatorio
+            }
+            self._emitir_resultado_turno(inimigo_ativo, inimigo_ativo, "efeito", resultado, fase="inimigo")
+            self.indice_turno_atual += 1
+            self._processar_proximo_turno()
+            return
+
+        # 2. Escolha de alvo aliado inteligente (IA)
+        aliados_vivos = [a for a in self.aliados if a.pv_atual > 0]
+        if not aliados_vivos:
+            self._encerrar_combate(vencedor="inimigo")
+            return
+
+        # IA escolhe o aliado com menor HP com 50% de chance, ou aleatório
+        if random.random() < 0.5:
+            alvo_aliado = min(aliados_vivos, key=lambda a: a.pv_atual)
+        else:
+            alvo_aliado = random.choice(aliados_vivos)
+
+        acao_ia = self._decidir_acao_ia_por(inimigo_ativo)
+        resultado = self._resolver_acao_personagem(acao_ia, atacante=inimigo_ativo, alvo=alvo_aliado)
+
+        if efeitos_relatorio and isinstance(resultado, dict):
+            resultado["efeitos_processados"] = efeitos_relatorio
+
+        logging.info(f"Turno {self.turno} - IA [{inimigo_ativo.nome}]: {acao_ia} em {alvo_aliado.nome} | Resultado: {resultado}")
+        self._emitir_resultado_turno(inimigo_ativo, alvo_aliado, acao_ia, resultado, fase="inimigo")
+
+        if all(a.pv_atual <= 0 for a in self.aliados):
+            self._encerrar_combate(vencedor="inimigo")
+            return
+
+        self.indice_turno_atual += 1
+        self._processar_proximo_turno()
 
     def _decidir_acao_ia(self) -> str:
-        """
-        IA simples para o primeiro inimigo da lista (alias de retrocompatibilidade).
-        Use _decidir_acao_ia_por(inimigo) para IA por inimigo específico.
-        """
+        """Alias de retrocompatibilidade para o primeiro inimigo."""
         return self._decidir_acao_ia_por(self.inimigo) if self.inimigo else "ataque"
 
-    def _decidir_acao_ia_por(self, inimigo_ativo: object) -> str:
-        """
-        IA simples mas funcional para um inimigo específico:
-        - Se tem mana e magias, usa magia com 30% de chance
-        - Se HP baixo (<30%), tenta se curar com 40% de chance
-        - Caso contrário, ataca fisicamente
-        """
+    def _decidir_acao_ia_por(self, inimigo_ativo: Any) -> str:
+        """IA adaptativa para o inimigo ativo."""
         if not inimigo_ativo:
             return "ataque"
 
         hp_percentual = inimigo_ativo.pv_atual / max(1, inimigo_ativo.max_hp)
 
-        # Comportamento defensivo com HP baixo
-        if hp_percentual < 0.3 and random.random() < 0.4:
-            # Tenta se curar parcialmente (efeito narrativo)
-            inimigo_ativo.pv_atual = min(
-                inimigo_ativo.max_hp,
-                inimigo_ativo.pv_atual + random.randint(2, 6)
-            )
+        # Se tem baixa vida e possui magia de cura ou recurso de regeneração
+        if hp_percentual < 0.35 and random.random() < 0.4:
+            inimigo_ativo.pv_atual = min(inimigo_ativo.max_hp, inimigo_ativo.pv_atual + random.randint(4, 10))
             return "cura"
 
-        # Usa magia se tiver mana e magias conhecidas
-        if inimigo_ativo.pm_atual >= 5 and inimigo_ativo.magias_conhecidas and random.random() < 0.3:
+        # Se tem mana e magias conhecidas
+        if getattr(inimigo_ativo, "pm_atual", 0) >= 3 and getattr(inimigo_ativo, "magias_conhecidas", None) and random.random() < 0.4:
             return "magia"
 
         return "ataque"
 
-    def _resolver_acao_personagem(self, acao: str, atacante: object, alvo: object) -> dict:
-        """Roteia a ação para o método correto da entidade Personagem do domínio."""
+    def _resolver_acao_personagem(self, acao: str, atacante: Any, alvo: Any, nome_magia: Optional[str] = None) -> Dict[str, Any]:
+        """Roteia a ação para os métodos do Domínio Personagem com suporte a magias em área."""
         try:
             if acao == "ataque":
                 return atacante.atacar(alvo)
-            elif acao == "magia" and atacante.magias_conhecidas:
-                magia = atacante.magias_conhecidas[0]
-                return atacante.lancar_magia(magia, alvo)
+
+            elif acao == "magia" and getattr(atacante, "magias_conhecidas", None):
+                magia = None
+                if nome_magia:
+                    magia = next((m for m in atacante.magias_conhecidas if m.nome.lower() == nome_magia.lower()), None)
+                if not magia and atacante.magias_conhecidas:
+                    magia = atacante.magias_conhecidas[0]
+
+                if not magia:
+                    return atacante.atacar(alvo)
+
+                # Magia em área (atinge múltiplos combatentes)
+                if getattr(magia, "dano_area", False):
+                    # Se for dano em área, atinge todos os inimigos vivos
+                    alvos_area = [i for i in self.inimigos if i.pv_atual > 0] if any(a.nome == atacante.nome for a in self.aliados) else [a for a in self.aliados if a.pv_atual > 0]
+                    dano_total = 0
+                    mortos = 0
+                    for a_area in alvos_area:
+                        res = atacante.lancar_magia(magia, a_area)
+                        dano_total += res.get("dano_causado", 0)
+                        if res.get("alvo_morreu"):
+                            mortos += 1
+
+                    return {
+                        "atacante": atacante.nome,
+                        "alvo": "Todos os Inimigos",
+                        "magia": magia.nome,
+                        "sucesso": True,
+                        "dano_causado": dano_total,
+                        "dano_area": True,
+                        "alvos_atingidos": len(alvos_area),
+                        "descricao": f"✨ {atacante.nome} conjurou {magia.nome} em ÁREA! Causou {dano_total} de dano total ({len(alvos_area)} alvos)."
+                    }
+
+                # Magia de cura/suporte com alvo em si mesmo ou em aliado
+                alvo_magia = alvo
+                if magia.cura_base > 0 or (magia.efeito_aplicado and magia.efeito_aplicado.tipo in ["cura_continua", "buff_atributo", "protecao_elemental"]):
+                    if any(a.nome == atacante.nome for a in self.aliados) and not any(a.nome == alvo.nome for a in self.aliados):
+                        alvo_magia = atacante
+
+                res = atacante.lancar_magia(magia, alvo_magia)
+                if isinstance(res, dict):
+                    res["acao"] = "magia"
+                    res["magia"] = magia.nome
+                    if "sucesso" in res and "acertou" not in res:
+                        res["acertou"] = res["sucesso"]
+                return res
+
             elif acao == "cura":
-                # IA usando cura não causa dano — retorna resultado descritivo
                 return {
-                    "atacante": atacante.nome, "alvo": atacante.nome,
-                    "acertou": True, "acao": "cura",
+                    "atacante": atacante.nome,
+                    "alvo": atacante.nome,
+                    "acertou": True,
+                    "acao": "cura",
                     "dano_causado": 0,
-                    "descricao": f"{atacante.nome} se recuperou um pouco."
+                    "descricao": f"💚 {atacante.nome} concentrou suas energias e recuperou um pouco de vida."
                 }
             else:
-                # Ataque desarmado como fallback
                 return atacante.atacar(alvo)
+
         except Exception as erro_acao:
             logging.info(f"Erro ao resolver ação '{acao}': {erro_acao}")
             return {
                 "atacante": getattr(atacante, 'nome', '?'),
                 "alvo": getattr(alvo, 'nome', '?'),
-                "acertou": False, "dano_causado": 0,
+                "acertou": False,
+                "dano_causado": 0,
                 "erro": str(erro_acao)
             }
 
     def _encerrar_combate(self, vencedor: str) -> None:
-        """Encerra o combate e remove o CombatStateComponent da entidade do jogador."""
+        """Encerra o combate, remove marcadores ECS e emite o evento de término."""
         self.combate_ativo = False
         logging.info(f"Combate encerrado. Vencedor: {vencedor}")
 
-        # Remove o marcador de combate do jogador no ECS
         world = self.world if (hasattr(self, "world") and self.world is not None) else esper
         if world.entity_exists(1) and world.has_component(1, CombatStateComponent):
             world.remove_component(1, CombatStateComponent)
 
-        esper.dispatch_event("combate_encerrado", {"vencedor": vencedor})
+        esper.dispatch_event("combate_encerrado", {
+            "vencedor": vencedor,
+            "rodada": self.rodada,
+            "turno": self.turno,
+            "aliados": self._snapshot_aliados(),
+            "inimigos": self._snapshot_inimigos(),
+        })
 
     def process(self, *args, **kwargs) -> None:
-        """O BattleSystem não precisa de processamento periódico — opera sob demanda."""
+        """Processamento sob demanda."""
         pass

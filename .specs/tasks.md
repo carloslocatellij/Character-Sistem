@@ -4,18 +4,23 @@
 
 [x] O resultado do combate (venceu/ perdeu/ fugiu/ inimigo fugiu) deve poder se ligar a mudanças parâmetros como atribuição/mudança de variáveis, switches.     
 
-[ ] A parte de itens/equipamentos está em estagio experimental:
-        - adicionar por eventos recebe qualquer valor digitado ao invés de itens do banco de dados.
-        - os comandos /usar e /equipar foram escritos apenas para itens de exemplo ('poção', 'espada longa')
-        - na batalha, o comando usar item, apenas tenta usar uma poção do inventário.
-        ---
+[X] A parte de itens/equipamentos:
         + As referencias a itens ou equipamentos nos eventos devem ser listas para os itens da tabela ItensDB.
         + Os comandos /usar e /equipar devem mostrar um menu com abas para os itens e equipamentos do personagem onde ele pode usar, equipar/desequipar.
         + na batalha o usar item deve mostra um menu com os itens usaveis e estes devem fazer seu efeito próprio quando usados
 
+[ ] O sistema de Magias e Habilidades descrito nas especificações:      
+ Modelar estas especificações abaixo no sistema: Será necessário criar tabelas para entidades magia e efeito;
+    Magias podem causar efeitos: sono, veneno, lentidão, atordoado, regenerar.
+    Efeitos são estados temporarios dos personagens ou monstros: Duram x turnos.
+    A cada turno ativo o efeito pode: causar y de dano, curar y de hp, atributo fica y ponto a cima ou abaixo, deixa de atacar x turnos (dormindo), ataca aleatorio (louco), proteção ou fraqueza contra tipos de magia ou habilidades.
+    Magias ou habilidade podem causar dano em área (> de 1 inimigo).
+    Habilidades podem ter maior chance de crítico, ignorar bonus de defeza, contra-ataque, tentativa dupla ou tripla de ataque com taxas menores de acerto.
+    Magias possuem requisitos (ex: `{"água": 2}`, Exuberância >= 2) para serem aprendidas/ adquiridas/ executadas.
+    Regra Estrita: Ao ensinar magia, validar "Caminhos Magia Totais" (Base + Bônus Classe). Se requisitos não atingidos impede aprendizado/execução da magia/habilidade.
+
 [ ] Adicionar membro na equipe (A Equipe é o personagem do jogador + 3 personagens totalizando 4 personagem por jogador) - Nas batalhas cada personagem pode atacar em sua vez.
 
-[ ] O sistema de Magias e Habilidades descrito nas especificações:
 
 [ ] É necessário uma opção de loop lógico que desencadeia o funcionamento de loop nas interações com eventos.
 
