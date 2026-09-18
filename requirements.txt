@@ -27,7 +27,7 @@ annotated-types==0.7.0
     # via
     #   sischarlesrpg (pyproject.toml)
     #   pydantic
-anyio==4.13.0
+anyio==4.14.2
     # via
     #   sischarlesrpg (pyproject.toml)
     #   starlette
